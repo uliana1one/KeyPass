@@ -29,4 +29,4 @@ describe('PolkadotJsAdapter', () => {
       await expect(adapter.signMessage(message)).rejects.toThrow('Not implemented');
     });
   });
-}); 
+});

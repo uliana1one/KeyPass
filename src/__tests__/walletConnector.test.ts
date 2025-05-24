@@ -52,10 +52,10 @@ describe('connectWallet()', () => {
     }));
 
     const adapter = await connectWallet();
-    
+
     // Verify PolkadotJsAdapter was tried first
     expect(PolkadotJsAdapter).toHaveBeenCalled();
-    
+
     // Verify TalismanAdapter was tried and returned
     expect(TalismanAdapter).toHaveBeenCalled();
     expect(adapter).toBeDefined();
@@ -70,16 +70,16 @@ describe('connectWallet()', () => {
       ...createBaseMockAdapter(),
       enable: jest.fn().mockRejectedValue(new Error('Polkadot.js not available')),
     }));
-    
+
     jest.mocked(TalismanAdapter).mockImplementation(() => ({
       ...createBaseMockAdapter(),
       enable: jest.fn().mockRejectedValue(new Error('Talisman not available')),
     }));
 
     await expect(connectWallet()).rejects.toThrow('No supported wallet found');
-    
+
     // Verify both adapters were tried
     expect(PolkadotJsAdapter).toHaveBeenCalled();
     expect(TalismanAdapter).toHaveBeenCalled();
   });
-}); 
+});

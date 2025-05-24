@@ -24,11 +24,10 @@ export class TalismanAdapter {
 
   /**
    * Signs a message using the Talisman wallet.
-   * @param message - The message to sign
    * @returns Promise resolving to the signature as a hex string
    * @throws {Error} If the wallet is not enabled or signing fails
    */
-  public async signMessage(message: string): Promise<string> {
+  public async signMessage(): Promise<string> {
     throw new Error('Not implemented');
   }
-} 
+}

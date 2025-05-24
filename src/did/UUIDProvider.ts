@@ -9,7 +9,7 @@ export class UUIDProvider {
    * @param address - The address for which to create the DID.
    * @returns A string representing the DID in the format did:key:<UUIDv4>.
    */
-  createDid(address: string): string {
+  createDid(): string {
     return `did:key:${uuidv4()}`;
   }
-} 
+}

@@ -20,4 +20,4 @@ describe('selectAccount', () => {
     const adapter = createMockAdapter([{ address: '0x123' }, { address: '0x456' }]);
     await expect(selectAccount(adapter)).rejects.toThrow('Account selection not implemented');
   });
-}); 
+});

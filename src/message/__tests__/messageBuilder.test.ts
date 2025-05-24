@@ -41,4 +41,4 @@ describe('buildLoginMessage', () => {
     const result = await buildLoginMessage(params);
     expect(result).toBe('Login with address 0x123');
   });
-}); 
+});

@@ -27,4 +27,4 @@ export async function buildLoginMessage(params: {
   }
 
   return message;
-} 
+}

@@ -17,4 +17,4 @@ describe('UUIDProvider', () => {
     const did2 = provider.createDid('5FfD…xyz');
     expect(did1).not.toBe(did2);
   });
-}); 
+});

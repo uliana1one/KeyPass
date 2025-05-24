@@ -6,10 +6,10 @@ type WalletAdapter = PolkadotJsAdapter | TalismanAdapter;
 /**
  * Attempts to connect to a supported wallet by trying each available adapter
  * in sequence. Returns the first successfully enabled adapter.
- * 
+ *
  * @returns Promise resolving to an enabled wallet adapter
  * @throws {Error} If no supported wallet is found or can be enabled
- * 
+ *
  * @example
  * ```typescript
  * const wallet = await connectWallet();
@@ -22,11 +22,11 @@ export async function connectWallet(): Promise<WalletAdapter> {
       // Dynamic import of adapter class
       const AdapterModule = await import(`./adapters/${wallet.adapter}`);
       const AdapterClass = AdapterModule[wallet.adapter];
-      
+
       // Create and enable adapter
       const adapter = new AdapterClass();
       await adapter.enable();
-      
+
       return adapter;
     } catch (error) {
       // Log error but continue to next wallet
@@ -36,4 +36,4 @@ export async function connectWallet(): Promise<WalletAdapter> {
   }
 
   throw new Error('No supported wallet found');
-} 
+}

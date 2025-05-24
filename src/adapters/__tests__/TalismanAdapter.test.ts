@@ -29,4 +29,4 @@ describe('TalismanAdapter', () => {
       await expect(adapter.signMessage(message)).rejects.toThrow('Not implemented');
     });
   });
-}); 
+});

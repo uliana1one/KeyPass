@@ -9,4 +9,4 @@ declare global {
   const afterEach: typeof jest.afterEach;
   const beforeAll: typeof jest.beforeAll;
   const afterAll: typeof jest.afterAll;
-} 
+}
