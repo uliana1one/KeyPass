@@ -1,0 +1,18 @@
+{
+  "wallets": [
+    {
+      "id": "polkadot-js",
+      "name": "Polkadot.js",
+      "adapter": "PolkadotJsAdapter",
+      "icon": "polkadot-js.svg",
+      "description": "Official Polkadot.js browser extension"
+    },
+    {
+      "id": "talisman",
+      "name": "Talisman",
+      "adapter": "TalismanAdapter",
+      "icon": "talisman.svg",
+      "description": "Talisman wallet browser extension"
+    }
+  ]
+} 
