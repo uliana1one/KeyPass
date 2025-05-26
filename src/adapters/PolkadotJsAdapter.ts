@@ -9,7 +9,8 @@ import {
   TimeoutError, 
   InvalidSignatureError,
   WalletConnectionError,
-  MessageValidationError
+  MessageValidationError,
+  AddressValidationError
 } from '../errors/WalletErrors';
 
 const POLKADOT_EXTENSION_NAME = 'polkadot-js';
@@ -73,7 +74,9 @@ export class PolkadotJsAdapter implements WalletAdapter {
         this.connectionTimeout = null;
       }
 
-      if (error instanceof WalletNotFoundError) {
+      if (error instanceof WalletNotFoundError || 
+          error instanceof TimeoutError || 
+          error instanceof UserRejectedError) {
         throw error;
       }
       if (error instanceof Error) {
@@ -83,9 +86,9 @@ export class PolkadotJsAdapter implements WalletAdapter {
         if (error.message.includes('timeout')) {
           throw new TimeoutError('wallet connection');
         }
-        throw new WalletConnectionError(error.message);
+        throw new WalletConnectionError(`Failed to enable wallet: ${error.message}`);
       }
-      throw new WalletConnectionError('Failed to enable Polkadot.js wallet');
+      throw new WalletConnectionError('Failed to enable wallet');
     }
   }
 
@@ -98,31 +101,30 @@ export class PolkadotJsAdapter implements WalletAdapter {
     if (!this.enabled) throw new WalletNotFoundError('Wallet not enabled');
     try {
       const accounts = await web3Accounts();
+      if (!accounts || accounts.length === 0) {
+        throw new WalletConnectionError('No accounts found');
+      }
       return accounts.map((acc) => {
         try {
           validatePolkadotAddress(acc.address);
           return { address: acc.address, name: acc.meta?.name, source: 'polkadot-js' };
         } catch (error) {
-          if (error instanceof Error) {
-            throw new WalletConnectionError(error.message);
+          if (error instanceof AddressValidationError) {
+            throw error;
           }
-          throw new WalletConnectionError('Invalid Polkadot address');
+          throw new WalletConnectionError('Invalid Polkadot address format');
         }
       });
     } catch (error) {
-      if (error instanceof WalletConnectionError && 
-          (error.message === 'Invalid Polkadot address' || 
-           error.message === 'Invalid address checksum or SS58 format')) {
+      if (error instanceof AddressValidationError || 
+          error instanceof WalletConnectionError) {
         throw error;
       }
       if (error instanceof Error) {
         if (error.message.includes('User rejected')) {
           throw new UserRejectedError('account access');
         }
-        if (error.message === 'Invalid Polkadot address' || 
-            error.message === 'Invalid address checksum or SS58 format') {
-          throw new WalletConnectionError(error.message);
-        }
+        throw new WalletConnectionError(`Failed to fetch accounts: ${error.message}`);
       }
       throw new WalletConnectionError('Failed to fetch accounts');
     }
@@ -143,7 +145,7 @@ export class PolkadotJsAdapter implements WalletAdapter {
       if (e instanceof MessageValidationError) {
         throw e;
       }
-      throw new WalletConnectionError('Message validation failed');
+      throw new MessageValidationError('Message validation failed');
     }
     try {
       const accounts = await this.getAccounts();
@@ -157,7 +159,9 @@ export class PolkadotJsAdapter implements WalletAdapter {
       }
       const messageU8a = new TextEncoder().encode(sanitized);
       const signPromise = injector.signer.signRaw({ address, data: u8aToHex(messageU8a), type: 'bytes' });
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new TimeoutError('message signing')), WALLET_TIMEOUT));
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new TimeoutError('message signing timed out')), WALLET_TIMEOUT)
+      );
       const { signature } = await Promise.race([signPromise, timeoutPromise]) as { signature: string };
       try {
         validateSignature(signature);
@@ -167,10 +171,10 @@ export class PolkadotJsAdapter implements WalletAdapter {
       }
       return signature;
     } catch (error) {
-      if (error instanceof MessageValidationError) {
-        throw error;
-      }
-      if (error instanceof InvalidSignatureError) {
+      if (error instanceof MessageValidationError ||
+          error instanceof InvalidSignatureError ||
+          error instanceof TimeoutError ||
+          error instanceof UserRejectedError) {
         throw error;
       }
       if (error instanceof Error) {
@@ -178,7 +182,7 @@ export class PolkadotJsAdapter implements WalletAdapter {
           throw new UserRejectedError('message signing');
         }
         if (error.message.includes('timeout')) {
-          throw new TimeoutError('message signing');
+          throw new TimeoutError('message signing timed out');
         }
         throw new WalletConnectionError(`Failed to sign message: ${error.message}`);
       }

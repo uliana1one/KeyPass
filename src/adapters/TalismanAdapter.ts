@@ -9,7 +9,8 @@ import {
   TimeoutError, 
   InvalidSignatureError,
   WalletConnectionError,
-  MessageValidationError
+  MessageValidationError,
+  AddressValidationError
 } from '../errors/WalletErrors';
 
 const TALISMAN_EXTENSION_NAME = 'talisman';
@@ -35,26 +36,36 @@ export class TalismanAdapter implements WalletAdapter {
 
     try {
       const injectedWindow = window as Window & InjectedWindow;
-      
+      if (!injectedWindow.injectedWeb3?.[TALISMAN_EXTENSION_NAME]) {
+        throw new WalletNotFoundError('Talisman');
+      }
+
       // Clear any existing timeout
       if (this.connectionTimeout) {
         clearTimeout(this.connectionTimeout);
         this.connectionTimeout = null;
       }
+
+      const enablePromise = web3Enable('KeyPass Login SDK');
+      const timeoutPromise = new Promise((_, reject) => {
+        this.connectionTimeout = setTimeout(() => {
+          this.connectionTimeout = null;
+          this.enabled = false;
+          this.provider = null;
+          reject(new TimeoutError('wallet connection'));
+        }, WALLET_TIMEOUT);
+      });
+
+      await Promise.race([enablePromise, timeoutPromise]);
       
-      // Try Talisman extension first
-      if (injectedWindow.injectedWeb3?.[TALISMAN_EXTENSION_NAME]) {
-        await this.enableWallet(TALISMAN_EXTENSION_NAME);
-        return;
+      // Clear timeout on success
+      if (this.connectionTimeout) {
+        clearTimeout(this.connectionTimeout);
+        this.connectionTimeout = null;
       }
 
-      // Fallback to WalletConnect if Talisman is not available
-      if (injectedWindow.injectedWeb3?.[WALLET_CONNECT_NAME]) {
-        await this.enableWallet(WALLET_CONNECT_NAME);
-        return;
-      }
-
-      throw new WalletNotFoundError('Talisman or WalletConnect');
+      this.provider = 'talisman';
+      this.enabled = true;
     } catch (error) {
       // Reset state on error
       this.enabled = false;
@@ -64,7 +75,9 @@ export class TalismanAdapter implements WalletAdapter {
         this.connectionTimeout = null;
       }
 
-      if (error instanceof WalletNotFoundError) {
+      if (error instanceof WalletNotFoundError || 
+          error instanceof TimeoutError || 
+          error instanceof UserRejectedError) {
         throw error;
       }
       if (error instanceof Error) {
@@ -74,39 +87,10 @@ export class TalismanAdapter implements WalletAdapter {
         if (error.message.includes('timeout')) {
           throw new TimeoutError('wallet connection');
         }
-        throw new WalletConnectionError(error.message);
+        throw new WalletConnectionError(`Failed to enable wallet: ${error.message}`);
       }
       throw new WalletConnectionError('Failed to enable wallet');
     }
-  }
-
-  private async enableWallet(provider: 'talisman' | 'wallet-connect'): Promise<void> {
-    // Clear any existing timeout
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
-
-    const enablePromise = web3Enable('KeyPass Login SDK');
-    const timeoutPromise = new Promise((_, reject) => {
-      this.connectionTimeout = setTimeout(() => {
-        this.connectionTimeout = null;
-        this.enabled = false;
-        this.provider = null;
-        reject(new TimeoutError('wallet connection'));
-      }, WALLET_TIMEOUT);
-    });
-
-    await Promise.race([enablePromise, timeoutPromise]);
-    
-    // Clear timeout on success
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
-
-    this.provider = provider;
-    this.enabled = true;
   }
 
   /**
@@ -115,34 +99,33 @@ export class TalismanAdapter implements WalletAdapter {
    * @throws {Error} If the wallet is not enabled or accounts cannot be retrieved
    */
   public async getAccounts(): Promise<WalletAccount[]> {
-    if (!this.enabled) throw new WalletNotFoundError('Wallet not enabled');
+    if (!this.enabled) throw new WalletNotFoundError('Wallet');
     try {
       const accounts = await web3Accounts();
+      if (!accounts || accounts.length === 0) {
+        throw new WalletConnectionError('No accounts found');
+      }
       return accounts.map((acc) => {
         try {
-          validatePolkadotAddress(acc.address); // This validates both SS58 format and checksum
-          return { address: acc.address, name: acc.meta?.name, source: this.provider || 'talisman' };
+          validatePolkadotAddress(acc.address);
+          return { address: acc.address, name: acc.meta?.name, source: 'talisman' };
         } catch (error) {
-          if (error instanceof Error) {
-            throw new WalletConnectionError(error.message);
+          if (error instanceof AddressValidationError) {
+            throw error;
           }
-          throw new WalletConnectionError('Invalid Polkadot address');
+          throw new WalletConnectionError('Invalid Polkadot address format');
         }
       });
     } catch (error) {
-      if (error instanceof WalletConnectionError && 
-          (error.message === 'Invalid Polkadot address' || 
-           error.message === 'Invalid address checksum or SS58 format')) {
+      if (error instanceof AddressValidationError || 
+          error instanceof WalletConnectionError) {
         throw error;
       }
       if (error instanceof Error) {
         if (error.message.includes('User rejected')) {
           throw new UserRejectedError('account access');
         }
-        if (error.message === 'Invalid Polkadot address' || 
-            error.message === 'Invalid address checksum or SS58 format') {
-          throw new WalletConnectionError(error.message);
-        }
+        throw new WalletConnectionError(`Failed to fetch accounts: ${error.message}`);
       }
       throw new WalletConnectionError('Failed to fetch accounts');
     }
@@ -155,7 +138,7 @@ export class TalismanAdapter implements WalletAdapter {
    * @throws {Error} If the wallet is not enabled or signing fails
    */
   public async signMessage(message: string): Promise<string> {
-    if (!this.enabled) throw new WalletNotFoundError('Wallet not enabled');
+    if (!this.enabled) throw new WalletNotFoundError('Wallet');
     let sanitized: string;
     try {
       sanitized = validateAndSanitizeMessage(message);
@@ -163,7 +146,7 @@ export class TalismanAdapter implements WalletAdapter {
       if (e instanceof MessageValidationError) {
         throw e;
       }
-      throw new WalletConnectionError('Message validation failed');
+      throw new MessageValidationError('Message validation failed');
     }
     try {
       const accounts = await this.getAccounts();
@@ -177,7 +160,9 @@ export class TalismanAdapter implements WalletAdapter {
       }
       const messageU8a = new TextEncoder().encode(sanitized);
       const signPromise = injector.signer.signRaw({ address, data: u8aToHex(messageU8a), type: 'bytes' });
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new TimeoutError('message signing')), WALLET_TIMEOUT));
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new TimeoutError('message signing')), WALLET_TIMEOUT)
+      );
       const { signature } = await Promise.race([signPromise, timeoutPromise]) as { signature: string };
       try {
         validateSignature(signature);
@@ -187,10 +172,10 @@ export class TalismanAdapter implements WalletAdapter {
       }
       return signature;
     } catch (error) {
-      if (error instanceof MessageValidationError) {
-        throw error;
-      }
-      if (error instanceof InvalidSignatureError) {
+      if (error instanceof MessageValidationError ||
+          error instanceof InvalidSignatureError ||
+          error instanceof TimeoutError ||
+          error instanceof UserRejectedError) {
         throw error;
       }
       if (error instanceof Error) {

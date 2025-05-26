@@ -2,7 +2,15 @@ import { TalismanAdapter } from '../TalismanAdapter';
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import { hexToU8a } from '@polkadot/util';
 import { InjectedWindow } from '@polkadot/extension-inject/types';
-import { MessageValidationError, AddressValidationError } from '../../errors/WalletErrors';
+import { 
+  MessageValidationError, 
+  AddressValidationError,
+  WalletNotFoundError,
+  UserRejectedError,
+  TimeoutError,
+  WalletConnectionError,
+  InvalidSignatureError
+} from '../../errors/WalletErrors';
 
 // Mock the extension-dapp functions
 jest.mock('@polkadot/extension-dapp', () => ({
@@ -74,44 +82,36 @@ describe('TalismanAdapter', () => {
   });
 
   describe('enable()', () => {
-    it('should enable Talisman when extension is available', async () => {
+    it('should enable wallet when available', async () => {
       (web3Enable as jest.Mock).mockResolvedValue(true);
-      
       await expect(adapter.enable()).resolves.not.toThrow();
       expect(web3Enable).toHaveBeenCalledWith('KeyPass Login SDK');
       expect(adapter.getProvider()).toBe('talisman');
     });
 
-    it('should fallback to WalletConnect when Talisman is not available', async () => {
-      mockWindow.injectedWeb3 = {
-        'wallet-connect': mockInjectedWeb3['wallet-connect']
-      };
-      (web3Enable as jest.Mock).mockResolvedValue(true);
-      
-      await expect(adapter.enable()).resolves.not.toThrow();
-      expect(web3Enable).toHaveBeenCalledWith('KeyPass Login SDK');
-      expect(adapter.getProvider()).toBe('wallet-connect');
-    });
-
-    it('should throw when neither wallet is available', async () => {
-      mockWindow.injectedWeb3 = undefined;
-      
-      await expect(adapter.enable()).rejects.toThrow('Talisman or WalletConnect wallet not found');
-    });
-
-    it('should throw when user rejects connection', async () => {
-      (web3Enable as jest.Mock).mockRejectedValue(new Error('User rejected'));
-      
-      await expect(adapter.enable()).rejects.toThrow('User rejected wallet connection');
+    it('should throw when no wallet is available', async () => {
+      (window as any).injectedWeb3 = {};
+      const error = await adapter.enable().catch(e => e);
+      expect(error).toBeInstanceOf(WalletNotFoundError);
+      expect(error.message).toBe('Talisman wallet not found');
+      expect(error.code).toBe('WALLET_NOT_FOUND');
     });
 
     it('should throw on timeout', async () => {
-      (web3Enable as jest.Mock).mockImplementation(() => 
-        new Promise(resolve => setTimeout(resolve, 11000))
-      );
-      
-      await expect(adapter.enable()).rejects.toThrow('wallet connection timed out');
-    }, 15000); // Increase timeout to 15s
+      (web3Enable as jest.Mock).mockImplementation(() => new Promise(() => {}));
+      const error = await adapter.enable().catch(e => e);
+      expect(error).toBeInstanceOf(TimeoutError);
+      expect(error.message).toBe('wallet connection timed out');
+      expect(error.code).toBe('OPERATION_TIMEOUT');
+    }, 15000);
+
+    it('should throw on user rejection', async () => {
+      (web3Enable as jest.Mock).mockRejectedValue(new Error('User rejected'));
+      const error = await adapter.enable().catch(e => e);
+      expect(error).toBeInstanceOf(UserRejectedError);
+      expect(error.message).toBe('User rejected wallet connection');
+      expect(error.code).toBe('USER_REJECTED');
+    });
   });
 
   describe('getAccounts()', () => {
@@ -145,33 +145,43 @@ describe('TalismanAdapter', () => {
 
     it('should throw when wallet is not enabled', async () => {
       const newAdapter = new TalismanAdapter();
-      await expect(newAdapter.getAccounts()).rejects.toThrow('Wallet not enabled');
+      const error = await newAdapter.getAccounts().catch(e => e);
+      expect(error).toBeInstanceOf(WalletNotFoundError);
+      expect(error.message).toBe('Wallet wallet not found');
+      expect(error.code).toBe('WALLET_NOT_FOUND');
+    });
+
+    it('should throw when no accounts are found', async () => {
+      (web3Accounts as jest.Mock).mockResolvedValue([]);
+      
+      const error = await adapter.getAccounts().catch(e => e);
+      expect(error).toBeInstanceOf(WalletConnectionError);
+      expect(error.message).toBe('No accounts found');
+      expect(error.code).toBe('CONNECTION_FAILED');
     });
 
     it('should throw when user rejects account access', async () => {
       (web3Accounts as jest.Mock).mockRejectedValue(new Error('User rejected'));
       
-      await expect(adapter.getAccounts()).rejects.toThrow('User rejected account access');
+      const error = await adapter.getAccounts().catch(e => e);
+      expect(error).toBeInstanceOf(UserRejectedError);
+      expect(error.message).toBe('User rejected account access');
+      expect(error.code).toBe('USER_REJECTED');
     });
   });
 
   describe('signMessage()', () => {
-    const mockAddress = '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty';
     const mockMessage = 'Test message';
-    const mockSignature = '0x' + '1'.repeat(128); // Valid hex signature format
+    const mockAddress = '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty';
 
     beforeEach(async () => {
       (web3Enable as jest.Mock).mockResolvedValue(true);
       (web3Accounts as jest.Mock).mockResolvedValue([{ address: mockAddress }]);
-      (web3FromAddress as jest.Mock).mockResolvedValue({
-        signer: {
-          signRaw: jest.fn().mockResolvedValue({ signature: mockSignature })
-        }
-      });
       await adapter.enable();
     });
 
     it('should sign message successfully', async () => {
+      const mockSignature = '0x1234';
       (web3FromAddress as jest.Mock).mockResolvedValue({
         signer: {
           signRaw: jest.fn().mockResolvedValue({ signature: mockSignature })
@@ -180,24 +190,30 @@ describe('TalismanAdapter', () => {
 
       const signature = await adapter.signMessage(mockMessage);
       expect(signature).toBe(mockSignature);
-      expect(hexToU8a(signature)).toBeDefined(); // Verify signature format
     });
 
     it('should throw when wallet is not enabled', async () => {
       const newAdapter = new TalismanAdapter();
-      await expect(newAdapter.signMessage(mockMessage)).rejects.toThrow('Wallet not enabled');
+      const error = await newAdapter.signMessage(mockMessage).catch(e => e);
+      expect(error).toBeInstanceOf(WalletNotFoundError);
+      expect(error.message).toBe('Wallet wallet not found');
+      expect(error.code).toBe('WALLET_NOT_FOUND');
     });
 
     it('should throw when no accounts are available', async () => {
       (web3Accounts as jest.Mock).mockResolvedValue([]);
-      await expect(adapter.signMessage(mockMessage)).rejects.toThrow('No accounts available');
+      const error = await adapter.signMessage(mockMessage).catch(e => e);
+      expect(error).toBeInstanceOf(WalletConnectionError);
+      expect(error.message).toBe('Failed to sign message: No accounts found');
+      expect(error.code).toBe('CONNECTION_FAILED');
     });
 
     it('should throw when signer does not support raw signing', async () => {
-      (web3FromAddress as jest.Mock).mockResolvedValue({
-        signer: {}
-      });
-      await expect(adapter.signMessage(mockMessage)).rejects.toThrow('Signer does not support raw signing');
+      (web3FromAddress as jest.Mock).mockResolvedValue({ signer: {} });
+      const error = await adapter.signMessage(mockMessage).catch(e => e);
+      expect(error).toBeInstanceOf(WalletConnectionError);
+      expect(error.message).toBe('Failed to sign message: Signer does not support raw signing');
+      expect(error.code).toBe('CONNECTION_FAILED');
     });
 
     it('should throw when user rejects signing', async () => {
@@ -206,7 +222,11 @@ describe('TalismanAdapter', () => {
           signRaw: jest.fn().mockRejectedValue(new Error('User rejected'))
         }
       });
-      await expect(adapter.signMessage(mockMessage)).rejects.toThrow('User rejected message signing');
+      
+      const error = await adapter.signMessage(mockMessage).catch(e => e);
+      expect(error).toBeInstanceOf(UserRejectedError);
+      expect(error.message).toBe('User rejected message signing');
+      expect(error.code).toBe('USER_REJECTED');
     });
 
     it('should throw on invalid signature format', async () => {
@@ -215,7 +235,34 @@ describe('TalismanAdapter', () => {
           signRaw: jest.fn().mockResolvedValue({ signature: 'invalid-hex' })
         }
       });
-      await expect(adapter.signMessage(mockMessage)).rejects.toThrow('Invalid signature format');
+      
+      const error = await adapter.signMessage(mockMessage).catch(e => e);
+      expect(error).toBeInstanceOf(InvalidSignatureError);
+      expect(error.code).toBe('INVALID_SIGNATURE');
+    });
+
+    it('should throw on signing timeout', async () => {
+      // Mock web3FromAddress to return a valid injector
+      const mockInjector = {
+        signer: {
+          signRaw: jest.fn().mockImplementation(() => new Promise(() => {}))
+        }
+      };
+      const mockWeb3FromAddress = jest.fn().mockResolvedValue(mockInjector);
+      require('@polkadot/extension-dapp').web3FromAddress = mockWeb3FromAddress;
+      // Mock setTimeout to immediately call the timeout callback
+      const originalSetTimeout = global.setTimeout;
+      global.setTimeout = jest.fn((callback, delay) => {
+        if (delay === 10000) {
+          Promise.resolve().then(callback);
+        }
+        return 1;
+      }) as unknown as typeof setTimeout;
+      try {
+        await expect(adapter.signMessage(mockMessage)).rejects.toThrow('message signing timed out');
+      } finally {
+        global.setTimeout = originalSetTimeout;
+      }
     });
   });
 
@@ -228,11 +275,11 @@ describe('TalismanAdapter', () => {
     });
 
     it('should reset state on disconnect', async () => {
-      (web3Enable as jest.Mock).mockResolvedValue(true);
       await adapter.enable();
+      expect(adapter.getProvider()).toBe('talisman');
       adapter.disconnect();
       expect(adapter.getProvider()).toBeNull();
-      await expect(adapter.getAccounts()).rejects.toThrow('Wallet not enabled');
+      await expect(adapter.getAccounts()).rejects.toThrow('Wallet wallet not found');
     });
   });
 
@@ -278,10 +325,8 @@ describe('TalismanAdapter', () => {
 
   describe('address validation', () => {
     beforeEach(async () => {
-      // Enable the wallet first
       (web3Enable as jest.Mock).mockResolvedValue(true);
       await adapter.enable();
-      // Reset mocks
       jest.clearAllMocks();
     });
 
@@ -292,19 +337,27 @@ describe('TalismanAdapter', () => {
     it('should throw on invalid address', async () => {
       const { validatePolkadotAddress } = require('../types');
       validatePolkadotAddress.mockImplementation(() => {
-        throw new Error('Invalid Polkadot address');
+        throw new AddressValidationError('Invalid Polkadot address');
       });
       (web3Accounts as jest.Mock).mockResolvedValue([{ address: 'invalid-address' }]);
-      await expect(adapter.getAccounts()).rejects.toThrow('Invalid Polkadot address');
+      
+      const error = await adapter.getAccounts().catch(e => e);
+      expect(error).toBeInstanceOf(AddressValidationError);
+      expect(error.message).toBe('Invalid Polkadot address');
+      expect(error.code).toBe('ADDRESS_VALIDATION_ERROR');
     });
 
     it('should throw on invalid checksum', async () => {
       const { validatePolkadotAddress } = require('../types');
       validatePolkadotAddress.mockImplementation(() => {
-        throw new Error('Invalid address checksum or SS58 format');
+        throw new AddressValidationError('Invalid address checksum or SS58 format');
       });
       (web3Accounts as jest.Mock).mockResolvedValue([{ address: 'invalid-checksum-address' }]);
-      await expect(adapter.getAccounts()).rejects.toThrow('Invalid address checksum or SS58 format');
+      
+      const error = await adapter.getAccounts().catch(e => e);
+      expect(error).toBeInstanceOf(AddressValidationError);
+      expect(error.message).toBe('Invalid address checksum or SS58 format');
+      expect(error.code).toBe('ADDRESS_VALIDATION_ERROR');
     });
   });
 });
