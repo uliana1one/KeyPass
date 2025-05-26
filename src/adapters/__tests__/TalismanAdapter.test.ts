@@ -82,22 +82,37 @@ describe('TalismanAdapter', () => {
   });
 
   describe('enable()', () => {
-    it('should enable wallet when available', async () => {
+    it('should enable Talisman wallet when available', async () => {
       (web3Enable as jest.Mock).mockResolvedValue(true);
       await expect(adapter.enable()).resolves.not.toThrow();
       expect(web3Enable).toHaveBeenCalledWith('KeyPass Login SDK');
       expect(adapter.getProvider()).toBe('talisman');
     });
 
+    it('should fallback to WalletConnect when Talisman is not available', async () => {
+      // Mock only WalletConnect being available
+      mockWindow.injectedWeb3 = {
+        'wallet-connect': {
+          version: '1.0.0',
+          enable: jest.fn().mockResolvedValue(true)
+        }
+      };
+      (web3Enable as jest.Mock).mockResolvedValue(true);
+      
+      await expect(adapter.enable()).resolves.not.toThrow();
+      expect(web3Enable).toHaveBeenCalledWith('KeyPass Login SDK');
+      expect(adapter.getProvider()).toBe('wallet-connect');
+    });
+
     it('should throw when no wallet is available', async () => {
-      (window as any).injectedWeb3 = {};
+      mockWindow.injectedWeb3 = {};
       const error = await adapter.enable().catch(e => e);
       expect(error).toBeInstanceOf(WalletNotFoundError);
       expect(error.message).toBe('Talisman wallet not found');
       expect(error.code).toBe('WALLET_NOT_FOUND');
     });
 
-    it('should throw on timeout', async () => {
+    it('should throw on timeout with Talisman', async () => {
       (web3Enable as jest.Mock).mockImplementation(() => new Promise(() => {}));
       const error = await adapter.enable().catch(e => e);
       expect(error).toBeInstanceOf(TimeoutError);
@@ -105,12 +120,62 @@ describe('TalismanAdapter', () => {
       expect(error.code).toBe('OPERATION_TIMEOUT');
     }, 15000);
 
-    it('should throw on user rejection', async () => {
+    it('should throw on timeout with WalletConnect fallback', async () => {
+      // Mock only WalletConnect being available
+      mockWindow.injectedWeb3 = {
+        'wallet-connect': {
+          version: '1.0.0',
+          enable: jest.fn().mockResolvedValue(true)
+        }
+      };
+      (web3Enable as jest.Mock).mockImplementation(() => new Promise(() => {}));
+      
+      const error = await adapter.enable().catch(e => e);
+      expect(error).toBeInstanceOf(TimeoutError);
+      expect(error.message).toBe('wallet connection timed out');
+      expect(error.code).toBe('OPERATION_TIMEOUT');
+    }, 15000);
+
+    it('should throw on user rejection with Talisman', async () => {
       (web3Enable as jest.Mock).mockRejectedValue(new Error('User rejected'));
       const error = await adapter.enable().catch(e => e);
       expect(error).toBeInstanceOf(UserRejectedError);
       expect(error.message).toBe('User rejected wallet connection');
       expect(error.code).toBe('USER_REJECTED');
+    });
+
+    it('should throw on user rejection with WalletConnect fallback', async () => {
+      // Mock only WalletConnect being available
+      mockWindow.injectedWeb3 = {
+        'wallet-connect': {
+          version: '1.0.0',
+          enable: jest.fn().mockResolvedValue(true)
+        }
+      };
+      (web3Enable as jest.Mock).mockRejectedValue(new Error('User rejected'));
+      
+      const error = await adapter.enable().catch(e => e);
+      expect(error).toBeInstanceOf(UserRejectedError);
+      expect(error.message).toBe('User rejected wallet connection');
+      expect(error.code).toBe('USER_REJECTED');
+    });
+
+    it('should prefer Talisman over WalletConnect when both are available', async () => {
+      // Mock both providers being available
+      mockWindow.injectedWeb3 = {
+        'talisman': {
+          version: '1.0.0',
+          enable: jest.fn().mockResolvedValue(true)
+        },
+        'wallet-connect': {
+          version: '1.0.0',
+          enable: jest.fn().mockResolvedValue(true)
+        }
+      };
+      (web3Enable as jest.Mock).mockResolvedValue(true);
+      
+      await expect(adapter.enable()).resolves.not.toThrow();
+      expect(adapter.getProvider()).toBe('talisman');
     });
   });
 

@@ -36,36 +36,21 @@ export class TalismanAdapter implements WalletAdapter {
 
     try {
       const injectedWindow = window as Window & InjectedWindow;
-      if (!injectedWindow.injectedWeb3?.[TALISMAN_EXTENSION_NAME]) {
-        throw new WalletNotFoundError('Talisman');
-      }
-
-      // Clear any existing timeout
-      if (this.connectionTimeout) {
-        clearTimeout(this.connectionTimeout);
-        this.connectionTimeout = null;
-      }
-
-      const enablePromise = web3Enable('KeyPass Login SDK');
-      const timeoutPromise = new Promise((_, reject) => {
-        this.connectionTimeout = setTimeout(() => {
-          this.connectionTimeout = null;
-          this.enabled = false;
-          this.provider = null;
-          reject(new TimeoutError('wallet connection'));
-        }, WALLET_TIMEOUT);
-      });
-
-      await Promise.race([enablePromise, timeoutPromise]);
       
-      // Clear timeout on success
-      if (this.connectionTimeout) {
-        clearTimeout(this.connectionTimeout);
-        this.connectionTimeout = null;
+      // Try Talisman first
+      if (injectedWindow.injectedWeb3?.[TALISMAN_EXTENSION_NAME]) {
+        await this.enableProvider(TALISMAN_EXTENSION_NAME);
+        return;
+      }
+      
+      // Fallback to WalletConnect if Talisman is not available
+      if (injectedWindow.injectedWeb3?.[WALLET_CONNECT_NAME]) {
+        await this.enableProvider(WALLET_CONNECT_NAME);
+        return;
       }
 
-      this.provider = 'talisman';
-      this.enabled = true;
+      // If neither provider is available, throw error
+      throw new WalletNotFoundError('Talisman');
     } catch (error) {
       // Reset state on error
       this.enabled = false;
@@ -91,6 +76,40 @@ export class TalismanAdapter implements WalletAdapter {
       }
       throw new WalletConnectionError('Failed to enable wallet');
     }
+  }
+
+  /**
+   * Internal method to enable a specific provider
+   * @param providerName - The name of the provider to enable
+   * @throws {Error} If the provider cannot be enabled
+   */
+  private async enableProvider(providerName: string): Promise<void> {
+    // Clear any existing timeout
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+
+    const enablePromise = web3Enable('KeyPass Login SDK');
+    const timeoutPromise = new Promise((_, reject) => {
+      this.connectionTimeout = setTimeout(() => {
+        this.connectionTimeout = null;
+        this.enabled = false;
+        this.provider = null;
+        reject(new TimeoutError('wallet connection'));
+      }, WALLET_TIMEOUT);
+    });
+
+    await Promise.race([enablePromise, timeoutPromise]);
+    
+    // Clear timeout on success
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+
+    this.provider = providerName;
+    this.enabled = true;
   }
 
   /**
