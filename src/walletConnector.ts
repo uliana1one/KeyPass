@@ -1,14 +1,26 @@
-import wallets from '../config/wallets.json';
-import { PolkadotJsAdapter, TalismanAdapter } from './adapters';
+import walletsConfig from '../config/wallets.json';
+import { validateWalletConfig } from './config/validator';
+import { WalletAdapter, WalletAdapterConstructor } from './adapters/types';
+import { WalletConnectionError, ConfigurationError } from './errors/WalletErrors';
 
-type WalletAdapter = PolkadotJsAdapter | TalismanAdapter;
+// Validate wallet configuration at startup
+try {
+  validateWalletConfig(walletsConfig);
+} catch (error) {
+  if (error instanceof ConfigurationError) {
+    console.error('Invalid wallet configuration:', error.message);
+  }
+  throw error;
+}
 
 /**
  * Attempts to connect to a supported wallet by trying each available adapter
- * in sequence. Returns the first successfully enabled adapter.
+ * in sequence according to their priority in the configuration.
+ * Returns the first successfully enabled adapter.
  *
  * @returns Promise resolving to an enabled wallet adapter
- * @throws {Error} If no supported wallet is found or can be enabled
+ * @throws {WalletConnectionError} If no supported wallet is found or can be enabled
+ * @throws {ConfigurationError} If the wallet configuration is invalid
  *
  * @example
  * ```typescript
@@ -17,11 +29,16 @@ type WalletAdapter = PolkadotJsAdapter | TalismanAdapter;
  * ```
  */
 export async function connectWallet(): Promise<WalletAdapter> {
-  for (const wallet of wallets.wallets) {
+  // Ensure configuration is valid
+  validateWalletConfig(walletsConfig);
+
+  const errors: Error[] = [];
+
+  for (const wallet of walletsConfig.wallets) {
     try {
       // Dynamic import of adapter class
       const AdapterModule = await import(`./adapters/${wallet.adapter}`);
-      const AdapterClass = AdapterModule[wallet.adapter];
+      const AdapterClass = AdapterModule[wallet.adapter] as WalletAdapterConstructor;
 
       // Create and enable adapter
       const adapter = new AdapterClass();
@@ -31,9 +48,16 @@ export async function connectWallet(): Promise<WalletAdapter> {
     } catch (error) {
       // Log error but continue to next wallet
       console.debug(`Failed to connect to ${wallet.name}:`, error);
+      if (error instanceof Error) {
+        errors.push(error);
+      }
       continue;
     }
   }
 
-  throw new Error('No supported wallet found');
+  // If we get here, no wallet could be connected
+  const errorMessages = errors.map(e => e.message).join(', ');
+  throw new WalletConnectionError(
+    `No supported wallet found. Errors: ${errorMessages}`
+  );
 }
