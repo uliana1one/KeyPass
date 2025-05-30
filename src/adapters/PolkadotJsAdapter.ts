@@ -55,14 +55,21 @@ export class PolkadotJsAdapter implements WalletAdapter {
         }, WALLET_TIMEOUT);
       });
 
-      await Promise.race([enablePromise, timeoutPromise]);
-      
-      // Clear timeout on success
-      if (this.connectionTimeout) {
-        clearTimeout(this.connectionTimeout);
-        this.connectionTimeout = null;
+      try {
+        await Promise.race([enablePromise, timeoutPromise]);
+      } catch (error) {
+        if (error instanceof TimeoutError) {
+          throw error;
+        }
+        throw error;
+      } finally {
+        // Clear timeout on success or error
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout);
+          this.connectionTimeout = null;
+        }
       }
-
+      
       this.provider = 'polkadot-js';
       this.enabled = true;
     } catch (error) {
@@ -74,12 +81,12 @@ export class PolkadotJsAdapter implements WalletAdapter {
         this.connectionTimeout = null;
       }
 
+      if (error instanceof WalletNotFoundError || error instanceof TimeoutError) {
+        throw error;
+      }
       if (error instanceof Error) {
         if (error.message.includes('User rejected')) {
           throw new UserRejectedError('wallet_connection');
-        }
-        if (error.message.includes('timeout')) {
-          throw new TimeoutError('wallet_connection');
         }
       }
       throw new WalletConnectionError('Failed to enable Polkadot.js wallet');
@@ -131,6 +138,18 @@ export class PolkadotJsAdapter implements WalletAdapter {
    */
   public async signMessage(message: string): Promise<string> {
     if (!this.enabled) throw new WalletNotFoundError('Wallet not enabled');
+    
+    let sanitizedMessage: string;
+    try {
+      // Validate and sanitize message first
+      sanitizedMessage = validateAndSanitizeMessage(message);
+    } catch (error) {
+      if (error instanceof MessageValidationError) {
+        throw error;
+      }
+      throw new MessageValidationError('Invalid message format');
+    }
+
     try {
       const accounts = await this.getAccounts();
       if (!accounts || accounts.length === 0) {
@@ -143,7 +162,7 @@ export class PolkadotJsAdapter implements WalletAdapter {
         throw new WalletConnectionError('Failed to sign message: Signer does not support raw signing');
       }
 
-      const messageU8a = new TextEncoder().encode(message);
+      const messageU8a = new TextEncoder().encode(sanitizedMessage);
       const signPromise = injector.signer.signRaw({ address: account.address, data: u8aToHex(messageU8a), type: 'bytes' });
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new TimeoutError('message_signing')), WALLET_TIMEOUT)
@@ -154,10 +173,9 @@ export class PolkadotJsAdapter implements WalletAdapter {
         validateSignature(signature);
         return signature;
       } catch (error) {
-        if (error instanceof InvalidSignatureError) {
-          throw error;
-        }
-        throw new InvalidSignatureError('Invalid signature format');
+        // Preserve the original error message if it's an Error instance
+        const errorMessage = error instanceof Error ? error.message : 'Invalid signature format';
+        throw new InvalidSignatureError(errorMessage);
       }
     } catch (error) {
       if (error instanceof MessageValidationError ||
@@ -172,6 +190,10 @@ export class PolkadotJsAdapter implements WalletAdapter {
         }
         if (error.message.includes('timeout')) {
           throw new TimeoutError('message_signing');
+        }
+        // If it's a WalletConnectionError from getAccounts, preserve its message
+        if (error instanceof WalletConnectionError && error.message === 'No accounts found') {
+          throw new WalletConnectionError('Failed to sign message: No accounts found');
         }
       }
       throw error;
@@ -206,7 +228,10 @@ export class PolkadotJsAdapter implements WalletAdapter {
       validatePolkadotAddress(address);
     } catch (error) {
       if (error instanceof AddressValidationError) {
-        throw new AddressValidationError('Invalid address checksum or SS58 format');
+        // Create a new error with the correct code
+        const newError = new AddressValidationError(error.message);
+        newError.code = 'ADDRESS_VALIDATION_ERROR';
+        throw newError;
       }
       throw error;
     }
