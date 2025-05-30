@@ -50,9 +50,33 @@ const mockInjectedWeb3 = {
 
 // Mock the types module
 jest.mock('../types', () => ({
-  validateAndSanitizeMessage: jest.fn(),
+  validateAndSanitizeMessage: jest.fn((message) => {
+    if (!message || message === '') {
+      throw new MessageValidationError('Message cannot be empty');
+    }
+    if (message.length > 256) {
+      throw new MessageValidationError('Message exceeds max length');
+    }
+    if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/.test(message)) {
+      throw new MessageValidationError('Message contains invalid characters');
+    }
+    return message.trim();
+  }),
   validatePolkadotAddress: jest.fn(),
-  validateSignature: jest.fn(),
+  validateSignature: jest.fn((signature) => {
+    if (signature === 'invalid-hex') {
+      throw new InvalidSignatureError('Invalid signature format');
+    }
+    if (!signature.startsWith('0x')) {
+      throw new InvalidSignatureError('Invalid signature format: missing 0x prefix');
+    }
+    if (signature.length !== 130 && signature.length !== 66) { // 0x + 128 or 64 hex chars
+      throw new InvalidSignatureError('Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)');
+    }
+    if (!/^0x[0-9a-fA-F]+$/.test(signature)) {
+      throw new InvalidSignatureError('Invalid signature format: contains invalid hex characters');
+    }
+  }),
   validateAddress: jest.fn(),
   WALLET_TIMEOUT: 10000
 }));
@@ -329,6 +353,84 @@ describe('TalismanAdapter', () => {
         global.setTimeout = originalSetTimeout;
       }
     });
+
+    describe('signature validation', () => {
+      it('should preserve original error message for invalid signature format', async () => {
+        const originalError = new Error('Invalid signature format: missing 0x prefix');
+        (web3FromAddress as jest.Mock).mockResolvedValue({
+          signer: {
+            signRaw: jest.fn().mockResolvedValue({ signature: '1234' }) // Missing 0x prefix
+          }
+        });
+        
+        const error = await adapter.signMessage(mockMessage).catch(e => e);
+        expect(error).toBeInstanceOf(InvalidSignatureError);
+        expect(error.message).toBe('Invalid signature format: missing 0x prefix');
+        expect(error.code).toBe('INVALID_SIGNATURE');
+      });
+
+      it('should preserve original error message for invalid signature length', async () => {
+        const originalError = new Error('Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)');
+        (web3FromAddress as jest.Mock).mockResolvedValue({
+          signer: {
+            signRaw: jest.fn().mockResolvedValue({ signature: '0x123' }) // Too short
+          }
+        });
+        
+        const error = await adapter.signMessage(mockMessage).catch(e => e);
+        expect(error).toBeInstanceOf(InvalidSignatureError);
+        expect(error.message).toBe('Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)');
+        expect(error.code).toBe('INVALID_SIGNATURE');
+      });
+
+      it('should handle non-Error objects in signature validation', async () => {
+        (web3FromAddress as jest.Mock).mockResolvedValue({
+          signer: {
+            signRaw: jest.fn().mockResolvedValue({ signature: null }) // Invalid signature type
+          }
+        });
+        
+        const error = await adapter.signMessage(mockMessage).catch(e => e);
+        expect(error).toBeInstanceOf(InvalidSignatureError);
+        expect(error.message).toBe('Invalid signature format');
+        expect(error.code).toBe('INVALID_SIGNATURE');
+      });
+    });
+
+    describe('error handling', () => {
+      it('should preserve error messages from wallet connection errors', async () => {
+        const originalError = new Error('Failed to connect to wallet: Network error');
+        (web3FromAddress as jest.Mock).mockRejectedValue(originalError);
+        
+        const error = await adapter.signMessage(mockMessage).catch(e => e);
+        expect(error).toBeInstanceOf(WalletConnectionError);
+        expect(error.message).toBe('Failed to sign message: Failed to connect to wallet: Network error');
+        expect(error.code).toBe('CONNECTION_FAILED');
+      });
+
+      it('should handle unknown error types with generic message', async () => {
+        (web3FromAddress as jest.Mock).mockRejectedValue('Unknown error type');
+        
+        const error = await adapter.signMessage(mockMessage).catch(e => e);
+        expect(error).toBeInstanceOf(WalletConnectionError);
+        expect(error.message).toBe('Failed to sign message: Unknown error');
+        expect(error.code).toBe('CONNECTION_FAILED');
+      });
+
+      it('should handle signer errors with appropriate messages', async () => {
+        const originalError = new Error('Signer error: Invalid parameters');
+        (web3FromAddress as jest.Mock).mockResolvedValue({
+          signer: {
+            signRaw: jest.fn().mockRejectedValue(originalError)
+          }
+        });
+        
+        const error = await adapter.signMessage(mockMessage).catch(e => e);
+        expect(error).toBeInstanceOf(WalletConnectionError);
+        expect(error.message).toBe('Failed to sign message: Signer error: Invalid parameters');
+        expect(error.code).toBe('CONNECTION_FAILED');
+      });
+    });
   });
 
   describe('connection state', () => {
@@ -358,32 +460,20 @@ describe('TalismanAdapter', () => {
         }
       });
       await adapter.enable();
-      // Reset the mock before each test
+      // Reset all mocks
       jest.clearAllMocks();
     });
 
     it('should throw on empty message', async () => {
-      const { validateAndSanitizeMessage } = require('../types');
-      validateAndSanitizeMessage.mockImplementation(() => {
-        throw new MessageValidationError('Message cannot be empty');
-      });
       await expect(adapter.signMessage('')).rejects.toThrow('Message cannot be empty');
     });
 
     it('should throw on too long message', async () => {
-      const { validateAndSanitizeMessage } = require('../types');
-      validateAndSanitizeMessage.mockImplementation(() => {
-        throw new MessageValidationError('Message exceeds max length');
-      });
       const longMsg = 'a'.repeat(300);
       await expect(adapter.signMessage(longMsg)).rejects.toThrow('Message exceeds max length');
     });
 
     it('should throw on invalid characters', async () => {
-      const { validateAndSanitizeMessage } = require('../types');
-      validateAndSanitizeMessage.mockImplementation(() => {
-        throw new MessageValidationError('Message contains invalid characters');
-      });
       await expect(adapter.signMessage('Hello\u0000World')).rejects.toThrow('Message contains invalid characters');
     });
   });

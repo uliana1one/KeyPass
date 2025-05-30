@@ -156,6 +156,18 @@ export class TalismanAdapter implements WalletAdapter {
    */
   public async signMessage(message: string): Promise<string> {
     if (!this.enabled) throw new WalletNotFoundError('Wallet not enabled');
+    
+    let sanitizedMessage: string;
+    try {
+      // Validate and sanitize message first
+      sanitizedMessage = validateAndSanitizeMessage(message);
+    } catch (error) {
+      if (error instanceof MessageValidationError) {
+        throw error;
+      }
+      throw new MessageValidationError('Invalid message format');
+    }
+
     try {
       const accounts = await this.getAccounts();
       if (!accounts || accounts.length === 0) {
@@ -168,7 +180,7 @@ export class TalismanAdapter implements WalletAdapter {
         throw new WalletConnectionError('Failed to sign message: Signer does not support raw signing');
       }
 
-      const messageU8a = new TextEncoder().encode(message);
+      const messageU8a = new TextEncoder().encode(sanitizedMessage);
       const signPromise = injector.signer.signRaw({ address: account.address, data: u8aToHex(messageU8a), type: 'bytes' });
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new TimeoutError('message_signing')), WALLET_TIMEOUT)
@@ -179,18 +191,21 @@ export class TalismanAdapter implements WalletAdapter {
         validateSignature(signature);
         return signature;
       } catch (error) {
-        if (error instanceof InvalidSignatureError) {
-          throw error;
-        }
-        throw new InvalidSignatureError('Invalid signature format');
+        // Preserve the original error message if it's an Error instance
+        const errorMessage = error instanceof Error ? error.message : 'Invalid signature format';
+        throw new InvalidSignatureError(errorMessage);
       }
     } catch (error) {
+      // Handle known error types
       if (error instanceof MessageValidationError ||
           error instanceof InvalidSignatureError ||
           error instanceof TimeoutError ||
-          error instanceof UserRejectedError) {
+          error instanceof UserRejectedError ||
+          error instanceof WalletConnectionError) {
         throw error;
       }
+      
+      // Handle Error instances with specific messages
       if (error instanceof Error) {
         if (error.message.includes('User rejected')) {
           throw new UserRejectedError('message_signing');
@@ -198,8 +213,16 @@ export class TalismanAdapter implements WalletAdapter {
         if (error.message.includes('timeout')) {
           throw new TimeoutError('message_signing');
         }
+        if (error.message.includes('Invalid signature')) {
+          const errorMessage = error.message;
+          throw new InvalidSignatureError(errorMessage);
+        }
+        // For other Error instances, preserve the message
+        throw new WalletConnectionError(`Failed to sign message: ${error.message}`);
       }
-      throw error;
+      
+      // Handle non-Error objects
+      throw new WalletConnectionError('Failed to sign message: Unknown error');
     }
   }
 
@@ -231,7 +254,7 @@ export class TalismanAdapter implements WalletAdapter {
       validatePolkadotAddress(address);
     } catch (error) {
       if (error instanceof AddressValidationError) {
-        throw new AddressValidationError('Invalid Polkadot address', 'ADDRESS_VALIDATION_ERROR');
+        throw new AddressValidationError('Invalid Polkadot address');
       }
       throw error;
     }
