@@ -64,6 +64,9 @@ jest.mock('../types', () => ({
   }),
   validatePolkadotAddress: jest.fn(),
   validateSignature: jest.fn((signature) => {
+    if (!signature || typeof signature !== 'string') {
+      throw new InvalidSignatureError('Invalid signature format');
+    }
     if (signature === 'invalid-hex') {
       throw new InvalidSignatureError('Invalid signature format');
     }
@@ -270,7 +273,7 @@ describe('TalismanAdapter', () => {
     });
 
     it('should sign message successfully', async () => {
-      const mockSignature = '0x1234';
+      const mockSignature = '0x' + '1'.repeat(128); // Valid sr25519 signature length
       (web3FromAddress as jest.Mock).mockResolvedValue({
         signer: {
           signRaw: jest.fn().mockResolvedValue({ signature: mockSignature })
