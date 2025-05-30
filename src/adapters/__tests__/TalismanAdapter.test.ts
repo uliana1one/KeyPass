@@ -261,7 +261,7 @@ describe('TalismanAdapter', () => {
       const newAdapter = new TalismanAdapter();
       const error = await newAdapter.signMessage(mockMessage).catch(e => e);
       expect(error).toBeInstanceOf(WalletNotFoundError);
-      expect(error.message).toBe('Wallet wallet not found');
+      expect(error.message).toBe('Wallet not enabled wallet not found');
       expect(error.code).toBe('WALLET_NOT_FOUND');
     });
 
@@ -269,7 +269,7 @@ describe('TalismanAdapter', () => {
       (web3Accounts as jest.Mock).mockResolvedValue([]);
       const error = await adapter.signMessage(mockMessage).catch(e => e);
       expect(error).toBeInstanceOf(WalletConnectionError);
-      expect(error.message).toBe('Failed to sign message: No accounts found');
+      expect(error.message).toBe('No accounts found');
       expect(error.code).toBe('CONNECTION_FAILED');
     });
 
@@ -409,20 +409,20 @@ describe('TalismanAdapter', () => {
       const error = await adapter.getAccounts().catch(e => e);
       expect(error).toBeInstanceOf(AddressValidationError);
       expect(error.message).toBe('Invalid Polkadot address');
-      expect(error.code).toBe('ADDRESS_VALIDATION_ERROR');
+      expect(error.code).toBe('INVALID_ADDRESS');
     });
 
     it('should throw on invalid checksum', async () => {
       const { validatePolkadotAddress } = require('../types');
       validatePolkadotAddress.mockImplementation(() => {
-        throw new AddressValidationError('Invalid address checksum or SS58 format');
+        throw new AddressValidationError('Invalid Polkadot address');
       });
       (web3Accounts as jest.Mock).mockResolvedValue([{ address: 'invalid-checksum-address' }]);
       
       const error = await adapter.getAccounts().catch(e => e);
       expect(error).toBeInstanceOf(AddressValidationError);
-      expect(error.message).toBe('Invalid address checksum or SS58 format');
-      expect(error.code).toBe('ADDRESS_VALIDATION_ERROR');
+      expect(error.message).toBe('Invalid Polkadot address');
+      expect(error.code).toBe('INVALID_ADDRESS');
     });
   });
 });

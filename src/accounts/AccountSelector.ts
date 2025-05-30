@@ -1,3 +1,10 @@
+export class AccountError extends Error {
+  constructor(message: string, public code: string) {
+    super(message);
+    this.name = 'AccountError';
+  }
+}
+
 /**
  * Selects an account from the provided adapter.
  * @param adapter - An object with a getAccounts method that returns a promise resolving to an array of accounts.
@@ -9,10 +16,10 @@ export async function selectAccount(adapter: {
 }): Promise<string> {
   const accounts = await adapter.getAccounts();
   if (accounts.length === 0) {
-    throw new Error('No accounts found');
+    throw new AccountError('No accounts found', 'NO_ACCOUNTS');
   }
   if (accounts.length === 1) {
     return accounts[0].address;
   }
-  throw new Error('Account selection not implemented');
+  throw new AccountError('Account selection not implemented', 'MULTIPLE_ACCOUNTS');
 }

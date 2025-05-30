@@ -27,13 +27,26 @@ export function validateAddress(address: string): void {
 }
 
 export function validateSignature(signature: string): void {
-  // Basic hex signature validation
-  if (!/^0x[0-9a-fA-F]{128}$/.test(signature)) {
-    throw new WalletError('Invalid signature format', 'INVALID_SIGNATURE');
+  // Check for 0x prefix
+  if (!signature.startsWith('0x')) {
+    throw new Error('Invalid signature format: missing 0x prefix');
+  }
+
+  // Check length (0x + 128 hex chars for sr25519, 0x + 64 hex chars for ed25519)
+  const hexLength = signature.length - 2; // subtract 0x
+  if (hexLength !== 128 && hexLength !== 64) {
+    throw new Error('Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)');
+  }
+
+  // Check for valid hex characters
+  if (!/^0x[0-9a-fA-F]+$/.test(signature)) {
+    throw new Error('Invalid signature format: contains invalid hex characters');
   }
 }
 
 export const WALLET_TIMEOUT = 10000; // 10 seconds 
+
+const INVALID_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/;
 
 /**
  * Validate a message before signing.
@@ -51,12 +64,22 @@ export const WALLET_TIMEOUT = 10000; // 10 seconds
  * // returns sanitized string or throws error
  */
 export function validateAndSanitizeMessage(message: string, maxLength = 256): string {
-  if (typeof message !== 'string') throw new MessageValidationError('Message must be a string');
-  const sanitized = message.trim().replace(/[\u0000-\u001F\u007F-\u009F]/g, ''); // Remove control chars
-  if (sanitized.length === 0) throw new MessageValidationError('Message cannot be empty');
-  if (sanitized.length > maxLength) throw new MessageValidationError(`Message exceeds max length of ${maxLength}`);
-  if (!/^[\x20-\x7E\n\r]+$/.test(sanitized)) throw new MessageValidationError('Message contains invalid characters');
-  return sanitized;
+  if (!message || typeof message !== 'string') {
+    throw new MessageValidationError('Message must be a non-empty string');
+  }
+
+  // Check for invalid characters
+  if (INVALID_CHARS.test(message)) {
+    throw new MessageValidationError('Message contains invalid characters');
+  }
+
+  // Check length
+  if (message.length > maxLength) {
+    throw new MessageValidationError(`Message exceeds maximum length of ${maxLength} characters`);
+  }
+
+  // Sanitize whitespace
+  return message.trim();
 }
 
 /**
@@ -72,11 +95,18 @@ export function validateAndSanitizeMessage(message: string, maxLength = 256): st
  * // throws if invalid
  */
 export function validatePolkadotAddress(address: string, ss58Format = 0): void {
-  if (!isAddress(address)) throw new AddressValidationError('Invalid Polkadot address');
-  try {
-    const [isValid] = checkAddress(address, ss58Format);
-    if (!isValid) throw new AddressValidationError('Invalid address checksum or SS58 format');
-  } catch {
-    throw new AddressValidationError('Invalid address checksum or SS58 format');
+  if (!address || typeof address !== 'string') {
+    throw new AddressValidationError('Address must be a non-empty string');
+  }
+
+  // First check if it's a valid SS58 format
+  if (!isAddress(address)) {
+    throw new AddressValidationError('Invalid Polkadot address format');
+  }
+
+  // Then validate the checksum and format
+  const [isValid, error] = checkAddress(address, ss58Format);
+  if (!isValid) {
+    throw new AddressValidationError(error || 'Invalid address checksum or SS58 format');
   }
 } 
