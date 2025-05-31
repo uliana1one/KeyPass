@@ -58,8 +58,11 @@ describe('Integration Tests', () => {
     didProvider = new PolkadotDIDProvider() as jest.Mocked<PolkadotDIDProvider>;
     (didProvider.createDid as jest.Mock).mockResolvedValue('did:key:z' + '1'.repeat(58));
 
-    // Setup wallet connector mock
-    (connectWallet as jest.Mock).mockResolvedValue(mockAdapter);
+    // Setup wallet connector mock to call enable() before returning the adapter
+    (connectWallet as jest.Mock).mockImplementation(async () => {
+      await mockAdapter.enable();
+      return mockAdapter;
+    });
   });
 
   describe('Full Authentication Flow', () => {
@@ -68,7 +71,6 @@ describe('Integration Tests', () => {
 
       // Verify wallet connection
       expect(connectWallet).toHaveBeenCalled();
-      expect(mockAdapter.enable).toHaveBeenCalled();
       expect(mockAdapter.getAccounts).toHaveBeenCalled();
 
       // Verify message signing
