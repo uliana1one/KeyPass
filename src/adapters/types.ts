@@ -68,6 +68,12 @@ export function validateAndSanitizeMessage(message: string, maxLength = 256): st
     throw new MessageValidationError('Message must be a non-empty string');
   }
 
+  // Trim first to handle whitespace-only strings
+  const trimmedMessage = message.trim();
+  if (!trimmedMessage) {
+    throw new MessageValidationError('Message must be a non-empty string');
+  }
+
   // Check for invalid characters
   if (INVALID_CHARS.test(message)) {
     throw new MessageValidationError('Message contains invalid characters');
@@ -78,8 +84,7 @@ export function validateAndSanitizeMessage(message: string, maxLength = 256): st
     throw new MessageValidationError(`Message exceeds maximum length of ${maxLength} characters`);
   }
 
-  // Sanitize whitespace
-  return message.trim();
+  return trimmedMessage;
 }
 
 /**
@@ -87,25 +92,31 @@ export function validateAndSanitizeMessage(message: string, maxLength = 256): st
  * Throws if invalid.
  *
  * @param address - The address to validate
- * @param ss58Format - The expected SS58 format (default: 0 for Polkadot)
+ * @param ss58Format - The expected SS58 format (default: 42 for Polkadot)
  * @throws {AddressValidationError} If the address is invalid or checksum fails
  *
  * @example
  * validatePolkadotAddress('5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty');
  * // throws if invalid
  */
-export function validatePolkadotAddress(address: string, ss58Format = 0): void {
+export function validatePolkadotAddress(address: string, ss58Format = 42): void {
   if (!address || typeof address !== 'string') {
     throw new AddressValidationError('Address must be a non-empty string');
   }
 
+  // Trim the address first
+  const trimmedAddress = address.trim();
+  if (!trimmedAddress) {
+    throw new AddressValidationError('Address must be a non-empty string');
+  }
+
   // First check if it's a valid SS58 format
-  if (!isAddress(address)) {
+  if (!isAddress(trimmedAddress)) {
     throw new AddressValidationError('Invalid Polkadot address format');
   }
 
   // Then validate the checksum and format
-  const [isValid, error] = checkAddress(address, ss58Format);
+  const [isValid, error] = checkAddress(trimmedAddress, ss58Format);
   if (!isValid) {
     throw new AddressValidationError(error || 'Invalid address checksum or SS58 format');
   }
