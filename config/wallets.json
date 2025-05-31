@@ -5,14 +5,16 @@
       "name": "Polkadot.js",
       "adapter": "PolkadotJsAdapter",
       "icon": "polkadot-js.svg",
-      "description": "Official Polkadot.js browser extension"
+      "description": "Official Polkadot.js browser extension",
+      "priority": 1
     },
     {
       "id": "talisman",
       "name": "Talisman",
       "adapter": "TalismanAdapter",
       "icon": "talisman.svg",
-      "description": "Talisman wallet browser extension"
+      "description": "Talisman wallet browser extension",
+      "priority": 2
     }
   ]
 } 
