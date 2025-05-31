@@ -30,16 +30,29 @@ describe('VerificationService', () => {
   let sr25519Verify: jest.Mock;
   let ed25519Verify: jest.Mock;
   let validateSignature: jest.Mock;
+  let adapters: { 
+    validatePolkadotAddress: jest.Mock;
+    validateSignature: jest.Mock;
+  };
+
+  const createValidRequest = () => ({
+    message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`,
+    signature: VALID_SIGNATURE,
+    address: VALID_ADDRESS
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
     
     // Get the mock functions
     const crypto = require('@polkadot/util-crypto');
-    const adapters = require('../../adapters/types');
+    adapters = require('../../adapters/types');
     sr25519Verify = crypto.sr25519Verify;
     ed25519Verify = crypto.ed25519Verify;
     validateSignature = adapters.validateSignature;
+    
+    // Setup mock signature validation to pass by default
+    validateSignature.mockImplementation(() => {});
     
     // Setup mock DID provider
     mockDidProvider = {
@@ -141,12 +154,6 @@ describe('VerificationService', () => {
   });
 
   describe('Signature Verification', () => {
-    const createValidRequest = () => ({
-      message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`,
-      signature: VALID_SIGNATURE,
-      address: VALID_ADDRESS
-    });
-
     beforeEach(() => {
       // Reset crypto mocks to default false
       sr25519Verify.mockReturnValue(false);
@@ -243,12 +250,6 @@ describe('VerificationService', () => {
   });
 
   describe('DID Creation', () => {
-    const createValidRequest = () => ({
-      message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`,
-      signature: VALID_SIGNATURE,
-      address: VALID_ADDRESS
-    });
-
     beforeEach(() => {
       // Set up our mocks with explicit implementations
       sr25519Verify.mockReturnValue(true);
@@ -277,9 +278,33 @@ describe('VerificationService', () => {
         code: ERROR_CODES.DID_CREATION_FAILED
       });
     });
+
+    it('should handle DID creation errors with custom messages', async () => {
+      // Mock DID creation to fail with a custom error message
+      mockDidProvider.createDid.mockRejectedValueOnce(new Error('Custom DID creation error'));
+
+      // Make sure address validation passes
+      adapters.validatePolkadotAddress.mockImplementation(() => {});
+
+      // Make sure signature verification passes
+      sr25519Verify.mockReturnValue(true);
+      ed25519Verify.mockReturnValue(false);
+
+      const result = await service.verifySignature(createValidRequest());
+      expect(result).toEqual({
+        status: 'error',
+        message: 'Failed to create DID',
+        code: ERROR_CODES.DID_CREATION_FAILED
+      });
+    });
   });
 
   describe('Error Handling', () => {
+    beforeEach(() => {
+      // Default to not throwing for valid address
+      adapters.validatePolkadotAddress.mockImplementation(() => {});
+    });
+
     it('should handle invalid request format', async () => {
       const result = await service.verifySignature(null as any);
       expect(result).toEqual({
@@ -316,17 +341,270 @@ describe('VerificationService', () => {
       });
     });
 
-    it('should handle invalid address format', async () => {
+    it('should handle message tampering detection', async () => {
       const result = await service.verifySignature({
-        message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: invalid-address`,
+        message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty`,
         signature: VALID_SIGNATURE,
-        address: 'invalid-address'
+        address: VALID_ADDRESS // Different from message address
       });
 
       expect(result).toEqual({
         status: 'error',
+        message: 'Message tampering detected: address mismatch',
+        code: ERROR_CODES.VERIFICATION_FAILED
+      });
+    });
+
+    it('should handle unexpected errors during verification', async () => {
+      // Mock sr25519Verify to throw an unexpected error
+      sr25519Verify.mockImplementation(() => {
+        throw new Error('Unexpected crypto error');
+      });
+
+      // Make sure address validation passes
+      adapters.validatePolkadotAddress.mockImplementation(() => {});
+
+      const result = await service.verifySignature(createValidRequest());
+      expect(result).toEqual({
+        status: 'error',
         message: 'Verification failed',
         code: ERROR_CODES.VERIFICATION_FAILED
+      });
+    });
+
+    it('should handle invalid address format', async () => {
+      const invalidAddress = 'invalid-address';
+      adapters.validatePolkadotAddress.mockImplementation(() => {
+        throw new AddressValidationError('Invalid Polkadot address format');
+      });
+
+      const result = await service.verifySignature({
+        message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: ${invalidAddress}`,
+        signature: VALID_SIGNATURE,
+        address: invalidAddress
+      });
+
+      expect(result).toEqual({
+        status: 'error',
+        message: 'Invalid Polkadot address',
+        code: ERROR_CODES.INVALID_ADDRESS
+      });
+    });
+
+    describe('Message Tampering Detection', () => {
+      it('should detect message tampering with modified address', async () => {
+        const tamperedMessage = `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty`;
+        const result = await service.verifySignature({
+          message: tamperedMessage,
+          signature: VALID_SIGNATURE,
+          address: VALID_ADDRESS // Different from message address
+        });
+
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Message tampering detected: address mismatch',
+          code: ERROR_CODES.VERIFICATION_FAILED
+        });
+      });
+
+      it('should detect message tampering with modified timestamp', async () => {
+        const tamperedMessage = `KeyPass Login\nIssued At: ${new Date(Date.now() + 100000).toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`;
+        const result = await service.verifySignature({
+          message: tamperedMessage,
+          signature: VALID_SIGNATURE,
+          address: VALID_ADDRESS
+        });
+
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Message timestamp is in the future',
+          code: ERROR_CODES.MESSAGE_FUTURE
+        });
+      });
+    });
+
+    describe('Message Expiration and Future Dating', () => {
+      it('should reject expired message', async () => {
+        const expiredDate = new Date(Date.now() - 6 * 60 * 1000); // 6 minutes ago
+        const expiredMessage = `KeyPass Login\nIssued At: ${expiredDate.toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`;
+        
+        const result = await service.verifySignature({
+          message: expiredMessage,
+          signature: VALID_SIGNATURE,
+          address: VALID_ADDRESS
+        });
+
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Message has expired',
+          code: ERROR_CODES.MESSAGE_EXPIRED
+        });
+      });
+
+      it('should reject future-dated message', async () => {
+        const futureDate = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes in future
+        const futureMessage = `KeyPass Login\nIssued At: ${futureDate.toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`;
+        
+        const result = await service.verifySignature({
+          message: futureMessage,
+          signature: VALID_SIGNATURE,
+          address: VALID_ADDRESS
+        });
+
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Message timestamp is in the future',
+          code: ERROR_CODES.MESSAGE_FUTURE
+        });
+      });
+    });
+
+    describe('Address Validation Error Paths', () => {
+      it('should handle invalid address format', async () => {
+        const invalidAddress = 'invalid-address';
+        adapters.validatePolkadotAddress.mockImplementation(() => {
+          throw new AddressValidationError('Invalid Polkadot address format');
+        });
+
+        const result = await service.verifySignature({
+          message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: ${invalidAddress}`,
+          signature: VALID_SIGNATURE,
+          address: invalidAddress
+        });
+
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Invalid Polkadot address',
+          code: ERROR_CODES.INVALID_ADDRESS
+        });
+      });
+
+      it('should handle unexpected address validation errors', async () => {
+        adapters.validatePolkadotAddress.mockImplementation(() => {
+          throw new Error('Unexpected address validation error');
+        });
+
+        const result = await service.verifySignature({
+          message: createValidRequest().message,
+          signature: VALID_SIGNATURE,
+          address: VALID_ADDRESS
+        });
+
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Verification failed',
+          code: ERROR_CODES.VERIFICATION_FAILED
+        });
+      });
+    });
+
+    describe('Signature Validation Error Paths', () => {
+      it('should handle invalid signature length', async () => {
+        adapters.validateSignature.mockImplementation(() => {
+          throw new Error('Invalid signature length: must be 0x + 128 hex chars');
+        });
+
+        const result = await service.verifySignature({
+          message: createValidRequest().message,
+          signature: '0x' + '1'.repeat(64), // Too short
+          address: VALID_ADDRESS
+        });
+
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Invalid signature length',
+          code: ERROR_CODES.INVALID_SIGNATURE_LENGTH
+        });
+      });
+
+      it('should handle invalid signature format', async () => {
+        adapters.validateSignature.mockImplementation(() => {
+          throw new Error('Invalid signature format: missing 0x prefix');
+        });
+
+        const result = await service.verifySignature({
+          message: createValidRequest().message,
+          signature: 'invalid-signature',
+          address: VALID_ADDRESS
+        });
+
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Invalid signature format',
+          code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
+        });
+      });
+
+      it('should handle unexpected signature validation errors', async () => {
+        adapters.validateSignature.mockImplementation(() => {
+          throw new Error('Unexpected signature validation error');
+        });
+
+        const result = await service.verifySignature({
+          message: createValidRequest().message,
+          signature: VALID_SIGNATURE,
+          address: VALID_ADDRESS
+        });
+
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Invalid signature format',
+          code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
+        });
+      });
+    });
+
+    describe('DID Creation Error Handling', () => {
+      it('should handle DID creation failure with specific error', async () => {
+        mockDidProvider.createDid.mockRejectedValueOnce(new Error('DID creation failed: Invalid address format'));
+        
+        // Make sure signature verification passes
+        sr25519Verify.mockReturnValue(true);
+        ed25519Verify.mockReturnValue(false);
+
+        const result = await service.verifySignature(createValidRequest());
+        
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Failed to create DID',
+          code: ERROR_CODES.DID_CREATION_FAILED
+        });
+      });
+
+      it('should handle unexpected DID creation errors', async () => {
+        mockDidProvider.createDid.mockRejectedValueOnce(new Error('Unexpected DID creation error'));
+        
+        // Make sure signature verification passes
+        sr25519Verify.mockReturnValue(true);
+        ed25519Verify.mockReturnValue(false);
+
+        const result = await service.verifySignature(createValidRequest());
+        
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Failed to create DID',
+          code: ERROR_CODES.DID_CREATION_FAILED
+        });
+      });
+
+      it('should handle DID creation errors during unexpected verification errors', async () => {
+        // First make sure signature validation passes
+        validateSignature.mockImplementation(() => {});
+        
+        // Then make sure crypto verification passes
+        sr25519Verify.mockReturnValue(true);
+        ed25519Verify.mockReturnValue(false);
+        
+        // Finally mock DID creation to fail
+        mockDidProvider.createDid.mockRejectedValueOnce(new Error('DID creation failed: Invalid address'));
+
+        const result = await service.verifySignature(createValidRequest());
+        
+        expect(result).toEqual({
+          status: 'error',
+          message: 'Failed to create DID',
+          code: ERROR_CODES.DID_CREATION_FAILED
+        });
       });
     });
   });

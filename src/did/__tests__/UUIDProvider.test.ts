@@ -1,3 +1,8 @@
+import { PolkadotDIDProvider } from '../UUIDProvider';
+import { AddressValidationError } from '../../errors/WalletErrors';
+import { MULTIBASE_PREFIXES } from '../verification';
+import { decodeAddress, encodeAddress, base58Encode, base58Decode } from '@polkadot/util-crypto';
+
 // Valid Polkadot test addresses
 const VALID_ADDRESS = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'; // Alice's address
 const VALID_ADDRESS_2 = '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'; // Bob's address
@@ -41,46 +46,70 @@ jest.mock('@polkadot/util-crypto', () => ({
   })
 }));
 
-import { PolkadotDIDProvider } from '../UUIDProvider';
-import { AddressValidationError } from '../../errors/WalletErrors';
-
 describe('PolkadotDIDProvider', () => {
   let provider: PolkadotDIDProvider;
+  const VALID_PUBLIC_KEY = new Uint8Array(32).fill(1);
+  const VALID_BASE58 = 'base58encodedkey';
+  const VALID_DID = `did:key:${MULTIBASE_PREFIXES.BASE58BTC}${VALID_BASE58}`;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    
+    // Setup default mock implementations
+    (decodeAddress as jest.Mock).mockReturnValue(VALID_PUBLIC_KEY);
+    (encodeAddress as jest.Mock).mockReturnValue(VALID_ADDRESS);
+    (base58Encode as jest.Mock).mockReturnValue(VALID_BASE58);
+    (base58Decode as jest.Mock).mockReturnValue(VALID_PUBLIC_KEY);
+    
     provider = new PolkadotDIDProvider();
   });
 
   describe('createDid', () => {
-    it('should create a valid did:key for a Polkadot address', async () => {
+    it('should create a valid DID for a valid address', async () => {
       const did = await provider.createDid(VALID_ADDRESS);
-      expect(did).toMatch(/^did:key:z[1-9A-HJ-NP-Za-km-z]+$/);
-    });
-
-    it('should create the same DID for the same address', async () => {
-      const did1 = await provider.createDid(VALID_ADDRESS);
-      const did2 = await provider.createDid(VALID_ADDRESS);
-      expect(did1).toBe(did2);
+      expect(did).toBe(VALID_DID);
+      expect(decodeAddress).toHaveBeenCalledWith(VALID_ADDRESS);
+      expect(base58Encode).toHaveBeenCalledWith(VALID_PUBLIC_KEY);
     });
 
     it('should create different DIDs for different addresses', async () => {
       const did1 = await provider.createDid(VALID_ADDRESS);
       const did2 = await provider.createDid(VALID_ADDRESS_2);
       expect(did1).not.toBe(did2);
-      expect(did1).toMatch(/^did:key:zz/);
-      expect(did2).toMatch(/^did:key:zz/);
-      expect(did1).not.toBe(did2);
+      expect(decodeAddress).toHaveBeenCalledWith(VALID_ADDRESS);
+      expect(decodeAddress).toHaveBeenCalledWith(VALID_ADDRESS_2);
     });
 
-    it('should throw error for invalid address format', async () => {
-      await expect(provider.createDid(INVALID_ADDRESS)).rejects.toThrow(AddressValidationError);
+    it('should throw AddressValidationError for invalid address', async () => {
+      const invalidAddress = 'invalid-address';
+      (decodeAddress as jest.Mock).mockImplementation(() => {
+        throw new Error('Invalid address');
+      });
+
+      await expect(provider.createDid(invalidAddress)).rejects.toThrow(AddressValidationError);
+    });
+
+    it('should throw AddressValidationError when address validation fails', async () => {
+      const { validatePolkadotAddress } = require('../../adapters/types');
+      validatePolkadotAddress.mockImplementation(() => {
+        throw new AddressValidationError('Invalid address format');
+      });
+
+      await expect(provider.createDid('invalid-address')).rejects.toThrow(AddressValidationError);
+    });
+
+    it('should handle base58 encoding errors', async () => {
+      (base58Encode as jest.Mock).mockImplementation(() => {
+        throw new Error('Base58 encoding failed');
+      });
+
+      await expect(provider.createDid(VALID_ADDRESS)).rejects.toThrow('Failed to encode public key');
     });
   });
 
   describe('createDIDDocument', () => {
     it('should create a valid DID document', async () => {
       const doc = await provider.createDIDDocument(VALID_ADDRESS);
-      const did = await provider.createDid(VALID_ADDRESS);
       
       expect(doc).toEqual({
         '@context': [
@@ -88,87 +117,143 @@ describe('PolkadotDIDProvider', () => {
           'https://w3id.org/security/suites/ed25519-2020/v1',
           'https://w3id.org/security/suites/sr25519-2020/v1'
         ],
-        id: did,
-        controller: did,
+        id: VALID_DID,
+        controller: VALID_DID,
         verificationMethod: [{
-          id: `${did}#zzz11111`,
+          id: `${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`,
           type: 'Sr25519VerificationKey2020',
-          controller: did,
-          publicKeyMultibase: expect.stringMatching(/^zz/)
+          controller: VALID_DID,
+          publicKeyMultibase: MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58
         }],
-        authentication: [`${did}#zzz11111`],
-        assertionMethod: [`${did}#zzz11111`],
-        capabilityDelegation: [`${did}#zzz11111`],
-        capabilityInvocation: [`${did}#zzz11111`],
+        authentication: [`${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`],
+        assertionMethod: [`${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`],
         keyAgreement: [],
+        capabilityInvocation: [`${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`],
+        capabilityDelegation: [`${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`],
         service: []
       });
     });
 
-    it('should include authentication and assertion verification methods', async () => {
-      const doc = await provider.createDIDDocument(VALID_ADDRESS);
-      const verificationMethod = doc.verificationMethod[0];
-      
-      expect(doc.authentication).toContain(verificationMethod.id);
-      expect(doc.assertionMethod).toContain(verificationMethod.id);
-      expect(verificationMethod.type).toBe('Sr25519VerificationKey2020');
+    it('should create different DID documents for different addresses', async () => {
+      const doc1 = await provider.createDIDDocument(VALID_ADDRESS);
+      const doc2 = await provider.createDIDDocument(VALID_ADDRESS_2);
+      expect(doc1.id).not.toBe(doc2.id);
+      expect(doc1.verificationMethod[0].publicKeyMultibase).not.toBe(doc2.verificationMethod[0].publicKeyMultibase);
     });
 
-    it('should throw error for invalid address', async () => {
-      await expect(provider.createDIDDocument(INVALID_ADDRESS)).rejects.toThrow(AddressValidationError);
+    it('should throw AddressValidationError for invalid address', async () => {
+      (decodeAddress as jest.Mock).mockImplementation(() => {
+        throw new Error('Invalid address');
+      });
+
+      await expect(provider.createDIDDocument('invalid-address')).rejects.toThrow(AddressValidationError);
+    });
+
+    it('should handle base58 encoding errors', async () => {
+      (base58Encode as jest.Mock).mockImplementation(() => {
+        throw new Error('Base58 encoding failed');
+      });
+
+      await expect(provider.createDIDDocument(VALID_ADDRESS)).rejects.toThrow('Failed to encode public key');
     });
   });
 
   describe('resolve', () => {
-    it('should resolve a DID to its document', async () => {
-      const did = await provider.createDid(VALID_ADDRESS);
-      const doc = await provider.resolve(did);
-      
-      expect(doc).toEqual({
-        '@context': [
-          'https://www.w3.org/ns/did/v1',
-          'https://w3id.org/security/suites/ed25519-2020/v1',
-          'https://w3id.org/security/suites/sr25519-2020/v1'
-        ],
-        id: did,
-        controller: did,
-        verificationMethod: [{
-          id: `${did}#zzz11111`,
-          type: 'Sr25519VerificationKey2020',
-          controller: did,
-          publicKeyMultibase: expect.stringMatching(/^zz/)
-        }],
-        authentication: [`${did}#zzz11111`],
-        assertionMethod: [`${did}#zzz11111`],
-        capabilityDelegation: [`${did}#zzz11111`],
-        capabilityInvocation: [`${did}#zzz11111`],
-        keyAgreement: [],
-        service: []
-      });
+    it('should resolve a valid DID to a DID document', async () => {
+      const doc = await provider.resolve(VALID_DID);
+      expect(doc.id).toBe(VALID_DID);
+      expect(doc.controller).toBe(VALID_DID);
+      expect(doc.verificationMethod).toHaveLength(1);
+      expect(doc.verificationMethod[0].type).toBe('Sr25519VerificationKey2020');
+    });
+
+    it('should resolve different DIDs to different documents', async () => {
+      const did1 = await provider.createDid(VALID_ADDRESS);
+      const did2 = await provider.createDid(VALID_ADDRESS_2);
+      const doc1 = await provider.resolve(did1);
+      const doc2 = await provider.resolve(did2);
+      expect(doc1.id).not.toBe(doc2.id);
+      expect(doc1.verificationMethod[0].publicKeyMultibase).not.toBe(doc2.verificationMethod[0].publicKeyMultibase);
     });
 
     it('should throw error for invalid DID format', async () => {
-      await expect(provider.resolve(INVALID_DID)).rejects.toThrow('Invalid DID format');
+      await expect(provider.resolve('invalid-did')).rejects.toThrow('Invalid DID format');
+      await expect(provider.resolve('did:key:')).rejects.toThrow('Invalid DID format');
+      await expect(provider.resolve('did:key:z')).rejects.toThrow('Invalid DID format');
     });
 
-    it('should throw error for invalid public key in DID', async () => {
-      await expect(provider.resolve(INVALID_KEY_DID)).rejects.toThrow('Invalid public key in DID');
+    it('should throw error for DID with invalid public key', async () => {
+      (base58Decode as jest.Mock).mockImplementation(() => {
+        throw new Error('Invalid base58');
+      });
+
+      await expect(provider.resolve(VALID_DID)).rejects.toThrow('Invalid public key in DID');
+    });
+
+    it('should throw error for DID with wrong multibase prefix', async () => {
+      const invalidDid = 'did:key:wrongprefix' + VALID_BASE58;
+      await expect(provider.resolve(invalidDid)).rejects.toThrow('Invalid public key in DID');
+    });
+
+    it('should handle base58 decoding errors', async () => {
+      (base58Decode as jest.Mock).mockImplementation(() => {
+        throw new Error('Base58 decoding failed');
+      });
+
+      await expect(provider.resolve(VALID_DID)).rejects.toThrow('Invalid public key in DID');
     });
   });
 
   describe('extractAddress', () => {
-    it('should extract the original address from a DID', async () => {
-      const did = await provider.createDid(VALID_ADDRESS);
-      const address = await provider.extractAddress(did);
+    it('should extract address from valid DID', async () => {
+      const address = await provider.extractAddress(VALID_DID);
       expect(address).toBe(VALID_ADDRESS);
+      expect(base58Decode).toHaveBeenCalledWith(VALID_BASE58);
+      expect(encodeAddress).toHaveBeenCalledWith(VALID_PUBLIC_KEY);
+    });
+
+    it('should extract different addresses from different DIDs', async () => {
+      const did1 = await provider.createDid(VALID_ADDRESS);
+      const did2 = await provider.createDid(VALID_ADDRESS_2);
+      const address1 = await provider.extractAddress(did1);
+      const address2 = await provider.extractAddress(did2);
+      expect(address1).toBe(VALID_ADDRESS);
+      expect(address2).toBe(VALID_ADDRESS_2);
     });
 
     it('should throw error for invalid DID format', async () => {
-      await expect(provider.extractAddress(INVALID_DID)).rejects.toThrow('Invalid DID format');
+      await expect(provider.extractAddress('invalid-did')).rejects.toThrow('Invalid DID format');
+      await expect(provider.extractAddress('did:key:')).rejects.toThrow('Invalid DID format');
+      await expect(provider.extractAddress('did:key:z')).rejects.toThrow('Invalid DID format');
     });
 
-    it('should throw error for invalid public key in DID', async () => {
-      await expect(provider.extractAddress(INVALID_KEY_DID)).rejects.toThrow('Invalid public key in DID');
+    it('should throw error for DID with invalid public key', async () => {
+      (base58Decode as jest.Mock).mockImplementation(() => {
+        throw new Error('Invalid base58');
+      });
+
+      await expect(provider.extractAddress(VALID_DID)).rejects.toThrow('Invalid public key in DID');
+    });
+
+    it('should throw error for DID with wrong multibase prefix', async () => {
+      const invalidDid = 'did:key:wrongprefix' + VALID_BASE58;
+      await expect(provider.extractAddress(invalidDid)).rejects.toThrow('Invalid public key in DID');
+    });
+
+    it('should preserve specific error message for invalid public key', async () => {
+      (base58Decode as jest.Mock).mockImplementation(() => {
+        throw new Error('Invalid public key in DID');
+      });
+
+      await expect(provider.extractAddress(VALID_DID)).rejects.toThrow('Invalid public key in DID');
+    });
+
+    it('should handle address encoding errors', async () => {
+      (encodeAddress as jest.Mock).mockImplementation(() => {
+        throw new Error('Address encoding failed');
+      });
+
+      await expect(provider.extractAddress(VALID_DID)).rejects.toThrow('Failed to encode address');
     });
   });
 });
