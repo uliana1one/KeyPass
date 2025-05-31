@@ -6,6 +6,7 @@ import messageFormat from '../config/messageFormat.json';
 import { WalletConnectionError } from './errors/WalletErrors';
 import { PolkadotDIDProvider } from './did/UUIDProvider';
 import { WalletAccount } from './adapters/types';
+import { VerificationService } from './server/verificationService';
 
 export interface LoginResult {
   address: string;
@@ -22,6 +23,7 @@ export interface LoginResult {
  */
 export async function loginWithPolkadot(retryCount = 1): Promise<LoginResult> {
   let lastError: Error | null = null;
+  const verificationService = new VerificationService();
 
   for (let attempt = 0; attempt <= retryCount; attempt++) {
     try {
@@ -40,6 +42,18 @@ export async function loginWithPolkadot(retryCount = 1): Promise<LoginResult> {
         issuedAt,
       });
       const signature = await adapter.signMessage(message);
+      
+      // Verify the signature
+      const verificationResult = await verificationService.verifySignature({
+        address,
+        message,
+        signature
+      });
+
+      if (verificationResult.status === 'error') {
+        throw new Error(verificationResult.message);
+      }
+
       const didProvider = new PolkadotDIDProvider();
       const did = await didProvider.createDid(address);
 

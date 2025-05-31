@@ -1,15 +1,6 @@
 import { validateAndSanitizeMessage, validatePolkadotAddress, validateSignature } from '../types';
 import { MessageValidationError, AddressValidationError } from '../../errors/WalletErrors';
 
-// Mock @polkadot/util-crypto
-jest.mock('@polkadot/util-crypto', () => ({
-  isAddress: jest.fn((address) => {
-    // Return true for our valid test address, false for others
-    return address === '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty';
-  }),
-  checkAddress: jest.fn(() => [true, null]),
-}));
-
 describe('Types Module', () => {
   describe('validateAndSanitizeMessage', () => {
     it('should handle empty messages', () => {
@@ -44,11 +35,10 @@ describe('Types Module', () => {
   });
 
   describe('validatePolkadotAddress', () => {
-    const validAddress = '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty';
+    const validAddress = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
     const invalidAddresses = [
       'invalid',
       '0x123',
-      '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
       '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQYinvalid',
       '',
       '   '

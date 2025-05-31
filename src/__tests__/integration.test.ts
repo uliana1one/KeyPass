@@ -1,6 +1,6 @@
 import { connectWallet } from '../walletConnector';
 import { loginWithPolkadot } from '../index';
-import { VerificationService } from '../server/verificationService';
+import { VerificationService, ERROR_CODES } from '../server/verificationService';
 import { WalletAdapter } from '../adapters/types';
 import { WalletNotFoundError, UserRejectedError } from '../errors/WalletErrors';
 import { PolkadotDIDProvider } from '../did/UUIDProvider';
@@ -11,70 +11,89 @@ jest.mock('../walletConnector', () => ({
 }));
 
 // Mock the verification service
-jest.mock('../server/verificationService', () => ({
-  VerificationService: jest.fn().mockImplementation(() => ({
-    verifySignature: jest.fn()
-  }))
-}));
+jest.mock('../server/verificationService', () => {
+  const mockVerifySignature = jest.fn().mockResolvedValue({
+    status: 'success',
+    message: 'Verification successful',
+    code: 'SUCCESS',
+    did: 'did:key:z' + '1'.repeat(58)
+  });
+
+  return {
+    VerificationService: jest.fn().mockImplementation(() => ({
+      verifySignature: mockVerifySignature
+    })),
+    ERROR_CODES: {
+      VERIFICATION_FAILED: 'VERIFICATION_FAILED',
+      INVALID_MESSAGE_FORMAT: 'INVALID_MESSAGE_FORMAT',
+      INVALID_REQUEST: 'INVALID_REQUEST',
+      INVALID_JSON: 'INVALID_JSON',
+      MESSAGE_TOO_LONG: 'MESSAGE_TOO_LONG',
+      INVALID_SIGNATURE_FORMAT: 'INVALID_SIGNATURE_FORMAT',
+      INVALID_SIGNATURE_LENGTH: 'INVALID_SIGNATURE_LENGTH',
+      INVALID_ADDRESS: 'INVALID_ADDRESS',
+      MESSAGE_EXPIRED: 'MESSAGE_EXPIRED',
+      MESSAGE_FUTURE: 'MESSAGE_FUTURE',
+      DID_CREATION_FAILED: 'DID_CREATION_FAILED'
+    }
+  };
+});
 
 // Mock the UUID provider
-jest.mock('../did/UUIDProvider', () => ({
-  PolkadotDIDProvider: jest.fn().mockImplementation(() => ({
-    createDid: jest.fn().mockResolvedValue('did:key:z' + '1'.repeat(58))
-  }))
-}));
+jest.mock('../did/UUIDProvider', () => {
+  const mockCreateDid = jest.fn().mockResolvedValue('did:key:z' + '1'.repeat(58));
+  const mockCreateDIDDocument = jest.fn().mockResolvedValue({
+    '@context': ['https://www.w3.org/ns/did/v1'],
+    id: 'did:key:z' + '1'.repeat(58),
+    controller: 'did:key:z' + '1'.repeat(58),
+    verificationMethod: [],
+    authentication: [],
+    assertionMethod: [],
+    keyAgreement: [],
+    capabilityInvocation: [],
+    capabilityDelegation: [],
+    service: []
+  });
+
+  const MockPolkadotDIDProvider = jest.fn().mockImplementation(() => ({
+    createDid: mockCreateDid,
+    createDIDDocument: mockCreateDIDDocument
+  }));
+
+  return {
+    PolkadotDIDProvider: MockPolkadotDIDProvider,
+    __mockCreateDid: mockCreateDid // Export the mock for testing
+  };
+});
 
 describe('Integration Tests', () => {
   let mockAdapter: jest.Mocked<WalletAdapter>;
   let verificationService: jest.Mocked<VerificationService>;
-  let mockDidProvider: jest.Mocked<PolkadotDIDProvider>;
+  let mockCreateDid: jest.Mock;
 
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
 
+    // Get the mock createDid function from the module
+    mockCreateDid = (require('../did/UUIDProvider') as any).__mockCreateDid;
+
     // Setup mock adapter
     mockAdapter = {
       enable: jest.fn().mockResolvedValue(undefined),
-      getAccounts: jest.fn().mockResolvedValue([
-        {
-          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-          name: 'Test Account',
-          source: 'polkadot-js'
-        }
-      ]),
+      getAccounts: jest.fn().mockImplementation(async () => [{
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        name: 'Test Account',
+        source: 'polkadot-js'
+      }]),
       signMessage: jest.fn().mockResolvedValue('0x' + '1'.repeat(128)),
       getProvider: jest.fn().mockReturnValue('polkadot-js')
     };
 
-    // Setup mock verification service
+    // Get the mock instance
     verificationService = new VerificationService() as jest.Mocked<VerificationService>;
-    (verificationService.verifySignature as jest.Mock).mockResolvedValue({
-      valid: true,
-      did: 'did:key:z' + '1'.repeat(58)
-    });
 
-    // Setup mock DID provider
-    mockDidProvider = {
-      createDid: jest.fn().mockResolvedValue('did:key:z' + '1'.repeat(58)),
-      createDIDDocument: jest.fn().mockResolvedValue({
-        '@context': ['https://www.w3.org/ns/did/v1'],
-        id: 'did:key:z' + '1'.repeat(58),
-        controller: 'did:key:z' + '1'.repeat(58),
-        verificationMethod: [],
-        authentication: [],
-        assertionMethod: [],
-        keyAgreement: [],
-        capabilityInvocation: [],
-        capabilityDelegation: [],
-        service: []
-      }),
-      resolve: jest.fn().mockResolvedValue(null),
-      extractAddress: jest.fn().mockReturnValue('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY')
-    } as unknown as jest.Mocked<PolkadotDIDProvider>;
-    (PolkadotDIDProvider as unknown as jest.Mock).mockImplementation(() => mockDidProvider);
-
-    // Setup default wallet connector mock
+    // Setup wallet connector mock to call enable() before returning the adapter
     (connectWallet as jest.Mock).mockImplementation(async () => {
       await mockAdapter.enable();
       return mockAdapter;
@@ -96,7 +115,7 @@ describe('Integration Tests', () => {
 
       // Verify DID creation
       const accounts = await mockAdapter.getAccounts();
-      expect(mockDidProvider.createDid).toHaveBeenCalledWith(accounts[0].address);
+      expect(mockCreateDid).toHaveBeenCalledWith(accounts[0].address);
 
       // Verify result structure
       expect(result).toEqual({
@@ -131,6 +150,17 @@ describe('Integration Tests', () => {
 
       await expect(loginWithPolkadot()).rejects.toThrow('No accounts found');
       expect(mockAdapter.signMessage).not.toHaveBeenCalled();
+    });
+
+    it('should handle signature verification failures', async () => {
+      // Mock verification service to return an error response
+      (verificationService.verifySignature as jest.Mock).mockResolvedValueOnce({
+        status: 'error',
+        message: 'Invalid signature',
+        code: ERROR_CODES.VERIFICATION_FAILED
+      });
+
+      await expect(loginWithPolkadot()).rejects.toThrow('Invalid signature');
     });
   });
 
@@ -189,30 +219,14 @@ describe('Integration Tests', () => {
 
   describe('Error Recovery', () => {
     it('should recover from temporary connection failures', async () => {
-      // Reset the mock to remove the default implementation
-      (connectWallet as jest.Mock).mockReset();
-      
-      // Setup the mock to fail once then succeed
+      // Simulate temporary failure then success
       (connectWallet as jest.Mock)
         .mockRejectedValueOnce(new Error('Network error'))
-        .mockImplementationOnce(async () => {
-          await mockAdapter.enable();
-          return mockAdapter;
-        });
+        .mockResolvedValueOnce(mockAdapter);
 
       const result = await loginWithPolkadot();
       expect(result).toBeDefined();
       expect(connectWallet).toHaveBeenCalledTimes(2);
-    });
-
-    it('should handle signature verification failures', async () => {
-      (verificationService.verifySignature as jest.Mock).mockResolvedValueOnce({
-        valid: false,
-        error: 'Invalid signature',
-        code: 'INVALID_SIGNATURE'
-      });
-
-      await expect(loginWithPolkadot()).rejects.toThrow('Invalid signature');
     });
   });
 }); 
