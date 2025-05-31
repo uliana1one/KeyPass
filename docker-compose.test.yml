@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # Verification server
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=test
+      - PORT=3000
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/verify"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Test runner
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      - NODE_ENV=test
+      - VERIFICATION_API_URL=http://server:3000/api
+      - DEBUG=keypass:*
+    depends_on:
+      server:
+        condition: service_healthy
+    volumes:
+      - ./test-results:/app/test-results
+    command: >
+      sh -c "npm test &&
+             npm test -- --testPathPattern=src/__tests__/integration.test.ts &&
+             npm test -- --testPathPattern=src/__tests__/walletConnector.test.ts &&
+             npm test -- --coverage --coverageReporters='json-summary' --coverageReporters='text' --coverageDirectory='./test-results/coverage'" 

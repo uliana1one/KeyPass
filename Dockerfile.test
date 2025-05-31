@@ -1,0 +1,30 @@
+# Use Node.js 16 as base image
+FROM node:16-alpine
+
+# Install dependencies for @polkadot/util-crypto and testing
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    wget
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN npm run build
+
+# Create test results directory
+RUN mkdir -p /app/test-results
+
+# Default command (can be overridden)
+CMD ["npm", "test"] 
