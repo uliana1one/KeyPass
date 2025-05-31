@@ -57,14 +57,14 @@ describe('Wallet Errors', () => {
 
   describe('TimeoutError', () => {
     it('should create with correct code', () => {
-      const error = new TimeoutError('connection');
+      const error = new TimeoutError('wallet_connection');
       expect(error.message).toBe('wallet connection timed out');
       expect(error.code).toBe('OPERATION_TIMEOUT');
       expect(error instanceof WalletError).toBe(true);
     });
 
     it('should handle different operations', () => {
-      const error = new TimeoutError('signing');
+      const error = new TimeoutError('message_signing');
       expect(error.message).toBe('message signing timed out');
     });
   });
