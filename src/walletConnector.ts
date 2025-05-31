@@ -28,29 +28,39 @@ try {
  * const accounts = await wallet.getAccounts();
  * ```
  */
-export async function connectWallet(): Promise<WalletAdapter> {
+export async function connectWallet(retryCount = 1): Promise<WalletAdapter> {
   // Ensure configuration is valid
   validateWalletConfig(walletsConfig);
 
   const errors: Error[] = [];
+  let lastError: Error | null = null;
 
-  for (const wallet of walletsConfig.wallets) {
-    try {
-      // Dynamic import of adapter class
-      const AdapterModule = await import(`./adapters/${wallet.adapter}`);
-      const AdapterClass = AdapterModule[wallet.adapter] as WalletAdapterConstructor;
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
+    for (const wallet of walletsConfig.wallets) {
+      try {
+        // Dynamic import of adapter class
+        const AdapterModule = await import(`./adapters/${wallet.adapter}`);
+        const AdapterClass = AdapterModule[wallet.adapter] as WalletAdapterConstructor;
 
-      // Create and enable adapter
-      const adapter = new AdapterClass();
-      await adapter.enable();
+        // Create and enable adapter
+        const adapter = new AdapterClass();
+        await adapter.enable();
 
-      return adapter;
-    } catch (error) {
-      // Log error but continue to next wallet
-      console.debug(`Failed to connect to ${wallet.name}:`, error);
-      if (error instanceof Error) {
-        errors.push(error);
+        return adapter;
+      } catch (error) {
+        // Log error but continue to next wallet
+        console.debug(`Failed to connect to ${wallet.name} (attempt ${attempt + 1}/${retryCount + 1}):`, error);
+        if (error instanceof Error) {
+          errors.push(error);
+          lastError = error;
+        }
+        continue;
       }
+    }
+
+    // If this wasn't the last attempt and we got a network error, wait and retry
+    if (attempt < retryCount && lastError?.message.includes('Network error')) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
       continue;
     }
   }

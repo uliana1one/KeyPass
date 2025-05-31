@@ -74,7 +74,7 @@ describe('Integration Tests', () => {
     } as unknown as jest.Mocked<PolkadotDIDProvider>;
     (PolkadotDIDProvider as unknown as jest.Mock).mockImplementation(() => mockDidProvider);
 
-    // Setup wallet connector mock to call enable() before returning the adapter
+    // Setup default wallet connector mock
     (connectWallet as jest.Mock).mockImplementation(async () => {
       await mockAdapter.enable();
       return mockAdapter;
@@ -189,10 +189,16 @@ describe('Integration Tests', () => {
 
   describe('Error Recovery', () => {
     it('should recover from temporary connection failures', async () => {
-      // Simulate temporary failure then success
+      // Reset the mock to remove the default implementation
+      (connectWallet as jest.Mock).mockReset();
+      
+      // Setup the mock to fail once then succeed
       (connectWallet as jest.Mock)
         .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValueOnce(mockAdapter);
+        .mockImplementationOnce(async () => {
+          await mockAdapter.enable();
+          return mockAdapter;
+        });
 
       const result = await loginWithPolkadot();
       expect(result).toBeDefined();
