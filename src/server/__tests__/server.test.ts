@@ -775,21 +775,19 @@ describe('Express Server', () => {
 
   describe('Route Coverage', () => {
     it('should handle non-existent routes with 404', async () => {
-      // Create and store server instance
-      server = app.listen(0); // Use port 0 for random available port
-      const response = await request(app)
-        .get('/non-existent-route');
+      const response = await request(server)
+        .get('/non-existent-route')
+        .timeout(1000);
 
       expect(response.status).toBe(404);
-    });
+    }, 2000);
 
     it('should only accept POST requests on /api/verify', async () => {
-      // Create and store server instance
-      server = app.listen(0); // Use port 0 for random available port
-      const response = await request(app)
-        .get('/api/verify');
+      const response = await request(server)
+        .get('/api/verify')
+        .timeout(1000);
 
       expect(response.status).toBe(404);
-    });
+    }, 2000);
   });
 });
