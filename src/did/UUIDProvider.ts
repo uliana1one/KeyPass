@@ -99,14 +99,25 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
       throw new Error('Invalid DID format');
     }
 
+    // Extract the multibase-encoded public key
+    const multibaseKey = did.slice(8); // Remove 'did:key:'
+    
+    // Validate that there's content after 'did:key:'
+    if (!multibaseKey || multibaseKey.length === 0) {
+      throw new Error('Invalid DID format');
+    }
+
+    // Validate that the multibase key has enough characters
+    if (multibaseKey.length < 2) {
+      throw new Error('Invalid DID format');
+    }
+
+    // Validate the multibase prefix
+    if (!multibaseKey.startsWith(MULTIBASE_PREFIXES.BASE58BTC)) {
+      throw new Error('Invalid public key in DID');
+    }
+    
     try {
-      // Extract the multibase-encoded public key
-      const multibaseKey = did.slice(8); // Remove 'did:key:'
-      
-      if (!multibaseKey.startsWith(MULTIBASE_PREFIXES.BASE58BTC)) {
-        throw new Error('Invalid public key in DID');
-      }
-      
       // Decode the base58 key
       const publicKey = base58Decode(multibaseKey.slice(1)); // Remove multibase prefix
       
