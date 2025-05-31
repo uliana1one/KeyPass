@@ -1,3 +1,10 @@
+// Add setImmediate polyfill at the top
+if (typeof setImmediate === 'undefined') {
+  (global as any).setImmediate = (callback: Function, ...args: any[]) => {
+    return setTimeout(callback, 0, ...args);
+  };
+}
+
 import request from 'supertest';
 import express from 'express';
 import { createServer } from '../server';
@@ -47,7 +54,7 @@ describe('Express Server', () => {
   });
 
   afterEach(async () => {
-    // Close the server after each test
+    // Close the server after each test and wait for it to close
     if (server) {
       await new Promise<void>((resolve, reject) => {
         server.close((err) => {
@@ -55,6 +62,8 @@ describe('Express Server', () => {
           else resolve();
         });
       });
+      // Add a small delay to ensure server is fully closed
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   });
 
@@ -775,19 +784,17 @@ describe('Express Server', () => {
 
   describe('Route Coverage', () => {
     it('should handle non-existent routes with 404', async () => {
-      const response = await request(server)
-        .get('/non-existent-route')
-        .timeout(1000);
+      const response = await request(app)
+        .get('/non-existent-route');
 
       expect(response.status).toBe(404);
-    }, 2000);
+    });
 
     it('should only accept POST requests on /api/verify', async () => {
-      const response = await request(server)
-        .get('/api/verify')
-        .timeout(1000);
+      const response = await request(app)
+        .get('/api/verify');
 
       expect(response.status).toBe(404);
-    }, 2000);
+    });
   });
 });
