@@ -338,6 +338,15 @@ export class VerificationService {
         throw error;
       }
 
+      // If this is a DID creation error, return the appropriate response
+      if (error instanceof Error && error.message.includes('DID creation failed')) {
+        return {
+          status: 'error',
+          message: 'Failed to create DID',
+          code: ERROR_CODES.DID_CREATION_FAILED
+        };
+      }
+
       // Return verification failed for other errors
       return {
         status: 'error',
