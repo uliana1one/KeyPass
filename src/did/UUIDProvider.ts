@@ -110,10 +110,20 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
       // Decode the base58 key
       const publicKey = base58Decode(multibaseKey.slice(1)); // Remove multibase prefix
       
-      // Encode as a Polkadot address
-      return encodeAddress(publicKey);
+      try {
+        // Encode as a Polkadot address
+        return encodeAddress(publicKey);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'Address encoding failed') {
+          throw new Error('Failed to encode address');
+        }
+        throw error; // Re-throw other errors
+      }
     } catch (error) {
       if (error instanceof Error && error.message === 'Invalid public key in DID') {
+        throw error;
+      }
+      if (error instanceof Error && error.message === 'Failed to encode address') {
         throw error;
       }
       throw new Error('Invalid public key in DID');

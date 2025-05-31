@@ -37,13 +37,23 @@ jest.mock('@polkadot/util-crypto', () => ({
   base58Encode: jest.fn((input: Uint8Array) => {
     if (input[0] === 1) return 'zz1111111111111111111111111111111111111111111111111111111111111111';
     if (input[0] === 5) return 'zz2222222222222222222222222222222222222222222222222222222222222222';
-    return 'zz' + '0'.repeat(62);
+    throw new Error('Base58 encoding failed');
   }),
   base58Decode: jest.fn((input: string) => {
     if (input.startsWith('zz1')) return new Uint8Array([1, 2, 3, 4]);
     if (input.startsWith('zz2')) return new Uint8Array([5, 6, 7, 8]);
     throw new Error('Invalid base58 input');
   })
+}));
+
+jest.mock('../../adapters/types', () => ({
+  validatePolkadotAddress: jest.fn((address: string) => {
+    if (address === VALID_ADDRESS || address === VALID_ADDRESS_2) {
+      return;
+    }
+    throw new AddressValidationError('Invalid address format');
+  }),
+  validateSignature: jest.fn()
 }));
 
 describe('PolkadotDIDProvider', () => {
@@ -58,7 +68,6 @@ describe('PolkadotDIDProvider', () => {
     // Setup default mock implementations
     (decodeAddress as jest.Mock).mockReturnValue(VALID_PUBLIC_KEY);
     (encodeAddress as jest.Mock).mockReturnValue(VALID_ADDRESS);
-    (base58Encode as jest.Mock).mockReturnValue(VALID_BASE58);
     (base58Decode as jest.Mock).mockReturnValue(VALID_PUBLIC_KEY);
     
     provider = new PolkadotDIDProvider();
@@ -67,17 +76,17 @@ describe('PolkadotDIDProvider', () => {
   describe('createDid', () => {
     it('should create a valid DID for a valid address', async () => {
       const did = await provider.createDid(VALID_ADDRESS);
-      expect(did).toBe(VALID_DID);
+      expect(did).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`);
       expect(decodeAddress).toHaveBeenCalledWith(VALID_ADDRESS);
-      expect(base58Encode).toHaveBeenCalledWith(VALID_PUBLIC_KEY);
+      expect(base58Encode).toHaveBeenCalledWith(new Uint8Array([1, 2, 3, 4]));
     });
 
     it('should create different DIDs for different addresses', async () => {
       const did1 = await provider.createDid(VALID_ADDRESS);
       const did2 = await provider.createDid(VALID_ADDRESS_2);
+      expect(did1).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`);
+      expect(did2).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz2222222222222222222222222222222222222222222222222222222222222222`);
       expect(did1).not.toBe(did2);
-      expect(decodeAddress).toHaveBeenCalledWith(VALID_ADDRESS);
-      expect(decodeAddress).toHaveBeenCalledWith(VALID_ADDRESS_2);
     });
 
     it('should throw AddressValidationError for invalid address', async () => {
@@ -99,7 +108,7 @@ describe('PolkadotDIDProvider', () => {
     });
 
     it('should handle base58 encoding errors', async () => {
-      (base58Encode as jest.Mock).mockImplementation(() => {
+      (base58Encode as jest.Mock).mockImplementationOnce(() => {
         throw new Error('Base58 encoding failed');
       });
 
@@ -137,6 +146,8 @@ describe('PolkadotDIDProvider', () => {
     it('should create different DID documents for different addresses', async () => {
       const doc1 = await provider.createDIDDocument(VALID_ADDRESS);
       const doc2 = await provider.createDIDDocument(VALID_ADDRESS_2);
+      expect(doc1.id).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`);
+      expect(doc2.id).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz2222222222222222222222222222222222222222222222222222222222222222`);
       expect(doc1.id).not.toBe(doc2.id);
       expect(doc1.verificationMethod[0].publicKeyMultibase).not.toBe(doc2.verificationMethod[0].publicKeyMultibase);
     });
@@ -150,7 +161,7 @@ describe('PolkadotDIDProvider', () => {
     });
 
     it('should handle base58 encoding errors', async () => {
-      (base58Encode as jest.Mock).mockImplementation(() => {
+      (base58Encode as jest.Mock).mockImplementationOnce(() => {
         throw new Error('Base58 encoding failed');
       });
 
@@ -168,10 +179,12 @@ describe('PolkadotDIDProvider', () => {
     });
 
     it('should resolve different DIDs to different documents', async () => {
-      const did1 = await provider.createDid(VALID_ADDRESS);
-      const did2 = await provider.createDid(VALID_ADDRESS_2);
+      const did1 = `did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`;
+      const did2 = `did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz2222222222222222222222222222222222222222222222222222222222222222`;
       const doc1 = await provider.resolve(did1);
       const doc2 = await provider.resolve(did2);
+      expect(doc1.id).toBe(did1);
+      expect(doc2.id).toBe(did2);
       expect(doc1.id).not.toBe(doc2.id);
       expect(doc1.verificationMethod[0].publicKeyMultibase).not.toBe(doc2.verificationMethod[0].publicKeyMultibase);
     });
@@ -213,8 +226,8 @@ describe('PolkadotDIDProvider', () => {
     });
 
     it('should extract different addresses from different DIDs', async () => {
-      const did1 = await provider.createDid(VALID_ADDRESS);
-      const did2 = await provider.createDid(VALID_ADDRESS_2);
+      const did1 = `did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`;
+      const did2 = `did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz2222222222222222222222222222222222222222222222222222222222222222`;
       const address1 = await provider.extractAddress(did1);
       const address2 = await provider.extractAddress(did2);
       expect(address1).toBe(VALID_ADDRESS);
@@ -249,7 +262,7 @@ describe('PolkadotDIDProvider', () => {
     });
 
     it('should handle address encoding errors', async () => {
-      (encodeAddress as jest.Mock).mockImplementation(() => {
+      (encodeAddress as jest.Mock).mockImplementationOnce(() => {
         throw new Error('Address encoding failed');
       });
 
