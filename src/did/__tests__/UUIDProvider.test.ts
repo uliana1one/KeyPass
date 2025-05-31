@@ -21,6 +21,7 @@ jest.mock('@polkadot/util-crypto', () => ({
     return [false, 'Invalid decoded address checksum'];
   }),
   decodeAddress: jest.fn((address: string) => {
+    console.log('decodeAddress called with:', address);
     if (address === VALID_ADDRESS) {
       return new Uint8Array([1, 2, 3, 4]);
     }
@@ -30,18 +31,24 @@ jest.mock('@polkadot/util-crypto', () => ({
     throw new Error('Invalid address');
   }),
   encodeAddress: jest.fn((key: Uint8Array) => {
+    console.log('encodeAddress called with:', key);
     if (key[0] === 1) return VALID_ADDRESS;
     if (key[0] === 5) return VALID_ADDRESS_2;
     throw new Error('Invalid key');
   }),
   base58Encode: jest.fn((input: Uint8Array) => {
+    console.log('base58Encode called with:', input);
     if (input[0] === 1) return 'zz1111111111111111111111111111111111111111111111111111111111111111';
     if (input[0] === 5) return 'zz2222222222222222222222222222222222222222222222222222222222222222';
     throw new Error('Base58 encoding failed');
   }),
   base58Decode: jest.fn((input: string) => {
-    if (input.startsWith('zz1')) return new Uint8Array([1, 2, 3, 4]);
-    if (input.startsWith('zz2')) return new Uint8Array([5, 6, 7, 8]);
+    console.log('base58Decode called with:', input);
+    // Remove any 'z' prefix if present
+    const key = input.startsWith('z') ? input.slice(1) : input;
+    console.log('base58Decode processing key:', key);
+    if (key.startsWith('z1')) return new Uint8Array([1, 2, 3, 4]);
+    if (key.startsWith('z2')) return new Uint8Array([5, 6, 7, 8]);
     throw new Error('Invalid base58 input');
   })
 }));
@@ -65,9 +72,8 @@ describe('PolkadotDIDProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Setup default mock implementations
-    (decodeAddress as jest.Mock).mockReturnValue(VALID_PUBLIC_KEY);
-    (encodeAddress as jest.Mock).mockReturnValue(VALID_ADDRESS);
+    // Remove the mock override that was causing the test to fail
+    // (decodeAddress as jest.Mock).mockReturnValue(VALID_PUBLIC_KEY);
     (base58Decode as jest.Mock).mockReturnValue(VALID_PUBLIC_KEY);
     
     provider = new PolkadotDIDProvider();

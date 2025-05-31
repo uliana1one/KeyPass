@@ -101,6 +101,7 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
 
     // Extract the multibase-encoded public key
     const multibaseKey = did.slice(8); // Remove 'did:key:'
+    console.log('multibaseKey:', multibaseKey);
     
     // Validate that there's content after 'did:key:'
     if (!multibaseKey || multibaseKey.length === 0) {
@@ -119,11 +120,16 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
     
     try {
       // Decode the base58 key
-      const publicKey = base58Decode(multibaseKey.slice(1)); // Remove multibase prefix
+      const keyToDecode = multibaseKey.slice(1); // Remove multibase prefix
+      console.log('keyToDecode:', keyToDecode);
+      const publicKey = base58Decode(keyToDecode);
+      console.log('publicKey:', publicKey);
       
       try {
         // Encode as a Polkadot address
-        return encodeAddress(publicKey);
+        const address = encodeAddress(publicKey);
+        console.log('encoded address:', address);
+        return address;
       } catch (error) {
         if (error instanceof Error && error.message === 'Address encoding failed') {
           throw new Error('Failed to encode address');
