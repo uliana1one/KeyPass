@@ -35,17 +35,25 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
   public async createDid(address: string): Promise<string> {
     this.validateAddress(address);
     
+    let publicKey: Uint8Array;
     try {
       // Decode the address to get the public key
-      const publicKey = decodeAddress(address);
-      
+      publicKey = decodeAddress(address);
+    } catch (error) {
+      throw new AddressValidationError('Invalid Polkadot address');
+    }
+    
+    try {
       // Encode the public key in base58
       const base58Key = base58Encode(publicKey);
       
       // Create the did:key identifier with multibase prefix
       return `did:key:${MULTIBASE_PREFIXES.BASE58BTC}${base58Key}`;
     } catch (error) {
-      throw new AddressValidationError('Invalid Polkadot address');
+      if (error instanceof Error && error.message === 'Base58 encoding failed') {
+        throw new Error('Failed to encode public key');
+      }
+      throw error; // Re-throw other errors as is
     }
   }
 
@@ -56,21 +64,28 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
    * @throws {AddressValidationError} If the address is invalid
    */
   public async createDIDDocument(address: string): Promise<DIDDocument> {
-    const did = await this.createDid(address);
-    const verificationMethod = await this.createVerificationMethod(did, address);
+    try {
+      const did = await this.createDid(address);
+      const verificationMethod = await this.createVerificationMethod(did, address);
 
-    return {
-      '@context': PolkadotDIDProvider.DID_CONTEXT,
-      id: did,
-      controller: did,
-      verificationMethod: [verificationMethod],
-      authentication: [verificationMethod.id],
-      assertionMethod: [verificationMethod.id],
-      keyAgreement: [],
-      capabilityInvocation: [verificationMethod.id],
-      capabilityDelegation: [verificationMethod.id],
-      service: []
-    };
+      return {
+        '@context': PolkadotDIDProvider.DID_CONTEXT,
+        id: did,
+        controller: did,
+        verificationMethod: [verificationMethod],
+        authentication: [verificationMethod.id],
+        assertionMethod: [verificationMethod.id],
+        keyAgreement: [],
+        capabilityInvocation: [verificationMethod.id],
+        capabilityDelegation: [verificationMethod.id],
+        service: []
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Failed to encode public key') {
+        throw error; // Propagate the base58 encoding error
+      }
+      throw error; // Re-throw other errors as is
+    }
   }
 
   /**
@@ -85,7 +100,20 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
     }
 
     const address = await this.extractAddress(did);
-    return this.createDIDDocument(address);
+    const verificationMethod = await this.createVerificationMethod(did, address);
+
+    return {
+      '@context': PolkadotDIDProvider.DID_CONTEXT,
+      id: did,
+      controller: did,
+      verificationMethod: [verificationMethod],
+      authentication: [verificationMethod.id],
+      assertionMethod: [verificationMethod.id],
+      keyAgreement: [],
+      capabilityInvocation: [verificationMethod.id],
+      capabilityDelegation: [verificationMethod.id],
+      service: []
+    };
   }
 
   /**
@@ -155,15 +183,22 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
    * @private
    */
   private async createVerificationMethod(did: string, address: string): Promise<VerificationMethod> {
-    const publicKey = decodeAddress(address);
-    const base58Key = base58Encode(publicKey);
-    const multibaseKey = MULTIBASE_PREFIXES.BASE58BTC + base58Key;
+    try {
+      const publicKey = decodeAddress(address);
+      const base58Key = base58Encode(publicKey);
+      const multibaseKey = MULTIBASE_PREFIXES.BASE58BTC + base58Key;
 
-    return {
-      id: `${did}#${multibaseKey.slice(0, 8)}`,
-      type: VERIFICATION_METHOD_TYPES.SR25519_2020,
-      controller: did,
-      publicKeyMultibase: multibaseKey
-    };
+      return {
+        id: `${did}#${multibaseKey.slice(0, 8)}`,
+        type: VERIFICATION_METHOD_TYPES.SR25519_2020,
+        controller: did,
+        publicKeyMultibase: multibaseKey
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Base58 encoding failed') {
+        throw new Error('Failed to encode public key');
+      }
+      throw error; // Re-throw other errors as is
+    }
   }
 }
