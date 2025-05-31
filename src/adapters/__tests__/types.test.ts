@@ -1,3 +1,18 @@
+// Mock @polkadot/util-crypto before importing the types
+jest.mock('@polkadot/util-crypto', () => ({
+  isAddress: jest.fn((address: string) => {
+    // Only accept valid SS58 format addresses
+    return /^[1-9A-HJ-NP-Za-km-z]{47,48}$/.test(address);
+  }),
+  checkAddress: jest.fn((address: string) => {
+    // Only accept our test address
+    if (address === '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY') {
+      return [true, null];
+    }
+    return [false, 'Invalid decoded address checksum'];
+  })
+}));
+
 import { validateAndSanitizeMessage, validatePolkadotAddress, validateSignature } from '../types';
 import { MessageValidationError, AddressValidationError } from '../../errors/WalletErrors';
 
