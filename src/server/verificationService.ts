@@ -10,15 +10,14 @@ import messageFormat from '../../config/messageFormat.json';
 // Error codes for verification responses
 export const ERROR_CODES = {
   VERIFICATION_FAILED: 'VERIFICATION_FAILED',
-  INVALID_MESSAGE: 'INVALID_MESSAGE',
   INVALID_MESSAGE_FORMAT: 'INVALID_MESSAGE_FORMAT',
   INVALID_REQUEST: 'INVALID_REQUEST',
+  INVALID_JSON: 'INVALID_JSON',
   MESSAGE_TOO_LONG: 'MESSAGE_TOO_LONG',
   INVALID_SIGNATURE_FORMAT: 'INVALID_SIGNATURE_FORMAT',
   INVALID_SIGNATURE_LENGTH: 'INVALID_SIGNATURE_LENGTH',
-  ADDRESS_VALIDATION_ERROR: 'ADDRESS_VALIDATION_ERROR',
+  INVALID_ADDRESS: 'INVALID_ADDRESS',
   MESSAGE_EXPIRED: 'MESSAGE_EXPIRED',
-  MESSAGE_TAMPERED: 'VERIFICATION_FAILED',
   MESSAGE_FUTURE: 'MESSAGE_FUTURE',
   DID_CREATION_FAILED: 'DID_CREATION_FAILED'
 } as const;
@@ -154,12 +153,29 @@ export class VerificationService {
    */
   public async verifySignature(request: VerificationRequest): Promise<VerificationResponse> {
     try {
+      // For empty messages or invalid request format
+      if (!request || typeof request !== 'object') {
+        return {
+          status: 'error',
+          message: 'Invalid request body',
+          code: ERROR_CODES.INVALID_REQUEST
+        };
+      }
+
       // For empty messages, check if it's a format issue
+      if (!request.message || typeof request.message !== 'string') {
+        return {
+          status: 'error',
+          message: 'Invalid request body',
+          code: ERROR_CODES.INVALID_REQUEST
+        };
+      }
+
       if (!request.message.trim()) {
         return {
           status: 'error',
           message: 'Invalid message format: missing required fields',
-          code: ERROR_CODES.VERIFICATION_FAILED
+          code: ERROR_CODES.INVALID_MESSAGE_FORMAT
         };
       }
 
@@ -177,7 +193,7 @@ export class VerificationService {
         this.validateMessageFormat(request.message, request.address);
       } catch (error) {
         if (error instanceof MessageValidationError) {
-          if (error.message === 'Message tampering detected: address mismatch') {
+          if (error.message.includes('tampering')) {
             return {
               status: 'error',
               message: error.message,
@@ -212,10 +228,11 @@ export class VerificationService {
               code: ERROR_CODES.MESSAGE_FUTURE
             };
           }
+          // For other message validation errors from timestamp validation
           return {
             status: 'error',
             message: error.message,
-            code: ERROR_CODES.VERIFICATION_FAILED
+            code: ERROR_CODES.INVALID_MESSAGE_FORMAT
           };
         }
         throw error;
@@ -229,7 +246,7 @@ export class VerificationService {
           return {
             status: 'error',
             message: 'Invalid Polkadot address',
-            code: ERROR_CODES.VERIFICATION_FAILED
+            code: ERROR_CODES.INVALID_ADDRESS
           };
         }
         throw error;
@@ -238,7 +255,7 @@ export class VerificationService {
       // Validate signature format
       try {
         validateSignature(request.signature);
-      } catch (error) {
+      } catch (error: unknown) {
         if (error instanceof Error) {
           if (error.message.includes('length')) {
             return {
@@ -247,24 +264,41 @@ export class VerificationService {
               code: ERROR_CODES.INVALID_SIGNATURE_LENGTH
             };
           }
-          return {
-            status: 'error',
-            message: 'Invalid signature format',
-            code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
-          };
+          if (error.message.includes('format')) {
+            return {
+              status: 'error',
+              message: 'Invalid signature format',
+              code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
+            };
+          }
         }
-        throw error;
+        // For any other error in signature validation, return format error
+        return {
+          status: 'error',
+          message: 'Invalid signature format',
+          code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
+        };
       }
 
       // Try both signature types
       const messageU8a = new TextEncoder().encode(request.message);
       const signatureU8a = hexToU8a(request.signature);
-      const addressU8a = hexToU8a(request.address);
+      // Don't convert address to Uint8Array, use it as-is
+      try {
+        const isValidSr25519 = sr25519Verify(messageU8a, signatureU8a, request.address);
+        const isValidEd25519 = ed25519Verify(messageU8a, signatureU8a, request.address);
 
-      const isValidSr25519 = sr25519Verify(messageU8a, signatureU8a, addressU8a);
-      const isValidEd25519 = ed25519Verify(messageU8a, signatureU8a, addressU8a);
-
-      if (!isValidSr25519 && !isValidEd25519) {
+        if (!isValidSr25519 && !isValidEd25519) {
+          return {
+            status: 'error',
+            message: 'Verification failed',
+            code: ERROR_CODES.VERIFICATION_FAILED
+          };
+        }
+      } catch (error) {
+        // Log the actual error for debugging
+        console.error('Signature verification error:', error);
+        // Return verification failed instead of throwing
         return {
           status: 'error',
           message: 'Verification failed',
@@ -289,12 +323,26 @@ export class VerificationService {
         };
       }
     } catch (error) {
-      // Log unexpected errors
-      console.error('Verification error:', error);
+      // Only log and return internal error for truly unexpected errors
+      console.error('Unexpected verification error:', {
+        error,
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown',
+        stack: error instanceof Error ? error.stack : undefined,
+        isMessageValidationError: error instanceof MessageValidationError,
+        isAddressValidationError: error instanceof AddressValidationError
+      });
+
+      // Re-throw validation errors to be handled by the caller
+      if (error instanceof MessageValidationError || error instanceof AddressValidationError) {
+        throw error;
+      }
+
+      // Return verification failed for other errors
       return {
         status: 'error',
-        message: 'Internal server error',
-        code: 'INTERNAL_ERROR'
+        message: 'Verification failed',
+        code: ERROR_CODES.VERIFICATION_FAILED
       };
     }
   }

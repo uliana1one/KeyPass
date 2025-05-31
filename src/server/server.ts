@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { VerificationService } from './verificationService';
+import { VerificationService, ERROR_CODES } from './verificationService';
 import { VerificationRequest } from './types';
 import { MessageValidationError, AddressValidationError } from '../errors/WalletErrors';
 
@@ -51,36 +51,40 @@ export function createServer(): express.Application {
     try {
       const request = req.body as VerificationRequest;
 
-      // Validate request body
+      // First check if request is a valid object
       if (!request || typeof request !== 'object') {
         return res.status(400).json({
           status: 'error',
           message: 'Invalid request body',
-          code: 'INVALID_REQUEST'
+          code: ERROR_CODES.INVALID_REQUEST
         });
       }
 
-      if (!request.message || typeof request.message !== 'string') {
+      // Check for null/undefined values
+      if (request.message === null || request.signature === null || request.address === null ||
+          request.message === undefined || request.signature === undefined || request.address === undefined) {
         return res.status(400).json({
           status: 'error',
-          message: 'Message is required and must be a string',
-          code: 'INVALID_REQUEST'
+          message: 'Missing required fields',
+          code: ERROR_CODES.INVALID_REQUEST
         });
       }
 
-      if (!request.signature || typeof request.signature !== 'string') {
+      // Check for empty strings in required fields
+      if (request.message === '' || request.signature === '' || request.address === '') {
         return res.status(400).json({
           status: 'error',
-          message: 'Signature is required and must be a string',
-          code: 'INVALID_REQUEST'
+          message: 'Invalid request body',
+          code: ERROR_CODES.INVALID_REQUEST
         });
       }
 
-      if (!request.address || typeof request.address !== 'string') {
+      // Check field types
+      if (typeof request.message !== 'string' || typeof request.signature !== 'string' || typeof request.address !== 'string') {
         return res.status(400).json({
           status: 'error',
-          message: 'Address is required and must be a string',
-          code: 'INVALID_REQUEST'
+          message: 'Invalid request body',
+          code: ERROR_CODES.INVALID_REQUEST
         });
       }
 
@@ -101,16 +105,10 @@ export function createServer(): express.Application {
     } catch (error) {
       // Handle specific error types with appropriate status codes and messages
       if (error instanceof MessageValidationError) {
-        const errorCode = error.message.includes('tampering') ? 'MESSAGE_TAMPERED' :
-                         error.message.includes('format') ? 'INVALID_MESSAGE_FORMAT' :
-                         error.message.includes('expired') ? 'MESSAGE_EXPIRED' :
-                         error.message.includes('future') ? 'MESSAGE_FUTURE' :
-                         'VERIFICATION_FAILED';
-
         return res.status(400).json({
           status: 'error',
           message: error.message,
-          code: errorCode
+          code: ERROR_CODES.INVALID_MESSAGE_FORMAT
         });
       }
 
@@ -118,22 +116,22 @@ export function createServer(): express.Application {
         return res.status(400).json({
           status: 'error',
           message: 'Invalid Polkadot address',
-          code: 'VERIFICATION_FAILED'
+          code: ERROR_CODES.INVALID_ADDRESS
         });
       }
 
       // Log unexpected errors
       console.error('Verification error:', error);
-      return res.status(500).json({
+      return res.status(400).json({
         status: 'error',
-        message: 'Internal server error',
-        code: 'INTERNAL_ERROR'
+        message: 'Verification failed',
+        code: ERROR_CODES.VERIFICATION_FAILED
       });
     }
   });
 
   // Error handling middleware
-  app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  app.use(async (err: Error, req: Request, res: Response, next: NextFunction) => {
     // Log error without sensitive data
     console.error('Server error:', {
       name: err.name,
@@ -142,16 +140,10 @@ export function createServer(): express.Application {
     });
 
     if (err instanceof MessageValidationError) {
-      const errorCode = err.message.includes('tampering') ? 'MESSAGE_TAMPERED' :
-                       err.message.includes('format') ? 'INVALID_MESSAGE_FORMAT' :
-                       err.message.includes('expired') ? 'MESSAGE_EXPIRED' :
-                       err.message.includes('future') ? 'MESSAGE_FUTURE' :
-                       'VERIFICATION_FAILED';
-
       return res.status(400).json({
         status: 'error',
         message: err.message,
-        code: errorCode
+        code: ERROR_CODES.INVALID_MESSAGE_FORMAT
       });
     }
 
@@ -159,7 +151,7 @@ export function createServer(): express.Application {
       return res.status(400).json({
         status: 'error',
         message: 'Invalid Polkadot address',
-        code: 'VERIFICATION_FAILED'
+        code: ERROR_CODES.INVALID_ADDRESS
       });
     }
 
@@ -167,15 +159,15 @@ export function createServer(): express.Application {
       return res.status(400).json({
         status: 'error',
         message: 'Invalid JSON in request body',
-        code: 'INVALID_REQUEST'
+        code: ERROR_CODES.INVALID_JSON
       });
     }
 
-    // Default error response
-    return res.status(500).json({
+    // Default error response for unexpected errors
+    return res.status(400).json({
       status: 'error',
-      message: 'Internal server error',
-      code: 'INTERNAL_ERROR'
+      message: 'Verification failed',
+      code: ERROR_CODES.VERIFICATION_FAILED
     });
   });
 
