@@ -27,7 +27,7 @@ jest.mock('../did/UUIDProvider', () => ({
 describe('Integration Tests', () => {
   let mockAdapter: jest.Mocked<WalletAdapter>;
   let verificationService: jest.Mocked<VerificationService>;
-  let didProvider: jest.Mocked<PolkadotDIDProvider>;
+  let mockDidProvider: jest.Mocked<PolkadotDIDProvider>;
 
   beforeEach(() => {
     // Reset all mocks
@@ -55,8 +55,24 @@ describe('Integration Tests', () => {
     });
 
     // Setup mock DID provider
-    didProvider = new PolkadotDIDProvider() as jest.Mocked<PolkadotDIDProvider>;
-    (didProvider.createDid as jest.Mock).mockResolvedValue('did:key:z' + '1'.repeat(58));
+    mockDidProvider = {
+      createDid: jest.fn().mockResolvedValue('did:key:z' + '1'.repeat(58)),
+      createDIDDocument: jest.fn().mockResolvedValue({
+        '@context': ['https://www.w3.org/ns/did/v1'],
+        id: 'did:key:z' + '1'.repeat(58),
+        controller: 'did:key:z' + '1'.repeat(58),
+        verificationMethod: [],
+        authentication: [],
+        assertionMethod: [],
+        keyAgreement: [],
+        capabilityInvocation: [],
+        capabilityDelegation: [],
+        service: []
+      }),
+      resolve: jest.fn().mockResolvedValue(null),
+      extractAddress: jest.fn().mockReturnValue('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY')
+    } as unknown as jest.Mocked<PolkadotDIDProvider>;
+    (PolkadotDIDProvider as unknown as jest.Mock).mockImplementation(() => mockDidProvider);
 
     // Setup wallet connector mock to call enable() before returning the adapter
     (connectWallet as jest.Mock).mockImplementation(async () => {
@@ -79,7 +95,8 @@ describe('Integration Tests', () => {
       expect(signedMessage).toMatch(/^0x[0-9a-f]{128}$/);
 
       // Verify DID creation
-      expect(didProvider.createDid).toHaveBeenCalledWith(mockAdapter.getAccounts.mock.results[0].value[0].address);
+      const accounts = await mockAdapter.getAccounts();
+      expect(mockDidProvider.createDid).toHaveBeenCalledWith(accounts[0].address);
 
       // Verify result structure
       expect(result).toEqual({
