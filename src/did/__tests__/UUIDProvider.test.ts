@@ -38,8 +38,8 @@ jest.mock('@polkadot/util-crypto', () => ({
   }),
   base58Encode: jest.fn((input: Uint8Array) => {
     console.log('base58Encode called with:', input);
-    if (input.every(byte => byte === 1)) return 'zz1111111111111111111111111111111111111111111111111111111111111111';
-    if (input.every(byte => byte === 2)) return 'zz2222222222222222222222222222222222222222222222222222222222222222';
+    if (input.every((byte: number) => byte === 1)) return 'zz1111111111111111111111111111111111111111111111111111111111111111';
+    if (input.every((byte: number) => byte === 2)) return 'zz2222222222222222222222222222222222222222222222222222222222222222';
     if (input.length === 32 && input.every(byte => byte === 1)) return 'base58encodedkey';
     throw new Error('Base58 encoding failed');
   }),
@@ -151,15 +151,34 @@ describe('PolkadotDIDProvider', () => {
   });
 
   describe('createDIDDocument', () => {
-    it('should create a valid DID document', async () => {
+    beforeEach(() => {
       // Reset mocks to ensure clean state
       jest.clearAllMocks();
       
-      // Set up mock return values
-      (decodeAddress as jest.Mock).mockReturnValueOnce(new Uint8Array(32).fill(1));
-      (base58Encode as jest.Mock).mockReturnValueOnce('base58encodedkey');
-      (base58Decode as jest.Mock).mockReturnValueOnce(new Uint8Array(32).fill(1));
-      
+      // Set up default mock behavior for valid addresses
+      (decodeAddress as jest.Mock).mockImplementation((address) => {
+        if (address === VALID_ADDRESS) {
+          return new Uint8Array(32).fill(1);
+        }
+        if (address === VALID_ADDRESS_2) {
+          return new Uint8Array(32).fill(2);
+        }
+        throw new Error('Invalid address');
+      });
+
+      // Set up default mock behavior for base58Encode
+      (base58Encode as jest.Mock).mockImplementation((input: Uint8Array) => {
+        if (input.every((byte: number) => byte === 1)) {
+          return 'base58encodedkey';
+        }
+        if (input.every((byte: number) => byte === 2)) {
+          return 'base58encodedkey2';
+        }
+        throw new Error('Base58 encoding failed');
+      });
+    });
+
+    it('should create a valid DID document', async () => {
       const doc = await provider.createDIDDocument(VALID_ADDRESS);
       
       expect(doc).toEqual({
@@ -168,29 +187,53 @@ describe('PolkadotDIDProvider', () => {
           'https://w3id.org/security/suites/ed25519-2020/v1',
           'https://w3id.org/security/suites/sr25519-2020/v1'
         ],
-        id: VALID_DID,
-        controller: VALID_DID,
+        id: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey`,
+        controller: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey`,
         verificationMethod: [{
-          id: `${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`,
+          id: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`,
           type: 'Sr25519VerificationKey2020',
-          controller: VALID_DID,
-          publicKeyMultibase: MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58
+          controller: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey`,
+          publicKeyMultibase: MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey'
         }],
-        authentication: [`${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`],
-        assertionMethod: [`${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`],
+        authentication: [`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`],
+        assertionMethod: [`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`],
         keyAgreement: [],
-        capabilityInvocation: [`${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`],
-        capabilityDelegation: [`${VALID_DID}#${(MULTIBASE_PREFIXES.BASE58BTC + VALID_BASE58).slice(0, 8)}`],
+        capabilityInvocation: [`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`],
+        capabilityDelegation: [`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`],
         service: []
       });
     });
 
     it('should create different DID documents for different addresses', async () => {
+      // Set up mock return values for base58Encode
+      (base58Encode as jest.Mock)
+        .mockImplementationOnce((input: Uint8Array) => {
+          if (input.every((byte: number) => byte === 1)) {
+            return 'base58encodedkey1';
+          }
+          if (input.every((byte: number) => byte === 2)) {
+            return 'base58encodedkey2';
+          }
+          throw new Error('Base58 encoding failed');
+        })
+        .mockImplementationOnce((input: Uint8Array) => {
+          if (input.every((byte: number) => byte === 1)) {
+            return 'base58encodedkey1';
+          }
+          if (input.every((byte: number) => byte === 2)) {
+            return 'base58encodedkey2';
+          }
+          throw new Error('Base58 encoding failed');
+        });
+      
       const doc1 = await provider.createDIDDocument(VALID_ADDRESS);
       const doc2 = await provider.createDIDDocument(VALID_ADDRESS_2);
-      expect(doc1.id).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`);
-      expect(doc2.id).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz2222222222222222222222222222222222222222222222222222222222222222`);
+      
+      expect(doc1.id).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey1`);
+      expect(doc2.id).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey2`);
       expect(doc1.id).not.toBe(doc2.id);
+      expect(doc1.verificationMethod[0].publicKeyMultibase).toBe(`${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey1`);
+      expect(doc2.verificationMethod[0].publicKeyMultibase).toBe(`${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey2`);
       expect(doc1.verificationMethod[0].publicKeyMultibase).not.toBe(doc2.verificationMethod[0].publicKeyMultibase);
     });
 
