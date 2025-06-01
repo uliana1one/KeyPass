@@ -8,18 +8,57 @@ import { PolkadotDIDProvider } from './did/UUIDProvider';
 import { WalletAccount } from './adapters/types';
 import { VerificationService } from './server/verificationService';
 
+/**
+ * Result of a successful login operation with Polkadot.
+ * Contains all necessary information for authentication and verification.
+ */
 export interface LoginResult {
+  /** The Polkadot address of the logged-in account */
   address: string;
+  /** The signature of the login message */
   signature: string;
+  /** The message that was signed */
   message: string;
+  /** The DID (Decentralized Identifier) associated with the address */
   did: string;
+  /** ISO timestamp when the login was issued */
   issuedAt: string;
+  /** Unique nonce used to prevent replay attacks */
   nonce: string;
 }
 
 /**
  * Main function to handle login with Polkadot.
- * @returns A promise that resolves to an object containing address, did, message, signature, issuedAt, and nonce.
+ * This function orchestrates the entire login flow:
+ * 1. Connects to the wallet (Polkadot.js or Talisman)
+ * 2. Gets the user's accounts
+ * 3. Generates a login message with a nonce
+ * 4. Signs the message
+ * 5. Verifies the signature
+ * 6. Creates a DID for the address
+ * 
+ * The function includes automatic retry logic for network errors.
+ * 
+ * @param retryCount - Number of retry attempts for network errors (default: 1)
+ * @returns Promise resolving to a LoginResult object containing all login data
+ * @throws {WalletNotFoundError} If no wallet is found
+ * @throws {UserRejectedError} If the user rejects any wallet operation
+ * @throws {WalletConnectionError} If wallet connection fails
+ * @throws {MessageValidationError} If message validation fails
+ * @throws {InvalidSignatureError} If signature verification fails
+ * 
+ * @example
+ * ```typescript
+ * try {
+ *   const result = await loginWithPolkadot();
+ *   console.log('Logged in as:', result.address);
+ *   console.log('DID:', result.did);
+ * } catch (error) {
+ *   if (error instanceof WalletNotFoundError) {
+ *     console.error('Please install a Polkadot wallet');
+ *   }
+ * }
+ * ```
  */
 export async function loginWithPolkadot(retryCount = 1): Promise<LoginResult> {
   let lastError: Error | null = null;

@@ -20,6 +20,21 @@ const WALLET_CONNECT_NAME = 'wallet-connect';
  * Adapter for the Talisman browser extension wallet.
  * Handles connection, account listing, and message signing for the
  * Talisman wallet extension, with fallback to WalletConnect.
+ * 
+ * This adapter implements the WalletAdapter interface and provides
+ * functionality for:
+ * - Connecting to the Talisman wallet extension
+ * - Listing available accounts
+ * - Signing messages
+ * - Managing wallet connection state
+ * 
+ * @example
+ * ```typescript
+ * const adapter = new TalismanAdapter();
+ * await adapter.enable();
+ * const accounts = await adapter.getAccounts();
+ * const signature = await adapter.signMessage("Hello, World!");
+ * ```
  */
 export class TalismanAdapter implements WalletAdapter {
   private enabled = false;
@@ -29,7 +44,11 @@ export class TalismanAdapter implements WalletAdapter {
   /**
    * Attempts to enable the Talisman wallet extension.
    * This should be called before any other wallet operations.
-   * @throws {Error} If the wallet extension is not installed or cannot be enabled
+   * 
+   * @throws {WalletNotFoundError} If the Talisman extension is not installed
+   * @throws {UserRejectedError} If the user rejects the connection request
+   * @throws {TimeoutError} If the connection request times out
+   * @throws {WalletConnectionError} For other connection failures
    */
   public async enable(): Promise<void> {
     if (this.enabled) return;
@@ -112,9 +131,14 @@ export class TalismanAdapter implements WalletAdapter {
   }
 
   /**
-   * Retrieves a list of accounts from the wallet.
-   * @returns Promise resolving to an array of account objects containing addresses
-   * @throws {Error} If the wallet is not enabled or accounts cannot be retrieved
+   * Retrieves a list of accounts from the Talisman wallet.
+   * Returns an array of account objects containing addresses and metadata.
+   * 
+   * @returns Promise resolving to an array of WalletAccount objects
+   * @throws {WalletNotFoundError} If the wallet is not enabled
+   * @throws {WalletConnectionError} If no accounts are found or connection fails
+   * @throws {UserRejectedError} If the user rejects the account access request
+   * @throws {AddressValidationError} If any account address is invalid
    */
   public async getAccounts(): Promise<WalletAccount[]> {
     if (!this.enabled) throw new WalletNotFoundError('Wallet');
@@ -149,10 +173,17 @@ export class TalismanAdapter implements WalletAdapter {
   }
 
   /**
-   * Signs a message using the wallet.
+   * Signs a message using the Talisman wallet.
+   * The message is first validated and sanitized before signing.
+   * 
    * @param message - The message to sign
    * @returns Promise resolving to the signature as a hex string
-   * @throws {Error} If the wallet is not enabled or signing fails
+   * @throws {WalletNotFoundError} If the wallet is not enabled
+   * @throws {MessageValidationError} If the message is invalid
+   * @throws {WalletConnectionError} If signing fails
+   * @throws {UserRejectedError} If the user rejects the signing request
+   * @throws {TimeoutError} If the signing request times out
+   * @throws {InvalidSignatureError} If the signature is invalid
    */
   public async signMessage(message: string): Promise<string> {
     if (!this.enabled) throw new WalletNotFoundError('Wallet not enabled');
@@ -227,20 +258,26 @@ export class TalismanAdapter implements WalletAdapter {
   }
 
   /**
-   * Returns the provider being used (talisman or wallet-connect)
+   * Returns the current wallet provider being used.
+   * Can be either 'talisman' or 'wallet-connect'.
+   * 
+   * @returns The provider name or null if not connected
    */
   public getProvider(): string | null {
     return this.provider;
   }
 
   /**
-   * Disconnects the wallet adapter, resetting connection state and provider.
-   * Use this to clean up when switching wallets or logging out.
-   *
+   * Disconnects the wallet adapter and cleans up resources.
+   * Resets the connection state and clears any pending timeouts.
+   * Should be called when switching wallets or logging out.
+   * 
    * @example
+   * ```typescript
    * adapter.disconnect();
+   * ```
    */
-  disconnect(): void {
+  public disconnect(): void {
     this.enabled = false;
     this.provider = null;
     if (this.connectionTimeout) {
@@ -249,6 +286,13 @@ export class TalismanAdapter implements WalletAdapter {
     }
   }
 
+  /**
+   * Validates a Polkadot address format.
+   * 
+   * @param address - The address to validate
+   * @throws {AddressValidationError} If the address is invalid
+   * @private
+   */
   private validateAddress(address: string): void {
     try {
       validatePolkadotAddress(address);

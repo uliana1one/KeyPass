@@ -1,70 +1,149 @@
-# KeyPass Login SDK
+# KeyPass - Polkadot Authentication SDK
 
-A lightweight TypeScript SDK for implementing Polkadot wallet-based authentication in web applications. Replace traditional OAuth with secure, decentralized wallet signatures.
+KeyPass is a secure authentication SDK for Polkadot-based applications. It provides a simple way to implement wallet-based authentication using Polkadot.js and Talisman wallets.
 
 ## Features
 
-- 🔐 Wallet-based authentication using Polkadot wallets
-- 🆔 Simple DID generation and verification
-- 🔄 Support for multiple wallet adapters (Polkadot.js, Talisman, etc.)
-- 📦 Zero dependencies (except for wallet connectors)
-- 🧪 Comprehensive test coverage
-- 📚 TypeScript-first with full type definitions
+- Secure wallet-based authentication
+- Support for Polkadot.js and Talisman wallets
+- DID (Decentralized Identifier) integration
+- Message signing and verification
+- Automatic retry for network errors
+- Security best practices built-in
+- Comprehensive error handling
+- Session management utilities
+- Message validation and sanitization
 
 ## Installation
 
+Currently, this package is in development and not yet published to npm. To use it in your project:
+
+1. Clone the repository:
 ```bash
-npm install keypass-login-sdk
+git clone https://github.com/uliana1one/keypass.git
+cd keypass
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Build the package:
+```bash
+npm run build
+```
+
+4. Link it to your project:
+```bash
+npm link
+```
+
+Then in your project:
+```bash
+npm link keypass-login-sdk
 ```
 
 ## Quick Start
 
+Here's a basic example of how to use KeyPass in your application:
+
 ```typescript
-import { KeyPassLogin } from 'keypass-login-sdk';
+import { loginWithPolkadot } from 'keypass-login-sdk';
 
-const login = new KeyPassLogin({
-  walletType: 'polkadot-js',
-  appName: 'My DApp',
-  network: 'polkadot'
-});
-
-// Login with wallet
-const authResult = await login.authenticate();
-// Returns: { address, did, signature, nonce, issuedAt }
-
-// Verify signature on server
-const isValid = await login.verifySignature(authResult);
+async function handleLogin() {
+  try {
+    const result = await loginWithPolkadot();
+    console.log('Logged in as:', result.address);
+    console.log('DID:', result.did);
+    
+    // Store auth data in your preferred storage solution
+    localStorage.setItem('auth', JSON.stringify(result));
+  } catch (error) {
+    if (error.code === 'WALLET_NOT_FOUND') {
+      console.error('Please install a Polkadot wallet');
+    } else if (error.code === 'USER_REJECTED') {
+      console.error('Login was rejected by user');
+    } else {
+      console.error('Login failed:', error.message);
+    }
+  }
+}
 ```
 
-## Architecture
+## Documentation
 
-The SDK follows a layered architecture:
+For detailed documentation, please refer to:
 
-1. **Config Layer**: Wallet and message format configurations
-2. **Wallet Adapter Layer**: Wallet connection and interaction
-3. **Account Layer**: Account fetching and selection
-4. **Message Layer**: Authentication message assembly
-5. **Signature Layer**: Message signing and verification
-6. **DID Layer**: Decentralized identifier generation
-7. **Server Layer**: Express middleware for signature verification
-8. **Package Layer**: Build, test, and publish scripts
+- [Integration Guide](./docs/integration.md) - Complete guide for integrating KeyPass into your application
+- [API Reference](./docs/api.md) - Detailed API documentation
+- [Security Guide](./docs/security.md) - Security best practices and considerations
 
-## Development
+## Key Features
 
-```bash
-# Install dependencies
-npm install
+### 1. Wallet Integration
+- Support for Polkadot.js and Talisman wallets
+- Automatic wallet detection
+- Account management
+- Message signing
+- Connection state management
 
-# Run tests
-npm test
+### 2. Security
+- Server-side signature verification
+- Message validation and sanitization
+- Nonce-based replay attack prevention
+- Rate limiting support
+- Session management
 
-# Build
-npm run build
+### 3. Error Handling
+- Comprehensive error types
+- Automatic retry for network errors
+- User-friendly error messages
+- Detailed error logging
 
-# Lint
-npm run lint
-```
+### 4. DID Support
+- DID generation for Polkadot addresses
+- DID resolution
+- DID document management
+
+## Prerequisites
+
+Before using KeyPass, ensure:
+
+1. Your application is served over HTTPS
+2. Users have either [Polkadot.js](https://polkadot.js.org/extension/) or [Talisman](https://talisman.xyz/) wallet installed
+3. Your backend is prepared to handle signature verification
+4. You have a secure storage solution for session management
+
+## Security Considerations
+
+KeyPass implements several security measures:
+
+1. **Message Validation**
+   - All messages are validated and sanitized
+   - Nonce-based replay attack prevention
+   - Timestamp-based expiration
+
+2. **Signature Verification**
+   - Server-side signature verification
+   - Rate limiting support
+   - Message age validation
+
+3. **Session Management**
+   - Secure session storage
+   - Session expiration
+   - Proper cleanup on logout
+
+4. **Error Handling**
+   - Comprehensive error types
+   - Proper error recovery
+   - Security-focused logging
+
+
+## Support
+
+For issues and feature requests, please visit our [GitHub repository](https://github.com/uliana1one/keypass).
 
 ## License
 
-Apache License 2.0
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
