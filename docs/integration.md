@@ -6,7 +6,9 @@ KeyPass Login SDK provides secure wallet-based authentication for Polkadot appli
 
 ## Installation
 
-> **Note**: The package is currently in development and not yet published to npm. For now, you'll need to install it from the repository.
+> **Note**: The package is currently in development and not yet published to npm. There are several ways to test it in your project.
+
+### Method 1: Using npm link (Recommended for local development)
 
 ```bash
 # Clone the repository
@@ -23,8 +25,42 @@ npm run build
 npm link
 
 # In your project directory
-npm link keypass-login-sdk
+npm link @keypass/login-sdk
 ```
+
+### Method 2: Using Git URL (For testing in other projects)
+
+In your project's `package.json`:
+```json
+{
+  "dependencies": {
+    "@keypass/login-sdk": "github:uliana1one/keypass"
+  }
+}
+```
+
+Then run:
+```bash
+npm install
+```
+
+### Method 3: Using Local Path (For testing in other projects)
+
+In your project's `package.json`:
+```json
+{
+  "dependencies": {
+    "@keypass/login-sdk": "file:../path/to/keypass"
+  }
+}
+```
+
+Then run:
+```bash
+npm install
+```
+
+> **Note**: While the package is in development, you might encounter breaking changes. We recommend using Method 1 (npm link) for local development as it allows you to easily update to the latest changes.
 
 ## Prerequisites
 
@@ -52,7 +88,7 @@ The SDK provides:
 ### 1. Initialize Authentication
 
 ```typescript
-import { loginWithPolkadot, LoginResult } from 'keypass-login-sdk';
+import { loginWithPolkadot, LoginResult } from '@keypass/login-sdk';
 
 class AuthService {
   private currentUser: LoginResult | null = null;
@@ -169,7 +205,7 @@ Create a verification endpoint in your backend:
 
 ```typescript
 import express from 'express';
-import { VerificationService } from 'keypass-login-sdk';
+import { VerificationService } from '@keypass/login-sdk';
 
 const app = express();
 const verificationService = new VerificationService({
@@ -236,7 +272,7 @@ import {
   PolkadotJsAdapter,
   TalismanAdapter,
   WalletAdapter
-} from 'keypass-login-sdk';
+} from '@keypass/login-sdk';
 
 class WalletManager {
   private adapter: WalletAdapter | null = null;
@@ -295,7 +331,7 @@ class WalletManager {
 ### 2. DID Management
 
 ```typescript
-import { PolkadotDIDProvider } from 'keypass-login-sdk';
+import { PolkadotDIDProvider } from '@keypass/login-sdk';
 
 class DIDManager {
   private provider: PolkadotDIDProvider;
@@ -362,7 +398,7 @@ import {
   InvalidSignatureError,  // When signature verification fails
   TimeoutError,          // When an operation times out
   AddressValidationError // When address validation fails
-} from 'keypass-login-sdk/errors';
+} from '@keypass/login-sdk/errors';
 ```
 
 Each error includes:
@@ -455,11 +491,10 @@ interface WalletAdapter {
 
 ### From v0.x to v1.0
 
-1. Update package name from `keypass-login-sdk` to `@keypass/login-sdk`
-2. Update error handling to use new error types
-3. Implement new session management
-4. Update verification service configuration
-5. Update wallet connection handling
+1. Update error handling to use new error types
+2. Implement new session management
+3. Update verification service configuration
+4. Update wallet connection handling
 
 ## Support
 

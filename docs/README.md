@@ -33,9 +33,9 @@ Welcome to the KeyPass Login SDK documentation. This documentation provides comp
 
 ## Quick Links
 
-- [GitHub Repository](https://github.com/yourusername/keypass-login-sdk)
-- [NPM Package](https://www.npmjs.com/package/keypass-login-sdk)
-- [Issue Tracker](https://github.com/yourusername/keypass-login-sdk/issues)
+- [GitHub Repository](https://github.com/uliana1one/keypass)
+- [NPM Package](https://www.npmjs.com/package/@keypass/login-sdk)
+- [Issue Tracker](https://github.com/uliana1one/keypass/issues)
 
 ## Contributing
 

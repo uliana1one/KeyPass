@@ -16,7 +16,11 @@ KeyPass is a secure authentication SDK for Polkadot-based applications. It provi
 
 ## Installation
 
-Currently, this package is in development and not yet published to npm. To use it in your project:
+Currently, this package is in development and not yet published to npm. There are several ways to test it in your project:
+
+### Method 1: Using npm link (Recommended for local development)
+
+This method is fully supported and recommended for local development:
 
 1. Clone the repository:
 ```bash
@@ -39,17 +43,45 @@ npm run build
 npm link
 ```
 
-Then in your project:
+5. In your project directory:
 ```bash
-npm link keypass-login-sdk
+npm link @keypass/login-sdk
 ```
+
+### Method 2: Using Git URL (For testing in other projects)
+
+> **Note**: This method is currently being set up. For now, please use Method 1 (npm link) for testing.
+
+In your project's `package.json`:
+```json
+{
+  "dependencies": {
+    "@keypass/login-sdk": "github:uliana1one/keypass"
+  }
+}
+```
+
+### Method 3: Using Local Path (For testing in other projects)
+
+> **Note**: This method is currently being set up. For now, please use Method 1 (npm link) for testing.
+
+In your project's `package.json`:
+```json
+{
+  "dependencies": {
+    "@keypass/login-sdk": "file:../path/to/keypass"
+  }
+}
+```
+
+> **Important**: While the package is in development, we recommend using Method 1 (npm link) for testing as it's the most reliable method at this stage. Other methods will be fully supported in future updates.
 
 ## Quick Start
 
 Here's a basic example of how to use KeyPass in your application:
 
 ```typescript
-import { loginWithPolkadot } from 'keypass-login-sdk';
+import { loginWithPolkadot } from '@keypass/login-sdk';
 
 async function handleLogin() {
   try {
