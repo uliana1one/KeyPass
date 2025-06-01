@@ -17,7 +17,7 @@ export interface WalletsConfig {
   wallets: WalletConfig[];
 }
 
-export function validateWalletConfig(config: WalletConfiguration): void {
+export function validateWalletConfig(config: WalletsConfig): void {
   if (!config.wallets || !Array.isArray(config.wallets)) {
     throw new ConfigurationError('Wallets configuration must be an array');
   }

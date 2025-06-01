@@ -4,12 +4,7 @@
  * @returns A promise that resolves to the login message with placeholders replaced.
  * @throws Will throw an error if a placeholder is present in the template but not provided in params.
  */
-export async function buildLoginMessage(params: {
-  template: string;
-  address: string;
-  nonce: string;
-  issuedAt: string;
-}): Promise<string> {
+export async function buildLoginMessage(params: MessageParams): Promise<string> {
   const { template, ...placeholders } = params;
 
   // Validate template
@@ -48,4 +43,11 @@ export async function buildLoginMessage(params: {
   }
 
   return message;
+}
+
+export interface MessageParams {
+  template: string;
+  address: string;
+  nonce: string | undefined;  // Allow undefined for testing
+  issuedAt: string;
 }

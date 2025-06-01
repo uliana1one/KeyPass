@@ -1,4 +1,4 @@
-import { VerificationMethod } from './verification';
+import { VerificationMethod as VerificationMethodType } from './verification';
 
 /**
  * Represents a DID document following the W3C DID Core specification.
@@ -8,7 +8,7 @@ export interface DIDDocument {
   '@context': string[];
   id: string;
   controller: string;
-  verificationMethod: VerificationMethod[];
+  verificationMethod: VerificationMethodType[];
   authentication: string[];
   assertionMethod?: string[];
   keyAgreement?: string[];
