@@ -4,6 +4,7 @@ import { VerificationService, ERROR_CODES } from '../server/verificationService'
 import { WalletAdapter } from '../adapters/types';
 import { WalletNotFoundError, UserRejectedError } from '../errors/WalletErrors';
 import { PolkadotDIDProvider } from '../did/UUIDProvider';
+import { DIDDocument } from '../did/types';
 
 // Mock the wallet connector
 jest.mock('../walletConnector', () => ({
@@ -43,26 +44,45 @@ jest.mock('../server/verificationService', () => {
 jest.mock('../did/UUIDProvider', () => {
   const mockCreateDid = jest.fn().mockResolvedValue('did:key:z' + '1'.repeat(58));
   const mockCreateDIDDocument = jest.fn().mockResolvedValue({
-    '@context': ['https://www.w3.org/ns/did/v1'],
+    '@context': [
+      'https://www.w3.org/ns/did/v1',
+      'https://w3id.org/security/suites/ed25519-2020/v1',
+      'https://w3id.org/security/suites/sr25519-2020/v1'
+    ],
     id: 'did:key:z' + '1'.repeat(58),
     controller: 'did:key:z' + '1'.repeat(58),
-    verificationMethod: [],
-    authentication: [],
-    assertionMethod: [],
+    verificationMethod: [{
+      id: 'did:key:z' + '1'.repeat(58) + '#key-1',
+      type: 'Sr25519VerificationKey2020',
+      controller: 'did:key:z' + '1'.repeat(58),
+      publicKeyMultibase: 'z' + '1'.repeat(58)
+    }],
+    authentication: ['did:key:z' + '1'.repeat(58) + '#key-1'],
+    assertionMethod: ['did:key:z' + '1'.repeat(58) + '#key-1'],
     keyAgreement: [],
-    capabilityInvocation: [],
-    capabilityDelegation: [],
+    capabilityInvocation: ['did:key:z' + '1'.repeat(58) + '#key-1'],
+    capabilityDelegation: ['did:key:z' + '1'.repeat(58) + '#key-1'],
     service: []
+  });
+
+  const mockResolve = jest.fn().mockImplementation(async (did: string) => {
+    if (did === 'did:key:z' + '1'.repeat(58)) {
+      return mockCreateDIDDocument();
+    }
+    throw new Error('DID not found');
   });
 
   const MockPolkadotDIDProvider = jest.fn().mockImplementation(() => ({
     createDid: mockCreateDid,
-    createDIDDocument: mockCreateDIDDocument
+    createDIDDocument: mockCreateDIDDocument,
+    resolve: mockResolve
   }));
 
   return {
     PolkadotDIDProvider: MockPolkadotDIDProvider,
-    __mockCreateDid: mockCreateDid // Export the mock for testing
+    __mockCreateDid: mockCreateDid,
+    __mockCreateDIDDocument: mockCreateDIDDocument,
+    __mockResolve: mockResolve
   };
 });
 
@@ -70,13 +90,18 @@ describe('Integration Tests', () => {
   let mockAdapter: jest.Mocked<WalletAdapter>;
   let verificationService: jest.Mocked<VerificationService>;
   let mockCreateDid: jest.Mock;
+  let mockCreateDIDDocument: jest.Mock;
+  let mockResolve: jest.Mock;
 
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
 
-    // Get the mock createDid function from the module
-    mockCreateDid = (require('../did/UUIDProvider') as any).__mockCreateDid;
+    // Get the mock functions from the module
+    const mocks = require('../did/UUIDProvider');
+    mockCreateDid = mocks.__mockCreateDid;
+    mockCreateDIDDocument = mocks.__mockCreateDIDDocument;
+    mockResolve = mocks.__mockResolve;
 
     // Setup mock adapter
     mockAdapter = {
@@ -227,6 +252,115 @@ describe('Integration Tests', () => {
       const result = await loginWithPolkadot();
       expect(result).toBeDefined();
       expect(connectWallet).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('Complete Authentication and DID Resolution Flow', () => {
+    it('should complete full flow from wallet connection to DID resolution', async () => {
+      // 1. Connect wallet and login
+      const loginResult = await loginWithPolkadot();
+      
+      // 2. Verify login result
+      expect(loginResult.did).toBeDefined();
+      expect(loginResult.address).toBe('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
+      
+      // 3. Create DID document
+      const didProvider = new PolkadotDIDProvider();
+      const didDocument = await didProvider.createDIDDocument(loginResult.address);
+      
+      // 4. Verify DID document structure
+      expect(didDocument.id).toBe(loginResult.did);
+      expect(didDocument.verificationMethod).toHaveLength(1);
+      expect(didDocument.authentication).toHaveLength(1);
+      expect((didDocument as DIDDocument).assertionMethod!).toHaveLength(1);
+      expect(didDocument.capabilityInvocation).toHaveLength(1);
+      expect(didDocument.capabilityDelegation).toHaveLength(1);
+      
+      // 5. Verify DID document relationships
+      const verificationMethod = didDocument.verificationMethod![0];
+      expect(verificationMethod.type).toBe('Sr25519VerificationKey2020');
+      expect(verificationMethod.controller).toBe(loginResult.did);
+      expect(didDocument.authentication![0]).toBe(verificationMethod.id);
+      expect((didDocument as DIDDocument).assertionMethod![0]).toBe(verificationMethod.id);
+      
+      // 6. Verify DID resolution
+      const resolvedDocument = await didProvider.resolve(loginResult.did);
+      expect(resolvedDocument).toEqual(didDocument);
+      
+      // 7. Verify DID can be used for verification
+      const verificationResult = await verificationService.verifySignature({
+        message: loginResult.message,
+        signature: loginResult.signature,
+        address: loginResult.address
+      });
+      
+      expect(verificationResult.status).toBe('success');
+      expect(verificationResult.did).toBe(loginResult.did);
+    });
+
+    it('should handle DID resolution failures', async () => {
+      // Mock DID resolution to fail for invalid DID
+      mockResolve.mockImplementationOnce(async () => {
+        throw new Error('DID not found');
+      });
+
+      const loginResult = await loginWithPolkadot();
+      const didProvider = new PolkadotDIDProvider();
+
+      // Attempt to resolve DID
+      await expect(didProvider.resolve('invalid-did')).rejects.toThrow('DID not found');
+      
+      // Verify the DID document is still valid
+      const didDocument = await didProvider.createDIDDocument(loginResult.address);
+      expect(didDocument.id).toBe(loginResult.did);
+    });
+
+    it('should maintain DID consistency across operations', async () => {
+      // 1. First login
+      const loginResult1 = await loginWithPolkadot();
+      const didProvider = new PolkadotDIDProvider();
+      const didDocument1 = await didProvider.createDIDDocument(loginResult1.address);
+      
+      // 2. Second login with same account
+      const loginResult2 = await loginWithPolkadot();
+      const didDocument2 = await didProvider.createDIDDocument(loginResult2.address);
+      
+      // 3. Verify DID consistency
+      expect(loginResult1.did).toBe(loginResult2.did);
+      expect(didDocument1.id).toBe(didDocument2.id);
+      expect(didDocument1.verificationMethod![0].publicKeyMultibase)
+        .toBe(didDocument2.verificationMethod![0].publicKeyMultibase);
+      
+      // 4. Verify both DIDs can be resolved
+      const resolvedDoc1 = await didProvider.resolve(loginResult1.did);
+      const resolvedDoc2 = await didProvider.resolve(loginResult2.did);
+      expect(resolvedDoc1).toEqual(resolvedDoc2);
+    });
+
+    it('should handle concurrent DID operations', async () => {
+      const didProvider = new PolkadotDIDProvider();
+      const address = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
+      
+      // Perform concurrent DID operations
+      const [doc1, doc2, doc3] = await Promise.all([
+        didProvider.createDIDDocument(address),
+        didProvider.createDIDDocument(address),
+        didProvider.createDIDDocument(address)
+      ]);
+      
+      // Verify all documents are identical
+      expect(doc1).toEqual(doc2);
+      expect(doc2).toEqual(doc3);
+      
+      // Verify concurrent resolution
+      const [resolved1, resolved2, resolved3] = await Promise.all([
+        didProvider.resolve(doc1.id),
+        didProvider.resolve(doc2.id),
+        didProvider.resolve(doc3.id)
+      ]);
+      
+      expect(resolved1).toEqual(resolved2);
+      expect(resolved2).toEqual(resolved3);
     });
   });
 }); 
