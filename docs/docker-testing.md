@@ -195,49 +195,7 @@ npm run test:docker:cleanup
 ```
 
 
-## CI/CD Pipeline
-
-### 1. GitHub Actions Workflow
-
-Create `.github/workflows/docker-test.yml`:
-```yaml
-name: Docker Tests
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Run tests in Docker
-      run: |
-        # Create test-results directory if it doesn't exist
-        mkdir -p test-results/unit/coverage test-results/integration
-        docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test
-        
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: test-results/
-        
-    - name: Cleanup
-      if: always()
-      run: docker-compose -f docker-compose.test.yml down -v
-```
-
-### 2. Test Results
+### Test Results
 
 The test results will be available in the `test-results` directory. This directory is automatically created when running tests through Docker or GitHub Actions. 
 

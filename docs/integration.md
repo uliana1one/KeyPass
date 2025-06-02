@@ -7,6 +7,36 @@ This guide provides detailed technical information for integrating the KeyPass L
 npm install @keypass/login-sdk
 ```
 
+> **Important Note**: The KeyPass Login SDK is currently in development and not yet published to npm. For local development and testing, please use the following npm link method:
+
+1. Clone the repository:
+```bash
+git clone https://github.com/uliana1one/keypass.git
+cd keypass
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Build the package:
+```bash
+npm run build
+```
+
+4. Link it to your project:
+```bash
+npm link
+```
+
+5. In your project directory:
+```bash
+npm link @keypass/login-sdk
+```
+
+This will allow you to use the latest development version of the SDK in your project. The npm link method is recommended for local development as it provides the most reliable testing environment.
+
 ## Configuration
 
 ### Environment Variables
@@ -55,9 +85,15 @@ But for basic usage, the two lines above are sufficient.
 
 ### Wallet Configuration
 
-The SDK supports multiple wallet types with configurable priorities. The default configuration is in `wallets.json`:
+The SDK supports multiple wallet types with configurable priorities. The wallet configuration can be specified in two ways:
+
+1. Default Configuration: Located at `node_modules/@keypass/login-sdk/config/wallets.json`
+2. Custom Configuration: Create a `wallets.json` file in your project's root directory (same level as package.json)
+
+To use a custom configuration, create a `wallets.json` file in your project root:
 
 ```json
+// /your-project-root/wallets.json
 {
   "wallets": [
     {
@@ -82,9 +118,21 @@ The SDK supports multiple wallet types with configurable priorities. The default
 }
 ```
 
-You can override this configuration by providing your own `wallets.json` file.
+> **Note**: The SDK will first look for a custom `wallets.json` in your project root. If not found, it will fall back to the default configuration.
 
 ## Basic Integration
+
+### Important: Backend Requirements
+
+Before implementing the authentication flow, you must set up a backend endpoint to handle authentication. The SDK expects this endpoint to be available at `/api/auth/login` by default, but you can configure a different endpoint using the `AUTH_ENDPOINT` environment variable.
+
+Your backend must implement:
+1. Signature verification
+2. Message validation
+3. Session management
+4. Token generation
+
+See the [Backend Requirements](#backend-requirements) section for a detailed implementation guide.
 
 ### 1. Initialize the SDK
 
@@ -140,10 +188,18 @@ async function authenticate() {
   try {
     const result = await loginWithPolkadot();
     
+    // Configure your authentication endpoint
+    // Note: You must implement this endpoint on your backend to handle authentication
+    const authEndpoint = process.env.AUTH_ENDPOINT || '/api/auth/login';
+    
     // Send authentication data to your backend
-    const response = await fetch('/api/auth/login', {
+    const response = await fetch(authEndpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        // Add any required authentication headers
+        // 'Authorization': `Bearer ${yourAuthToken}`
+      },
       body: JSON.stringify({
         address: result.address,
         signature: result.signature,
@@ -155,7 +211,8 @@ async function authenticate() {
     });
     
     if (!response.ok) {
-      throw new Error('Authentication failed');
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.message || 'Authentication failed');
     }
     
     return await response.json();
@@ -181,18 +238,34 @@ You can customize the wallet configuration by providing your own configuration:
 ```typescript
 import { WalletConnectConfig } from '@keypass/login-sdk';
 
+// Validate environment variable
+const projectId = process.env.WALLETCONNECT_PROJECT_ID;
+if (!projectId) {
+  throw new Error('WALLETCONNECT_PROJECT_ID is required for WalletConnect');
+}
+
+// Type-safe configuration without non-null assertions
 const customWalletConnectConfig: WalletConnectConfig = {
-  projectId: process.env.WALLETCONNECT_PROJECT_ID!,
+  projectId, // Required: Validated project ID
   metadata: {
     name: 'Your App Name',
     description: 'Your App Description',
     url: 'https://your-app.com',
     icons: ['https://your-app.com/icon.png']
   },
-  relayUrl: 'wss://relay.walletconnect.com', // Optional custom relay
-  chainId: 'polkadot', // Optional chain ID
-  sessionTimeout: 24 * 60 * 60 * 1000 // 24 hours
+  // Optional configuration with default values
+  relayUrl: process.env.WALLETCONNECT_RELAY_URL || 'wss://relay.walletconnect.com',
+  chainId: process.env.WALLETCONNECT_CHAIN_ID || 'polkadot',
+  sessionTimeout: process.env.WALLETCONNECT_SESSION_TIMEOUT 
+    ? parseInt(process.env.WALLETCONNECT_SESSION_TIMEOUT, 10)
+    : 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 };
+
+// The adapter will:
+// 1. Validate the projectId in the constructor
+// 2. Initialize the provider with proper error handling
+// 3. Set up event listeners for session management
+// 4. Handle reconnection attempts automatically
 ```
 
 ### Error Handling
@@ -249,58 +322,150 @@ async function handleWalletOperation() {
 The SDK handles session management automatically, but you can implement custom session handling:
 
 ```typescript
-import { connectWallet } from '@keypass/login-sdk';
+import { connectWallet, WalletAdapter } from '@keypass/login-sdk';
 
 class WalletSessionManager {
   private wallet: WalletAdapter | null = null;
   private sessionTimeout: NodeJS.Timeout | null = null;
+  private reconnectAttempts = 0;
+  private readonly maxReconnectAttempts = 3;
+  private readonly reconnectDelay = 1000; // 1 second
   
   async connect() {
-    this.wallet = await connectWallet();
-    
-    // Set up session timeout
-    this.wallet.on('sessionExpire', () => {
-      this.handleSessionExpire();
-    });
-    
-    // Set up disconnect handler
-    this.wallet.on('disconnect', () => {
-      this.handleDisconnect();
-    });
-    
-    return this.wallet;
+    try {
+      this.wallet = await connectWallet();
+      
+      // Set up session timeout
+      this.wallet.on('sessionExpire', () => {
+        this.handleSessionExpire();
+      });
+      
+      // Set up disconnect handler
+      this.wallet.on('disconnect', () => {
+        this.handleDisconnect();
+      });
+      
+      // Reset reconnect attempts on successful connection
+      this.reconnectAttempts = 0;
+      
+      return this.wallet;
+    } catch (error) {
+      console.error('Connection failed:', error);
+      throw error;
+    }
   }
   
   private handleSessionExpire() {
     // Clear any existing timeout
     if (this.sessionTimeout) {
       clearTimeout(this.sessionTimeout);
+      this.sessionTimeout = null;
     }
     
     // Notify user
     console.log('Session expired. Please reconnect.');
     
-    // Clean up
-    this.wallet = null;
+    // Attempt reconnection if within limits
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.attemptReconnect();
+    } else {
+      // Clean up after max attempts
+      this.cleanup();
+    }
   }
   
   private handleDisconnect() {
     // Clear any existing timeout
     if (this.sessionTimeout) {
       clearTimeout(this.sessionTimeout);
+      this.sessionTimeout = null;
     }
     
-    // Clean up
+    // Attempt reconnection if within limits
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.attemptReconnect();
+    } else {
+      // Clean up after max attempts
+      this.cleanup();
+    }
+  }
+  
+  private async attemptReconnect() {
+    this.reconnectAttempts++;
+    
+    try {
+      // Wait before attempting reconnect
+      await new Promise(resolve => setTimeout(resolve, this.reconnectDelay));
+      
+      // Attempt to reconnect
+      await this.connect();
+      
+      console.log('Successfully reconnected');
+    } catch (error) {
+      console.error('Reconnection attempt failed:', error);
+      
+      // If still under max attempts, try again
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.attemptReconnect();
+      } else {
+        this.cleanup();
+      }
+    }
+  }
+  
+  private cleanup() {
+    // Clear any existing timeout
+    if (this.sessionTimeout) {
+      clearTimeout(this.sessionTimeout);
+      this.sessionTimeout = null;
+    }
+    
+    // Reset reconnect attempts
+    this.reconnectAttempts = 0;
+    
+    // Clear wallet reference
     this.wallet = null;
+    
+    // Notify user of final disconnect
+    console.log('Wallet disconnected. Please reconnect manually.');
   }
   
   async disconnect() {
     if (this.wallet) {
-      await this.wallet.disconnect();
-      this.wallet = null;
+      try {
+        await this.wallet.disconnect();
+      } catch (error) {
+        console.error('Error during disconnect:', error);
+      } finally {
+        this.cleanup();
+      }
     }
   }
+  
+  // Optional: Add method to check connection status
+  isConnected(): boolean {
+    return this.wallet !== null;
+  }
+  
+  // Optional: Add method to get current wallet
+  getWallet(): WalletAdapter | null {
+    return this.wallet;
+  }
 }
+
+// Usage example:
+const sessionManager = new WalletSessionManager();
+
+// Connect to wallet
+try {
+  const wallet = await sessionManager.connect();
+  console.log('Connected to wallet:', wallet.getProvider());
+} catch (error) {
+  console.error('Failed to connect:', error);
+}
+
+// Later, when done:
+await sessionManager.disconnect();
 ```
 
 ### DID Management

@@ -111,6 +111,69 @@ try {
 }
 ```
 
+#### `InvalidAddressError`
+Thrown when an address format is invalid.
+
+```typescript
+class InvalidAddressError extends Error {
+  constructor(address: string);
+}
+```
+
+**Example:**
+```typescript
+try {
+  await loginWithPolkadot();
+} catch (error) {
+  if (error instanceof InvalidAddressError) {
+    console.error(`Invalid address format: ${error.address}`);
+    // Handle invalid address
+  }
+}
+```
+
+#### `WalletConnectionError`
+Thrown when there's a failure in wallet connection.
+
+```typescript
+class WalletConnectionError extends Error {
+  constructor(message: string);
+}
+```
+
+**Example:**
+```typescript
+try {
+  await connectWallet();
+} catch (error) {
+  if (error instanceof WalletConnectionError) {
+    console.error(`Wallet connection failed: ${error.message}`);
+    // Handle connection failure
+  }
+}
+```
+
+#### `ConfigurationError`
+Thrown when there's an issue with SDK configuration.
+
+```typescript
+class ConfigurationError extends Error {
+  constructor(message: string);
+}
+```
+
+**Example:**
+```typescript
+try {
+  await initializeSDK(config);
+} catch (error) {
+  if (error instanceof ConfigurationError) {
+    console.error(`Configuration error: ${error.message}`);
+    // Handle configuration issue
+  }
+}
+```
+
 ### API Errors
 
 #### Error Codes
@@ -172,6 +235,12 @@ class KeyPassErrorHandler {
       await this.handleTimeout(error);
     } else if (error instanceof MessageValidationError) {
       await this.handleValidationError(error);
+    } else if (error instanceof InvalidAddressError) {
+      await this.handleInvalidAddress(error);
+    } else if (error instanceof WalletConnectionError) {
+      await this.handleConnectionError(error);
+    } else if (error instanceof ConfigurationError) {
+      await this.handleConfigurationError(error);
     } else {
       await this.handleUnknownError(error);
     }
@@ -195,6 +264,21 @@ class KeyPassErrorHandler {
   private static async handleValidationError(error: MessageValidationError | AddressValidationError): Promise<void> {
     // Show validation error message
     await showValidationError(error.message);
+  }
+
+  private static async handleInvalidAddress(error: InvalidAddressError): Promise<void> {
+    // Show invalid address message
+    await showInvalidAddressMessage(error.address);
+  }
+
+  private static async handleConnectionError(error: WalletConnectionError): Promise<void> {
+    // Show connection error message
+    await showConnectionErrorMessage(error.message);
+  }
+
+  private static async handleConfigurationError(error: ConfigurationError): Promise<void> {
+    // Show configuration error message
+    await showConfigurationErrorMessage(error.message);
   }
 
   private static async handleUnknownError(error: unknown): Promise<void> {

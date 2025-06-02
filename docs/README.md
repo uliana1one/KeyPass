@@ -26,20 +26,29 @@ Welcome to the KeyPass Login SDK documentation. This documentation provides comp
    - Best practices
    - Troubleshooting
 
-5. [Security](security.md)
-   - Security considerations
+5. [Testing](testing.md)
+   - Test setup
+   - Running tests
+   - Test coverage
+   - [Docker Testing](docker-testing.md)
+     - Containerized test environment
+     - CI/CD integration
+
+6. [Protocols](protocols.md)
+   - Authentication protocols
+   - Communication protocols
+   - Security protocols
+
+7. [Tutorial](tutorial.md)
+   - Hands-on examples
+   - Common use cases
    - Best practices
-   - Known limitations
 
 ## Quick Links
 
 - [GitHub Repository](https://github.com/uliana1one/keypass)
 - [Issue Tracker](https://github.com/uliana1one/keypass/issues)
 
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](../LICENSE) file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 

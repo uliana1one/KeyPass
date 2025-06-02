@@ -2,6 +2,101 @@
 
 This document provides a comprehensive reference for all public APIs in the KeyPass Login SDK.
 
+## Type Definitions
+
+### Common Types
+
+```typescript
+type EventHandler = (...args: any[]) => void;
+
+interface WalletAccount {
+  address: string;
+  name?: string;
+  source: 'polkadot-js' | 'talisman' | 'walletconnect';
+}
+
+interface LoginResult {
+  address: string;    // Polkadot address
+  signature: string;  // Message signature
+  message: string;    // Signed message
+  did: string;        // Generated DID
+  issuedAt: string;   // ISO timestamp
+  nonce: string;      // UUID nonce
+}
+
+interface VerificationRequest {
+  message: string;    // The message that was signed
+  signature: string;  // The signature in hex format (0x-prefixed)
+  address: string;    // The Polkadot address that signed the message
+}
+
+interface VerificationResponse {
+  status: 'success' | 'error';
+  message: string;    // Success or error message
+  did?: string;       // The DID associated with the address (if valid)
+  code: string;       // Error code for client handling
+}
+
+interface DIDDocument {
+  '@context': string[];
+  id: string;
+  controller: string;
+  verificationMethod: VerificationMethod[];
+  authentication: string[];
+  assertionMethod?: string[];
+  keyAgreement?: string[];
+  capabilityInvocation?: string[];
+  capabilityDelegation?: string[];
+  service?: Service[];
+}
+
+interface VerificationMethod {
+  id: string;
+  type: string;
+  controller: string;
+  publicKeyMultibase: string;
+}
+
+interface Service {
+  id: string;
+  type: string;
+  serviceEndpoint: string;
+}
+
+interface DIDProvider {
+  createDid(address: string): Promise<string>;
+  createDIDDocument(address: string): Promise<DIDDocument>;
+}
+
+interface DIDResolver {
+  resolve(did: string): Promise<DIDDocument>;
+  extractAddress(did: string): Promise<string>;
+}
+
+interface WalletAdapter {
+  enable(): Promise<void>;
+  getAccounts(): Promise<WalletAccount[]>;
+  signMessage(message: string): Promise<string>;
+  getProvider(): string | null;
+  disconnect(): Promise<void>;
+  on(event: string, callback: EventHandler): void;
+  off(event: string, callback: EventHandler): void;
+}
+
+interface WalletConnectConfig {
+  projectId: string;           // WalletConnect project ID
+  metadata: {
+    name: string;
+    description: string;
+    url: string;
+    icons: string[];
+  };
+  relayUrl?: string;          // Optional custom relay URL
+  chainId?: string;           // Default chain ID
+  sessionTimeout?: number;    // Session timeout in milliseconds
+}
+```
+
 ## Main Functions
 
 ### `connectWallet`
@@ -16,17 +111,7 @@ Main entry point for wallet connection. This function attempts to connect to ava
 3. WalletConnect
 
 #### Returns
-```typescript
-interface WalletAdapter {
-  enable(): Promise<void>;
-  getAccounts(): Promise<WalletAccount[]>;
-  signMessage(message: string): Promise<string>;
-  getProvider(): string | null;
-  disconnect(): Promise<void>;
-  on(event: string, callback: EventHandler): void;
-  off(event: string, callback: EventHandler): void;
-}
-```
+Returns a `WalletAdapter` instance that implements the wallet connection interface.
 
 #### Throws
 - `WalletNotFoundError`: If no wallet is found
@@ -85,20 +170,6 @@ try {
 
 ## Wallet Adapters
 
-### `WalletAdapter` Interface
-
-```typescript
-interface WalletAdapter {
-  enable(): Promise<void>;
-  getAccounts(): Promise<WalletAccount[]>;
-  signMessage(message: string): Promise<string>;
-  getProvider(): string | null;
-  disconnect(): Promise<void>;
-  on(event: string, callback: EventHandler): void;
-  off(event: string, callback: EventHandler): void;
-}
-```
-
 ### `PolkadotJsAdapter`
 
 ```typescript
@@ -108,6 +179,9 @@ class PolkadotJsAdapter implements WalletAdapter {
   getAccounts(): Promise<WalletAccount[]>;
   signMessage(message: string): Promise<string>;
   getProvider(): string | null;
+  disconnect(): Promise<void>;
+  on(event: string, callback: EventHandler): void;
+  off(event: string, callback: EventHandler): void;
 }
 ```
 
@@ -122,6 +196,9 @@ class TalismanAdapter implements WalletAdapter {
   getAccounts(): Promise<WalletAccount[]>;
   signMessage(message: string): Promise<string>;
   getProvider(): string | null;
+  disconnect(): Promise<void>;
+  on(event: string, callback: EventHandler): void;
+  off(event: string, callback: EventHandler): void;
 }
 ```
 
@@ -136,19 +213,9 @@ class WalletConnectAdapter implements WalletAdapter {
   getAccounts(): Promise<WalletAccount[]>;
   signMessage(message: string): Promise<string>;
   getProvider(): string | null;
-}
-
-interface WalletConnectConfig {
-  projectId: string;           // WalletConnect project ID
-  metadata: {
-    name: string;
-    description: string;
-    url: string;
-    icons: string[];
-  };
-  relayUrl?: string;          // Optional custom relay URL
-  chainId?: string;           // Default chain ID
-  sessionTimeout?: number;    // Session timeout in milliseconds
+  disconnect(): Promise<void>;
+  on(event: string, callback: EventHandler): void;
+  off(event: string, callback: EventHandler): void;
 }
 ```
 
@@ -235,58 +302,7 @@ rebuildMessage(address: string, nonce: string, issuedAt: string): Promise<string
 ```
 Rebuilds a login message using the template system.
 
-## Type Definitions
-
-### Request Types
-
-```typescript
-interface VerificationRequest {
-  message: string;    // The message that was signed
-  signature: string;  // The signature in hex format (0x-prefixed)
-  address: string;    // The Polkadot address that signed the message
-}
-
-interface VerificationResponse {
-  status: 'success' | 'error';
-  message: string;
-  did?: string;
-  code: string;
-}
-
-interface WalletAccount {
-  address: string;
-  name?: string;
-  source: string;    // 'polkadot-js' | 'talisman' | 'walletconnect'
-}
-
-interface DIDDocument {
-  '@context': string[];
-  id: string;
-  controller: string;
-  verificationMethod: VerificationMethod[];
-  authentication: string[];
-  assertionMethod?: string[];
-  keyAgreement?: string[];
-  capabilityInvocation?: string[];
-  capabilityDelegation?: string[];
-  service?: Service[];
-}
-
-interface VerificationMethod {
-  id: string;
-  type: string;
-  controller: string;
-  publicKeyMultibase: string;
-}
-
-interface Service {
-  id: string;
-  type: string;
-  serviceEndpoint: string;
-}
-```
-
-### Error Types
+## Error Types
 
 ```typescript
 class WalletNotFoundError extends Error {

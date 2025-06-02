@@ -65,6 +65,87 @@ Located in `__tests__/e2e/`, these tests validate critical system flows:
 
 Note: The current e2e test suite focuses on the core authentication and DID flows. Additional user interaction scenarios and real-world usage patterns may be added in future iterations.
 
+
+### CI/CD Pipeline
+
+#### 1. GitHub Actions Workflow
+
+Create `.github/workflows/test.yml`:
+```yaml
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required for Codecov to work properly
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run tests with coverage
+      run: |
+        npm test -- --coverage --coverageReporters='json-summary' --coverageReporters='text' --coverageDirectory='./test-results/coverage'
+        
+    - name: Verify coverage report
+      if: always()
+      run: |
+        if [ ! -f "test-results/coverage/coverage-summary.json" ]; then
+          echo "::error::Coverage report not generated"
+          exit 1
+        fi
+        
+        # Check coverage thresholds
+        COVERAGE=$(jq -r '.total.statements.pct' test-results/coverage/coverage-summary.json)
+        if (( $(echo "$COVERAGE < 85" | bc -l) )); then
+          echo "::error::Test coverage ($COVERAGE%) is below threshold (85%)"
+          exit 1
+        fi
+        
+        echo "Coverage: $COVERAGE%"
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+        
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: test-results/coverage/
+        retention-days: 7
+        
+    - name: Debug coverage files
+      if: always()
+      run: |
+        echo "Listing coverage directory contents:"
+        ls -la test-results/coverage/
+        echo "Coverage summary contents:"
+        cat test-results/coverage/coverage-summary.json
+        
+    - name: Upload coverage to Codecov
+      if: always() && success()
+      uses: codecov/codecov-action@v4
+      with:
+        directory: ./test-results/coverage/
+        fail_ci_if_error: false
+        verbose: true
+        dry_run: true  # First try a dry run to see what would be uploaded
+```
+
 ## Running Tests
 
 ### Local Development

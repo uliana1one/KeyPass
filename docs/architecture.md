@@ -108,16 +108,20 @@ The KeyPass Login SDK follows a 7-layer architecture designed for modularity, se
 
 ## Component Interactions
 
-```mermaid
-graph TD
-    A[Client] --> B[Server Layer]
-    B --> C[Signature Layer]
-    C --> D[DID Layer]
-    B --> E[Message Layer]
-    E --> F[Account Layer]
-    F --> G[Wallet Adapter Layer]
-    G --> H[Config Layer]
-```
+The layers interact in the following sequence:
+
+1. Client initiates requests to the Server Layer
+2. Server Layer coordinates two main flows:
+   - Authentication Flow:
+     * Server → Signature Layer (verifies signatures)
+     * Signature Layer → DID Layer (creates/validates DIDs)
+   - Message Flow:
+     * Server → Message Layer (handles message format)
+     * Message Layer → Account Layer (manages accounts)
+     * Account Layer → Wallet Adapter Layer (connects to wallets)
+     * Wallet Adapter Layer → Config Layer (loads settings)
+
+Each layer only communicates with its immediate neighbors, maintaining a clean separation of concerns.
 
 ## Security Considerations
 
@@ -130,7 +134,7 @@ graph TD
 ## Best Practices
 
 1. **Layer Independence**
-   - Each layer should be independently testable
+   - Each layer is independently testable
    - Dependencies flow downward
    - No circular dependencies
 
@@ -153,77 +157,53 @@ graph TD
 
 ### Wallet Connection Layer
 
-```
-┌─────────────────┐
-│  connectWallet  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  WalletAdapter  │◄─────┐
-└────────┬────────┘      │
-         │               │
-    ┌────┴─────┐    ┌────┴─────┐    ┌───────────────┐
-    │PolkadotJs│    │ Talisman │    │WalletConnect  │
-    │ Adapter  │    │ Adapter  │    │   Adapter     │
-    └──────────┘    └──────────┘    └───────────────┘
-```
+The wallet connection system provides a unified interface for different wallet types:
 
-The wallet connection layer provides a unified interface for connecting to different wallet types:
+1. Main Entry Point: `connectWallet`
+   - Attempts to connect to available wallets in priority order
+   - Handles connection errors and retries
 
-1. **connectWallet**: Main entry point that attempts to connect to available wallets in priority order
-2. **WalletAdapter**: Common interface implemented by all wallet adapters
-3. **Specific Adapters**: Implementations for different wallet types:
-   - PolkadotJsAdapter: For the Polkadot.js extension
-   - TalismanAdapter: For the Talisman wallet
-   - WalletConnectAdapter: For any wallet supporting WalletConnect
+2. Common Interface: `WalletAdapter`
+   - Standard methods for all wallet types:
+     * enable(): Connect to wallet
+     * getAccounts(): List available accounts
+     * signMessage(): Sign authentication messages
+     * getProvider(): Get wallet provider info
+     * disconnect(): End wallet session
+     * Event handling (on/off)
+
+3. Supported Wallet Types:
+   - Polkadot.js (Priority 1)
+   - Talisman (Priority 2)
+   - WalletConnect (Priority 3)
+
+Each wallet adapter implements the same interface, allowing the system to work with any supported wallet type.
 
 ### Authentication Flow
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Connect    │     │   Sign      │     │  Verify     │
-│  Wallet     │────►│  Message    │────►│ Signature   │
-└─────────────┘     └─────────────┘     └─────────────┘
-                          │                   │
-                          ▼                   ▼
-                    ┌─────────────┐     ┌─────────────┐
-                    │  Create     │     │  Generate   │
-                    │    DID      │     │  Session    │
-                    └─────────────┘     └─────────────┘
-```
+The authentication process follows these steps:
 
-The authentication flow is handled by the `loginWithPolkadot` function, which:
-1. Connects to a wallet using the adapter pattern
-2. Gets the user's accounts
-3. Generates and signs a login message
-4. Verifies the signature
-5. Creates a DID for the address
-6. Generates a session
+1. Client initiates wallet connection
+2. User selects an account and signs a login message
+3. Server verifies the signature:
+   - First attempts sr25519 verification
+   - If that fails, tries ed25519 verification
+   - Retries on network errors
+4. On successful verification, creates a DID for the address
+5. Generates and returns a session with verification data
 
 ### DID Management
 
-```
-┌─────────────────┐
-│PolkadotDIDProvider│
-└────────┬────────┘
-         │
-    ┌────┴─────┐
-    │  Create  │
-    │    DID   │
-    └────┬─────┘
-         │
-    ┌────┴─────┐
-    │  DID     │
-    │Document  │
-    └──────────┘
-```
+The DID system works as follows:
 
-The DID management layer:
-1. Creates DIDs for Polkadot addresses
-2. Generates DID documents
-3. Provides DID resolution
-4. Manages verification methods
+1. Creates a DID from a Polkadot address using the did:key method
+2. Generates a DID document containing:
+   - A verification method (public key)
+   - Authentication capability
+   - Assertion capability
+   - Invocation and delegation capabilities
+3. Provides DID resolution to look up and validate documents
+4. Manages capability verification for actions
 
 ## Wallet Adapters
 
