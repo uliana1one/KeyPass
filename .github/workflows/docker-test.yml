@@ -54,10 +54,19 @@ jobs:
         path: test-results/coverage/
         retention-days: 7
         
+    - name: Debug coverage files
+      if: always()
+      run: |
+        echo "Listing coverage directory contents:"
+        ls -la test-results/coverage/
+        echo "Coverage summary contents:"
+        cat test-results/coverage/coverage-summary.json
+        
     - name: Upload coverage to Codecov
       if: always() && success()
       uses: codecov/codecov-action@v4
       with:
         directory: ./test-results/coverage/
-        fail_ci_if_error: false  # Don't fail the workflow if Codecov upload fails
+        fail_ci_if_error: false
         verbose: true
+        dry_run: true  # First try a dry run to see what would be uploaded
