@@ -294,7 +294,18 @@ export class VerificationService {
       }
 
       // Validate message length
-      this.validateMessageLength(request.message);
+      try {
+        this.validateMessageLength(request.message);
+      } catch (error) {
+        if (error instanceof MessageValidationError && error.message.includes('exceeds maximum length')) {
+          return {
+            status: 'error',
+            message: error.message,
+            code: ERROR_CODES.MESSAGE_TOO_LONG,
+          };
+        }
+        throw error;
+      }
 
       // Validate message format first
       try {
@@ -432,7 +443,12 @@ export class VerificationService {
       });
 
       // Re-throw validation errors to be handled by the caller
-      if (error instanceof MessageValidationError || error instanceof AddressValidationError) {
+      if (error instanceof MessageValidationError) {
+        // Message length errors are already handled above
+        if (!error.message.includes('exceeds maximum length')) {
+          throw error;
+        }
+      } else if (error instanceof AddressValidationError) {
         throw error;
       }
 

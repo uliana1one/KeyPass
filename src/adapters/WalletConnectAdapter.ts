@@ -372,24 +372,39 @@ export class WalletConnectAdapter implements WalletAdapter {
   }
 
   private async handleDisconnect(): Promise<void> {
-    if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-      this.reconnectAttempts++;
-      try {
-        await this.reconnect();
-      } catch (error) {
-        // If this was the last attempt, emit reconnectFailed
+    console.log(`[DEBUG] handleDisconnect called, current attempts: ${this.reconnectAttempts}, max: ${this.MAX_RECONNECT_ATTEMPTS}`);
+    
+    // If we've already hit max attempts, just cleanup and emit reconnectFailed
+    if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+        console.log(`[DEBUG] Max attempts already reached (${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS}), emitting reconnectFailed`);
+        await this.cleanup(false); // Don't reset attempts when we've hit max
+        this.eventEmitter.emit('reconnectFailed');
+        return;
+    }
+    
+    // Clear the session so enable() can attempt reconnection
+    this.session = null;
+    
+    // Increment attempt counter first
+    this.reconnectAttempts++;
+    console.log(`[DEBUG] After increment, attempts: ${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS}`);
+    
+    try {
+        // Attempt to reconnect
+        console.log(`[DEBUG] Calling enable() for reconnect attempt #${this.reconnectAttempts}`);
+        await this.enable();
+        // If successful, reset counter and emit connect
+        this.reconnectAttempts = 0;
+        console.log(`[DEBUG] Reconnect successful, reset attempts to 0`);
+        this.eventEmitter.emit('connect');
+    } catch (error) {
+        console.log(`[DEBUG] Reconnect failed, current attempts: ${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS}`);
+        // If this was the last attempt, cleanup and emit reconnectFailed
         if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
-          await this.cleanup();
-          this.eventEmitter.emit('reconnectFailed');
-        } else {
-          // Instead of emitting disconnect, directly try to reconnect
-          // This ensures we don't get into an event loop
-          await this.reconnect();
+            console.log(`[DEBUG] Final attempt failed, emitting reconnectFailed`);
+            await this.cleanup(false); // Don't reset attempts when we've hit max
+            this.eventEmitter.emit('reconnectFailed');
         }
-      }
-    } else {
-      await this.cleanup();
-      this.eventEmitter.emit('disconnect');
     }
   }
 
@@ -397,24 +412,14 @@ export class WalletConnectAdapter implements WalletAdapter {
     this.eventEmitter.emit('chainChanged', chainId);
   }
 
-  private async reconnect(): Promise<void> {
-    try {
-      await this.enable();
-      // Only reset reconnectAttempts on successful reconnection
-      this.reconnectAttempts = 0;
-      this.eventEmitter.emit('connect');
-    } catch (error) {
-      // Just rethrow the error - let handleDisconnect handle the failure
-      throw error;
-    }
-  }
-
-  private async cleanup(): Promise<void> {
+  private async cleanup(resetAttempts: boolean = true): Promise<void> {
     if (this.session) {
       await this.provider.disconnect();
     }
     this.session = null;
-    this.reconnectAttempts = 0;
+    if (resetAttempts) {
+      this.reconnectAttempts = 0;
+    }
     if (this.connectionTimeout) {
       clearTimeout(this.connectionTimeout);
       this.connectionTimeout = null;
