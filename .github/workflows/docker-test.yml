@@ -12,6 +12,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required for Codecov to work properly
     
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -52,9 +54,13 @@ jobs:
         path: test-results/coverage/
         retention-days: 7
         
-    - name: Upload coverage report
+    - name: Upload coverage to Codecov
       if: always() && success()
       uses: codecov/codecov-action@v4
       with:
         directory: ./test-results/coverage/
         fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        flags: unittests
+        name: codecov-umbrella
+        verbose: true
