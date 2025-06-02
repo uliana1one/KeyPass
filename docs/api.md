@@ -10,7 +10,13 @@ This document provides a comprehensive reference for all public APIs in the KeyP
 function loginWithPolkadot(retryCount?: number): Promise<LoginResult>
 ```
 
-Main entry point for wallet authentication.
+Main entry point for wallet authentication. This function orchestrates the entire login flow:
+1. Connects to the wallet (Polkadot.js or Talisman)
+2. Gets the user's accounts
+3. Generates a login message with a nonce
+4. Signs the message
+5. Verifies the signature
+6. Creates a DID for the address
 
 #### Parameters
 - `retryCount` (optional): Number of retry attempts for network errors (default: 1)
@@ -27,13 +33,24 @@ interface LoginResult {
 }
 ```
 
+#### Throws
+- `WalletNotFoundError`: If no wallet is found
+- `UserRejectedError`: If the user rejects any wallet operation
+- `WalletConnectionError`: If wallet connection fails
+- `MessageValidationError`: If message validation fails
+- `InvalidSignatureError`: If signature verification fails
+
 #### Example
 ```typescript
-const result = await loginWithPolkadot();
-console.log('Login successful:', {
-  address: result.address,
-  did: result.did
-});
+try {
+  const result = await loginWithPolkadot();
+  console.log('Logged in as:', result.address);
+  console.log('DID:', result.did);
+} catch (error) {
+  if (error instanceof WalletNotFoundError) {
+    console.error('Please install a Polkadot wallet');
+  }
+}
 ```
 
 ## Wallet Adapters
@@ -61,6 +78,8 @@ class PolkadotJsAdapter implements WalletAdapter {
 }
 ```
 
+The PolkadotJsAdapter handles connection, account listing, and message signing for the official Polkadot.js wallet extension.
+
 ### `TalismanAdapter`
 
 ```typescript
@@ -72,6 +91,8 @@ class TalismanAdapter implements WalletAdapter {
   getProvider(): string | null;
 }
 ```
+
+The TalismanAdapter handles connection, account listing, and message signing for the Talisman wallet extension, with fallback to WalletConnect.
 
 ## DID Provider
 
@@ -88,31 +109,33 @@ class PolkadotDIDProvider implements DIDProvider, DIDResolver {
 }
 ```
 
+Provider for creating and managing Polkadot DIDs. Implements the did:key method for Polkadot addresses.
+
 #### Methods
 
 ##### `createDid`
 ```typescript
 createDid(address: string): Promise<string>
 ```
-Creates a DID for a Polkadot address.
+Creates a DID for a Polkadot address in the format `did:key:<multibase-encoded-public-key>`.
 
 ##### `createDIDDocument`
 ```typescript
 createDIDDocument(address: string): Promise<DIDDocument>
 ```
-Creates a DID document for a Polkadot address.
+Creates a DID document for a Polkadot address with verification methods and capabilities.
 
 ##### `resolve`
 ```typescript
 resolve(did: string): Promise<DIDDocument>
 ```
-Resolves a DID to its DID document.
+Resolves a DID to its DID document. Throws an error if the DID cannot be resolved.
 
 ##### `extractAddress`
 ```typescript
 extractAddress(did: string): Promise<string>
 ```
-Extracts the Polkadot address from a DID.
+Extracts the Polkadot address from a DID. Throws an error if the address cannot be extracted.
 
 ## Verification Service
 
@@ -133,7 +156,7 @@ class VerificationService {
 ```typescript
 verifySignature(request: VerificationRequest): Promise<VerificationResponse>
 ```
-Verifies a signature against a message and address.
+Verifies a signature against a message and address. Returns a response with status and optional DID.
 
 ##### `rebuildMessage`
 ```typescript
@@ -179,6 +202,19 @@ interface DIDDocument {
   capabilityDelegation?: string[];
   service?: Service[];
 }
+
+interface VerificationMethod {
+  id: string;
+  type: string;
+  controller: string;
+  publicKeyMultibase: string;
+}
+
+interface Service {
+  id: string;
+  type: string;
+  serviceEndpoint: string;
+}
 ```
 
 ### Error Types
@@ -201,6 +237,18 @@ class MessageValidationError extends Error {
 }
 
 class AddressValidationError extends Error {
+  constructor(message: string);
+}
+
+class WalletConnectionError extends Error {
+  constructor(message: string);
+}
+
+class ConfigurationError extends Error {
+  constructor(message: string);
+}
+
+class InvalidSignatureError extends Error {
   constructor(message: string);
 }
 ```
@@ -231,4 +279,37 @@ const ERROR_CODES = {
 const WALLET_TIMEOUT = 30000; // 30 seconds
 const MAX_MESSAGE_LENGTH = 256;
 const MAX_MESSAGE_AGE_MS = 5 * 60 * 1000; // 5 minutes
-``` 
+const MAX_REQUEST_SIZE = '10kb'; // Maximum request body size
+```
+
+## Server API
+
+### POST /api/verify
+
+Verifies a Polkadot wallet signature and returns the associated DID.
+
+#### Request Body
+```typescript
+{
+  message: string;    // The message that was signed
+  signature: string;  // The signature in hex format (0x-prefixed)
+  address: string;    // The Polkadot address that signed the message
+}
+```
+
+#### Response
+```typescript
+{
+  status: 'success' | 'error';
+  message: string;    // Success or error message
+  code: string;       // Error code if applicable
+  did?: string;       // The DID associated with the address (if valid)
+}
+```
+
+#### Security Headers
+The server includes the following security headers:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `X-XSS-Protection: 1; mode=block`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` 
