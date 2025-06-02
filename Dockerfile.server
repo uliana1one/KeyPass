@@ -1,10 +1,15 @@
 # Build stage
 FROM node:20-slim AS builder
 
-# Install dependencies for @polkadot/util-crypto
+# Install dependencies for @polkadot/util-crypto and git
 RUN apt-get update && \
-    apt-get install -y python3 make g++ wget ca-certificates && \
+    apt-get install -y python3 make g++ wget ca-certificates git && \
     rm -rf /var/lib/apt/lists/*
+
+# Configure git
+RUN git config --global --add safe.directory /app && \
+    git config --global user.email "docker@example.com" && \
+    git config --global user.name "Docker Build"
 
 # Create app directory
 WORKDIR /app
@@ -21,13 +26,7 @@ RUN echo "registry=https://registry.npmjs.org/" > .npmrc && \
     echo "loglevel=verbose" >> .npmrc
 
 # Copy package files
-COPY package.json ./
-
-# Regenerate package-lock.json and install dependencies
-RUN npm cache clean --force && \
-    rm -f package-lock.json && \
-    npm install --package-lock-only && \
-    npm ci --no-audit --verbose
+COPY package*.json ./
 
 # Install specific npm version known to handle integrity well
 RUN npm install -g npm@10.2.4
@@ -35,9 +34,10 @@ RUN npm install -g npm@10.2.4
 # Install dependencies with specific memory limits
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Try installing with integrity verification
+# Clean install with git available
 RUN npm cache clean --force && \
-    npm install --no-audit --verbose --package-lock-only && \
+    rm -f package-lock.json && \
+    npm install --package-lock-only && \
     npm ci --no-audit --verbose
 
 # Production stage

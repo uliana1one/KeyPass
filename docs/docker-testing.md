@@ -11,10 +11,15 @@ Create `Dockerfile.server`:
 # Build stage
 FROM node:20-slim AS builder
 
-# Install dependencies for @polkadot/util-crypto
+# Install dependencies for @polkadot/util-crypto and git
 RUN apt-get update && \
-    apt-get install -y python3 make g++ wget ca-certificates && \
+    apt-get install -y python3 make g++ wget ca-certificates git && \
     rm -rf /var/lib/apt/lists/*
+
+# Configure git
+RUN git config --global --add safe.directory /app && \
+    git config --global user.email "docker@example.com" && \
+    git config --global user.name "Docker Build"
 
 # Create app directory
 WORKDIR /app
@@ -31,13 +36,7 @@ RUN echo "registry=https://registry.npmjs.org/" > .npmrc && \
     echo "loglevel=verbose" >> .npmrc
 
 # Copy package files
-COPY package.json ./
-
-# Regenerate package-lock.json and install dependencies
-RUN npm cache clean --force && \
-    rm -f package-lock.json && \
-    npm install --package-lock-only && \
-    npm ci --no-audit --verbose
+COPY package*.json ./
 
 # Install specific npm version known to handle integrity well
 RUN npm install -g npm@10.2.4
@@ -45,9 +44,10 @@ RUN npm install -g npm@10.2.4
 # Install dependencies with specific memory limits
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Try installing with integrity verification
+# Clean install with git available
 RUN npm cache clean --force && \
-    npm install --no-audit --verbose --package-lock-only && \
+    rm -f package-lock.json && \
+    npm install --package-lock-only && \
     npm ci --no-audit --verbose
 
 # Production stage
@@ -88,7 +88,8 @@ Create `Dockerfile.test`:
 FROM node:20-alpine
 
 # Install dependencies for browser testing and @polkadot/util-crypto
-RUN apk add --no-cache \
+RUN apk update && \
+    apk add --no-cache \
     chromium \
     nss \
     freetype \
@@ -99,7 +100,12 @@ RUN apk add --no-cache \
     python3 \
     make \
     g++ \
-    wget
+    wget \
+    git && \
+    # Configure git
+    git config --global --add safe.directory /app && \
+    git config --global user.email "docker@example.com" && \
+    git config --global user.name "Docker Build"
 
 # Set environment variables for Chrome
 ENV CHROME_BIN=/usr/bin/chromium-browser
@@ -109,11 +115,31 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 # Create app directory
 WORKDIR /app
 
+# Create .npmrc with specific configuration
+RUN echo "registry=https://registry.npmjs.org/" > .npmrc && \
+    echo "fetch-retries=5" >> .npmrc && \
+    echo "fetch-retry-mintimeout=20000" >> .npmrc && \
+    echo "fetch-retry-maxtimeout=120000" >> .npmrc && \
+    echo "network-timeout=300000" >> .npmrc && \
+    echo "strict-ssl=true" >> .npmrc && \
+    echo "audit=false" >> .npmrc && \
+    echo "fund=false" >> .npmrc && \
+    echo "loglevel=verbose" >> .npmrc
+
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install specific npm version known to handle integrity well
+RUN npm install -g npm@10.2.4
+
+# Install dependencies with specific memory limits
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+# Clean install with git available
+RUN npm cache clean --force && \
+    rm -f package-lock.json && \
+    npm install --package-lock-only && \
+    npm ci --no-audit --verbose
 
 # Copy source code
 COPY . .
@@ -125,7 +151,7 @@ RUN npm run build
 RUN mkdir -p /app/test-results
 
 # Default command (can be overridden)
-CMD ["npm", "test"] 
+CMD ["npm", "test"]
 ```
 
 ### 3. Docker Compose Configuration
@@ -175,14 +201,13 @@ Update `package.json` to include:
   "scripts": {
     "test:docker": "docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test",
     "test:docker:cleanup": "docker-compose -f docker-compose.test.yml down -v",
-    "test:unit": "jest",
-    "test:integration": "jest --testPathPattern=src/__tests__/integration.test.ts",
-    "test:wallet": "jest --testPathPattern=src/__tests__/walletConnector.test.ts"
   }
 }
 ```
 
 ## Running Tests in Docker
+
+Note: Make sure to start Docker on your computer before running the commands. 
 
 ### 1. Run All Tests
 
