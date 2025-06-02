@@ -30,8 +30,4 @@ services:
         condition: service_healthy
     volumes:
       - ./test-results:/app/test-results
-    command: >
-      sh -c "npm test &&
-             npm test -- --testPathPattern=src/__tests__/integration.test.ts &&
-             npm test -- --testPathPattern=src/__tests__/walletConnector.test.ts &&
-             npm test -- --coverage --coverageReporters='json-summary' --coverageReporters='text' --coverageDirectory='./test-results/coverage'" 
+    command: npm test -- --coverage --coverageReporters='json-summary' --coverageReporters='text' --coverageDirectory='./test-results/coverage'

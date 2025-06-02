@@ -8,20 +8,60 @@ This guide provides instructions for running the KeyPass SDK test suite in Docke
 
 Create `Dockerfile.server`:
 ```dockerfile
-# Use Node.js 20 as base image
-FROM node:20-alpine
+# Build stage
+FROM node:20-slim AS builder
 
 # Install dependencies for @polkadot/util-crypto
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && \
+    apt-get install -y python3 make g++ wget ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Create .npmrc with specific configuration
+RUN echo "registry=https://registry.npmjs.org/" > .npmrc && \
+    echo "fetch-retries=5" >> .npmrc && \
+    echo "fetch-retry-mintimeout=20000" >> .npmrc && \
+    echo "fetch-retry-maxtimeout=120000" >> .npmrc && \
+    echo "network-timeout=300000" >> .npmrc && \
+    echo "strict-ssl=true" >> .npmrc && \
+    echo "audit=false" >> .npmrc && \
+    echo "fund=false" >> .npmrc && \
+    echo "loglevel=verbose" >> .npmrc
 
-# Install dependencies
-RUN npm ci
+# Copy package files
+COPY package.json ./
+
+# Regenerate package-lock.json and install dependencies
+RUN npm cache clean --force && \
+    rm -f package-lock.json && \
+    npm install --package-lock-only && \
+    npm ci --no-audit --verbose
+
+# Install specific npm version known to handle integrity well
+RUN npm install -g npm@10.2.4
+
+# Install dependencies with specific memory limits
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+# Try installing with integrity verification
+RUN npm cache clean --force && \
+    npm install --no-audit --verbose --package-lock-only && \
+    npm ci --no-audit --verbose
+
+# Production stage
+FROM node:20-slim
+
+# Install runtime dependencies only
+RUN apt-get update && \
+    apt-get install -y wget curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy built node_modules from builder
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy source code
 COPY . .
@@ -30,10 +70,14 @@ COPY . .
 RUN npm run build
 
 # Expose server port
-EXPOSE 3001
+EXPOSE 3000
+
+# Add healthcheck endpoint
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f -X POST -H "Content-Type: application/json" -d '{"message":"healthcheck","signature":"0x123","address":"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"}' http://localhost:3000/api/verify || exit 1
 
 # Start server
-CMD ["npm", "run", "start:server"]
+CMD ["npm", "run", "start"]
 ```
 
 ### 2. Test Runner Dockerfile
@@ -43,7 +87,7 @@ Create `Dockerfile.test`:
 # Use Node.js 20 as base image
 FROM node:20-alpine
 
-# Install dependencies for browser testing
+# Install dependencies for browser testing and @polkadot/util-crypto
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -54,7 +98,8 @@ RUN apk add --no-cache \
     ttf-freefont \
     python3 \
     make \
-    g++
+    g++ \
+    wget
 
 # Set environment variables for Chrome
 ENV CHROME_BIN=/usr/bin/chromium-browser
@@ -76,15 +121,17 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
+# Create test results directory
+RUN mkdir -p /app/test-results
+
 # Default command (can be overridden)
-CMD ["npm", "test"]
+CMD ["npm", "test"] 
 ```
 
 ### 3. Docker Compose Configuration
 
 Create `docker-compose.test.yml`:
 ```yaml
-
 services:
   # Verification server
   server:
@@ -92,15 +139,16 @@ services:
       context: .
       dockerfile: Dockerfile.server
     ports:
-      - "3001:3001"
+      - "3000:3000"
     environment:
       - NODE_ENV=test
-      - PORT=3001
+      - PORT=3000
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:3001/health"]
-      interval: 5s
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
       timeout: 3s
       retries: 3
+      start_period: 5s
 
   # Test runner
   test:
@@ -109,22 +157,19 @@ services:
       dockerfile: Dockerfile.test
     environment:
       - NODE_ENV=test
-      - VERIFICATION_API_URL=http://server:3001/api
+      - VERIFICATION_API_URL=http://server:3000/api
       - DEBUG=keypass:*
     depends_on:
       server:
         condition: service_healthy
     volumes:
       - ./test-results:/app/test-results
-    command: >
-      sh -c "npm test &&
-             npm test -- --testPathPattern=src/__tests__/integration.test.ts &&
-             npm test -- --testPathPattern=src/__tests__/walletConnector.test.ts"
+    command: npm test -- --coverage --coverageReporters='json-summary' --coverageReporters='text' --coverageDirectory='./test-results/coverage'
 ```
 
 ### 4. Test Scripts
 
-Update `package.json`:
+Update `package.json` to include:
 ```json
 {
   "scripts": {
@@ -194,44 +239,9 @@ jobs:
 
 ### 2. Test Results
 
-The test results will be available in the `test-results` directory. This directory is automatically created when running tests through Docker or GitHub Actions. The structure is as follows:
+The test results will be available in the `test-results` directory. This directory is automatically created when running tests through Docker or GitHub Actions. 
 
-```
-test-results/
-├── unit/
-│   ├── coverage/    # Contains Jest coverage reports
-│   └── test-report.json
-└── integration/
-    └── test-report.json
-```
-
-Note: The test-results directory is mounted as a volume in the Docker container, so results persist after the container stops. You can find the results in the `test-results` directory at the root of your project.
-
-## Best Practices
-
-### 1. Container Configuration
-
-- Use multi-stage builds for smaller images
-- Implement proper health checks
-- Set appropriate resource limits
-- Use environment variables for configuration
-- Mount volumes for test results
-
-### 2. Test Isolation
-
-- Each test suite runs in its own container
-- Tests don't interfere with each other
-- Clean up resources after tests
-- Use unique ports for each service
-- Implement proper service dependencies
-
-### 3. Security
-
-- Run containers with non-root user
-- Scan images for vulnerabilities
-- Use secrets for sensitive data
-- Implement proper network isolation
-- Follow security best practices
+Note: The test-results directory is mounted as a volume in the Docker container, so results persist after the container stops. You can find the results in the `test-results` directory at the root of the project.
 
 ## Troubleshooting
 
