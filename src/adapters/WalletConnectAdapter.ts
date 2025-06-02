@@ -272,40 +272,22 @@ export class WalletConnectAdapter implements WalletAdapter {
       }
 
       const account = accounts[0];
+      const signPromise = this.provider.signMessage({
+        message: sanitizedMessage,
+        chainId: this.session.chainId,
+      });
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new TimeoutError('message_signing')), WALLET_TIMEOUT)
+      );
+
+      const signature = await Promise.race([signPromise, timeoutPromise]) as string;
+
       try {
-        const signPromise = this.provider.signMessage({
-          message: sanitizedMessage,
-          chainId: this.session.chainId,
-        });
-
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new TimeoutError('message_signing')), WALLET_TIMEOUT)
-        );
-
-        const signature = await Promise.race([signPromise, timeoutPromise]) as string;
-
-        try {
-          validateSignature(signature);
-          return signature;
-        } catch (error) {
-          throw new InvalidSignatureError(error instanceof Error ? error.message : 'Invalid signature format');
-        }
+        validateSignature(signature);
+        return signature;
       } catch (error) {
-        if (error instanceof TimeoutError) {
-          throw error;
-        }
-        if (error instanceof Error) {
-          if (error.message.includes('User rejected') || error.message.includes('User denied')) {
-            throw new UserRejectedError('message_signing');
-          }
-          if (error.message.includes('Invalid signature')) {
-            throw new InvalidSignatureError(error.message);
-          }
-          if (error.message.includes('timeout')) {
-            throw new TimeoutError('message_signing');
-          }
-        }
-        throw new WalletConnectionError(`Failed to sign message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new InvalidSignatureError(error instanceof Error ? error.message : 'Invalid signature format');
       }
     } catch (error) {
       if (error instanceof MessageValidationError ||
@@ -314,6 +296,18 @@ export class WalletConnectAdapter implements WalletAdapter {
           error instanceof UserRejectedError ||
           error instanceof WalletConnectionError) {
         throw error;
+      }
+      if (error instanceof Error) {
+        if (error.message.includes('User rejected') || error.message.includes('User denied')) {
+          throw new UserRejectedError('message_signing');
+        }
+        if (error.message.includes('Invalid signature')) {
+          throw new InvalidSignatureError(error.message);
+        }
+        if (error.message.includes('timeout')) {
+          throw new TimeoutError('message_signing');
+        }
+        throw new WalletConnectionError(`Failed to sign message: ${error.message}`);
       }
       throw new WalletConnectionError('Failed to sign message: Unknown error');
     }

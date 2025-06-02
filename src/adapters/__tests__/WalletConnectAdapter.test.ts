@@ -1,3 +1,9 @@
+// Mock @polkadot/util-crypto before importing the types
+jest.mock('@polkadot/util-crypto', () => ({
+  isAddress: jest.fn(() => true),
+  checkAddress: jest.fn(() => [true, null]),
+}));
+
 import { WalletConnectAdapter, WalletConnectConfig } from '../WalletConnectAdapter';
 import { WalletNotFoundError, UserRejectedError, TimeoutError, WalletConnectionError } from '../../errors/WalletErrors';
 import { WalletConnectProvider } from '@walletconnect/web3-provider';
@@ -152,7 +158,7 @@ describe('WalletConnectAdapter', () => {
     });
 
     test('should sign valid messages', async () => {
-      const mockSignature = '0x123...';
+      const mockSignature = '0x' + '1'.repeat(128); // Valid sr25519 signature format
       mockProvider.signMessage.mockResolvedValue(mockSignature);
       mockProvider.getAccounts.mockResolvedValue([{
         address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
