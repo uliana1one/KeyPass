@@ -11,6 +11,13 @@
       "name": "Talisman",
       "adapter": "TalismanAdapter",
       "priority": 2
+    },
+    {
+      "id": "walletconnect",
+      "name": "WalletConnect",
+      "adapter": "WalletConnectAdapter",
+      "priority": 3,
+      "description": "Connect to any wallet that supports WalletConnect protocol"
     }
   ]
 } 

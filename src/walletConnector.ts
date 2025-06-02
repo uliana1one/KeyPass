@@ -4,6 +4,7 @@ import { WalletAdapter, WalletAdapterConstructor } from './adapters/types';
 import { WalletConnectionError, ConfigurationError } from './errors/WalletErrors';
 import { PolkadotJsAdapter } from './adapters/PolkadotJsAdapter';
 import { TalismanAdapter } from './adapters/TalismanAdapter';
+import { WalletConnectAdapter, WalletConnectConfig } from './adapters/WalletConnectAdapter';
 
 // Validate wallet configuration at startup
 try {
@@ -14,6 +15,17 @@ try {
   }
   throw error;
 }
+
+// Default WalletConnect configuration
+const defaultWalletConnectConfig: WalletConnectConfig = {
+  projectId: process.env.WALLETCONNECT_PROJECT_ID || '',
+  metadata: {
+    name: 'KeyPass Login SDK',
+    description: 'KeyPass Login SDK for Polkadot wallets',
+    url: 'https://keypass.app',
+    icons: ['https://keypass.app/icon.png']
+  }
+};
 
 /**
  * Attempts to connect to a supported wallet by trying each adapter in priority order.
@@ -34,6 +46,13 @@ export async function connectWallet(): Promise<WalletAdapter> {
           break;
         case 'TalismanAdapter':
           adapter = new TalismanAdapter();
+          break;
+        case 'WalletConnectAdapter':
+          if (!defaultWalletConnectConfig.projectId) {
+            console.warn('WalletConnect project ID not configured, skipping WalletConnect adapter');
+            continue;
+          }
+          adapter = new WalletConnectAdapter(defaultWalletConnectConfig);
           break;
         default:
           continue; // Skip unsupported adapters
