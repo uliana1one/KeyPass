@@ -16,19 +16,56 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
-    - name: Run tests in Docker
+    - name: Prepare test environment
       run: |
-        # Create test-results directory if it doesn't exist
-        mkdir -p test-results/unit/coverage test-results/integration
+        # Create test-results directory with proper permissions
+        mkdir -p test-results/coverage
+        chmod -R 777 test-results
+        
+    - name: Run tests in Docker
+      id: run-tests
+      run: |
+        # Run tests with coverage
         docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test
+        
+    - name: Verify coverage report
+      if: always()
+      run: |
+        if [ ! -f "test-results/coverage/coverage-summary.json" ]; then
+          echo "::error::Coverage report not generated"
+          exit 1
+        fi
+        
+        # Check coverage thresholds
+        COVERAGE=$(jq -r '.total.statements.pct' test-results/coverage/coverage-summary.json)
+        if (( $(echo "$COVERAGE < 85" | bc -l) )); then
+          echo "::error::Test coverage ($COVERAGE%) is below threshold (85%)"
+          exit 1
+        fi
+        
+        echo "Coverage: $COVERAGE%"
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
         
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: test-results
-        path: test-results/
+        path: |
+          test-results/coverage/
+          test-results/unit/
+          test-results/integration/
+        retention-days: 7
+        
+    - name: Upload coverage report
+      if: always() && success()
+      uses: codecov/codecov-action@v4
+      with:
+        directory: ./test-results/coverage/
+        fail_ci_if_error: true
         
     - name: Cleanup
       if: always()
-      run: docker-compose -f docker-compose.test.yml down -v
+      run: |
+        docker-compose -f docker-compose.test.yml down -v
+        rm -rf test-results
