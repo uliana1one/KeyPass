@@ -15,6 +15,11 @@ export function createServer(): express.Application {
   const app = express();
   const verificationService = new VerificationService();
 
+  // Add root endpoint for health checks
+  app.get('/', (_req: Request, res: Response) => {
+    res.status(200).send('OK');
+  });
+
   // Security middleware
   app.use((req: Request, res: Response, next: NextFunction) => {
     // Add security headers

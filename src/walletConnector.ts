@@ -2,6 +2,8 @@ import walletsConfig from '../config/wallets.json';
 import { validateWalletConfig } from './config/validator';
 import { WalletAdapter, WalletAdapterConstructor } from './adapters/types';
 import { WalletConnectionError, ConfigurationError } from './errors/WalletErrors';
+import { PolkadotJsAdapter } from './adapters/PolkadotJsAdapter';
+import { TalismanAdapter } from './adapters/TalismanAdapter';
 
 // Validate wallet configuration at startup
 try {
@@ -14,60 +16,38 @@ try {
 }
 
 /**
- * Attempts to connect to a supported wallet by trying each available adapter
- * in sequence according to their priority in the configuration.
- * Returns the first successfully enabled adapter.
- *
- * @returns Promise resolving to an enabled wallet adapter
- * @throws {WalletConnectionError} If no supported wallet is found or can be enabled
- * @throws {ConfigurationError} If the wallet configuration is invalid
- *
- * @example
- * ```typescript
- * const wallet = await connectWallet();
- * const accounts = await wallet.getAccounts();
- * ```
+ * Attempts to connect to a supported wallet by trying each adapter in priority order.
+ * @returns A promise that resolves to the first successfully connected wallet adapter
+ * @throws Error if no supported wallet is found
  */
-export async function connectWallet(retryCount = 1): Promise<WalletAdapter> {
-  // Ensure configuration is valid
-  validateWalletConfig(walletsConfig);
+export async function connectWallet(): Promise<WalletAdapter> {
+  // Sort adapters by priority
+  const sortedWallets = [...walletsConfig.wallets].sort((a, b) => a.priority - b.priority);
 
-  const errors: Error[] = [];
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt <= retryCount; attempt++) {
-    for (const wallet of walletsConfig.wallets) {
-      try {
-        // Dynamic import of adapter class
-        const AdapterModule = await import(`./adapters/${wallet.adapter}`);
-        const AdapterClass = AdapterModule[wallet.adapter] as WalletAdapterConstructor;
-
-        // Create and enable adapter
-        const adapter = new AdapterClass();
-        await adapter.enable();
-
-        return adapter;
-      } catch (error) {
-        // Log error but continue to next wallet
-        console.debug(`Failed to connect to ${wallet.name} (attempt ${attempt + 1}/${retryCount + 1}):`, error);
-        if (error instanceof Error) {
-          errors.push(error);
-          lastError = error;
-        }
-        continue;
+  // Try each adapter in sequence
+  for (const wallet of sortedWallets) {
+    try {
+      let adapter: WalletAdapter;
+      switch (wallet.adapter) {
+        case 'PolkadotJsAdapter':
+          adapter = new PolkadotJsAdapter();
+          break;
+        case 'TalismanAdapter':
+          adapter = new TalismanAdapter();
+          break;
+        default:
+          continue; // Skip unsupported adapters
       }
-    }
 
-    // If this wasn't the last attempt and we got a network error, wait and retry
-    if (attempt < retryCount && lastError?.message.includes('Network error')) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+      // Try to enable the wallet
+      await adapter.enable();
+      return adapter;
+    } catch (error) {
+      // Log the error but continue trying other adapters
+      console.debug(`Failed to connect to ${wallet.name}:`, error);
       continue;
     }
   }
 
-  // If we get here, no wallet could be connected
-  const errorMessages = errors.map(e => e.message).join(', ');
-  throw new WalletConnectionError(
-    `No supported wallet found. Errors: ${errorMessages}`
-  );
+  throw new Error('No supported wallet found');
 }

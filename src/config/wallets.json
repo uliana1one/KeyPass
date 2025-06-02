@@ -1,0 +1,16 @@
+{
+  "wallets": [
+    {
+      "id": "polkadot-js",
+      "name": "Polkadot.js",
+      "adapter": "PolkadotJsAdapter",
+      "priority": 1
+    },
+    {
+      "id": "talisman",
+      "name": "Talisman",
+      "adapter": "TalismanAdapter",
+      "priority": 2
+    }
+  ]
+} 

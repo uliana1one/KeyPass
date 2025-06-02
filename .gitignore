@@ -186,6 +186,15 @@ dist/
 *.swo
 .DS_Store
 
+# Docker
+.docker/
+docker-compose.override.yml
+*.env.docker
+.dockerignore
+docker-compose.*.yml
+!docker-compose.yml
+!docker-compose.test.yml
+
 # Logs
 *.log
 npm-debug.log*

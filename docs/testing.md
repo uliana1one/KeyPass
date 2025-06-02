@@ -1,392 +1,193 @@
-# KeyPass SDK Testing Guide
+# Testing Guide for KeyPass
 
-This guide provides comprehensive instructions for testing the KeyPass SDK across all layers and components.
+## Overview
 
-## Prerequisites
+KeyPass implements a comprehensive testing strategy to ensure reliability and maintainability of the codebase. The testing suite combines unit tests, integration tests, and end-to-end tests, utilizing Jest as the primary testing framework. The test suite is designed to validate both the core functionality and the integration points of the wallet authentication system.
 
-### 1. Development Environment Setup
+## Test Structure
 
-```bash
-# Install Node.js 16+ and npm
-brew install node@16  # macOS
-# or
-nvm install 16       # Using nvm
+The tests are organized in a hierarchical structure:
 
-# Install global dependencies
-npm install -g jest ts-jest @types/jest supertest @testing-library/react @testing-library/jest-dom
-
-# Install browser testing tools
-npm install -g puppeteer playwright
+```
+KeyPass/
+├── __tests__/                    # Root test directory
+│   ├── integration/             # Integration test suites
+│   │   ├── integration.test.ts  # Core integration tests
+│   │   └── walletConnector.test.ts
+│   └── e2e/                     # End-to-end test suites
+│       └── authentication.test.ts
+├── src/
+│   ├── adapters/               # Wallet adapter implementations
+│   │   └── __tests__/         # Unit tests for adapters
+│   ├── accounts/              # Account management
+│   │   └── __tests__/        # Unit tests for account handling
+│   ├── config/               # Configuration management
+│   │   └── __tests__/       # Unit tests for configuration
+│   ├── did/                 # DID (Decentralized Identifier) handling
+│   │   └── __tests__/      # Unit tests for DID operations
+│   ├── errors/             # Error handling
+│   │   └── __tests__/     # Unit tests for error classes
+│   ├── message/           # Message handling
+│   │   └── __tests__/    # Unit tests for message operations
+│   ├── server/           # Server implementation
+│   │   └── __tests__/   # Unit tests for server components
+│   └── types/           # Type definitions
 ```
 
-### 2. Project Dependencies
+## Test Categories
 
-```bash
-# Install testing dependencies
-npm install --save-dev \
-  jest \
-  ts-jest \
-  @types/jest \
-  supertest \
-  @testing-library/react \
-  @testing-library/jest-dom \
-  @testing-library/user-event \
-  msw \
-  puppeteer \
-  playwright \
-  k6 \
-  @types/supertest
-```
+### Unit Tests
+Located in `src/*/__tests__/` directories, these tests focus on individual components:
+- Wallet adapters (Polkadot.js, Talisman)
+- Account management and selection
+- Configuration validation
+- DID operations and validation
+- Error handling and custom error classes
+- Message signing and verification
+- Server endpoints and middleware
 
-### 3. Browser Extensions
+### Integration Tests
+Located in `__tests__/integration/`, these tests verify component interactions:
+- Wallet connector integration and adapter selection
+- Authentication flow including wallet connection, account selection, and message signing
+- Concurrent operations (multiple login attempts and wallet connections)
+- Integration between wallet adapters, authentication service, and verification service
+- Error handling across component boundaries (wallet not found, user rejection, verification failures)
 
-1. Install Polkadot.js Extension:
-   - [Chrome Web Store](https://chrome.google.com/webstore/detail/polkadot%7Bjs%7D-extension/mopnmbcafieddcagagdcbnhejhlodfdd)
-   - [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/)
+The integration tests focus on ensuring that different components of the system work together correctly, with particular attention to error cases and concurrent operations.
 
-2. Install Talisman Wallet:
-   - [Chrome Web Store](https://chrome.google.com/webstore/detail/talisman-wallet/fijngjblinghdangmhdebgkphdefofeb)
-   - [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/talisman-wallet/)
+### End-to-End Tests
+Located in `__tests__/e2e/`, these tests validate critical system flows:
+- Complete authentication process including wallet connection and message signing
+- DID (Decentralized Identifier) creation and resolution
+- DID document generation and verification
+- Integration between wallet adapters, authentication, and DID services
+
+Note: The current e2e test suite focuses on the core authentication and DID flows. Additional user interaction scenarios and real-world usage patterns may be added in future iterations.
 
 ## Running Tests
 
-### 1. Unit Tests
-
-#### Layer 0: Project Scaffold Tests
+### Local Development
 ```bash
-# Run all unit tests
+# Run all tests
 npm test
 
-# Run specific layer tests
-npm test -- --testPathPattern=src/config
-npm test -- --testPathPattern=src/adapters
-npm test -- --testPathPattern=src/accounts
-npm test -- --testPathPattern=src/message
-npm test -- --testPathPattern=src/did
-npm test -- --testPathPattern=src/server
+# Run tests in watch mode (useful during development)
+npm run test:watch
 
-# Run tests with coverage
-npm test -- --coverage
+# Run tests with coverage report
+npm run test:coverage
+
+# Run specific test files or directories
+npm test -- --testPathPattern=src/adapters     # Run adapter tests
+npm test -- --testPathPattern=src/accounts     # Run account tests
+npm test -- --testPathPattern=src/server       # Run server tests
+npm test -- --testPathPattern=__tests__/integration  # Run integration tests
+npm test -- --testPathPattern=__tests__/e2e    # Run e2e tests
 ```
 
-#### Layer 1: Wallet Adapter Tests
-```bash
-# Test Polkadot.js Adapter
-npm test -- --testPathPattern=src/adapters/PolkadotJsAdapter.test.ts
+### Docker Environment
+For running tests in a Docker environment, we provide a comprehensive setup that ensures consistent test execution across different environments. This includes a verification server, test runner with browser testing capabilities, and proper test isolation.
 
-# Test Talisman Adapter
-npm test -- --testPathPattern=src/adapters/TalismanAdapter.test.ts
+For detailed instructions on:
+- Docker setup and configuration
+- Available test commands
+- Test results handling
+- Troubleshooting
+- Best practices
 
-# Test adapter error handling
-npm test -- --testPathPattern=src/adapters/__tests__/errorHandling.test.ts
-```
+Please refer to the [Docker Testing Guide](docs/docker-testing.md).
 
-#### Layer 2: Account Layer Tests
-```bash
-# Test account selection
-npm test -- --testPathPattern=src/accounts/AccountSelector.test.ts
+## Test Configuration
 
-# Test account validation
-npm test -- --testPathPattern=src/accounts/__tests__/validation.test.ts
-```
+### Jest Configuration
+The Jest setup (`jest.config.js`) includes:
+- TypeScript support via `ts-jest` preset
+- JSDOM test environment for browser API simulation
+- Module path alias `@/` mapping to `src/`
+- Custom setup file (`jest.setup.js`) for test environment preparation
+- Test path ignore patterns for `node_modules`, `dist`, and `.d.ts` files
+- Isolated modules for TypeScript transformation
 
-#### Layer 3: Message Layer Tests
-```bash
-# Test message building
-npm test -- --testPathPattern=src/message/messageBuilder.test.ts
+### Test Environment
+The test environment (`jest.setup.js`) provides:
+- TextEncoder/TextDecoder polyfills (required for JSDOM)
+- Mock implementation of `window.injectedWeb3` for wallet testing
 
-# Test message validation
-npm test -- --testPathPattern=src/message/__tests__/validation.test.ts
-```
-
-#### Layer 4: DID Layer Tests
-```bash
-# Test DID creation
-npm test -- --testPathPattern=src/did/UUIDProvider.test.ts
-
-# Test DID document generation
-npm test -- --testPathPattern=src/did/__tests__/document.test.ts
-```
-
-#### Layer 5: Server Layer Tests
-```bash
-# Test verification service
-npm test -- --testPathPattern=src/server/verificationService.test.ts
-
-# Test API endpoints
-npm test -- --testPathPattern=src/server/__tests__/api.test.ts
-```
-
-### 2. Integration Tests
-
-#### Client-Server Integration
-```bash
-# Run all integration tests
-npm run test:integration
-
-# Run specific integration scenarios
-npm run test:integration -- --testPathPattern=login
-npm run test:integration -- --testPathPattern=verification
-npm run test:integration -- --testPathPattern=session
-```
-
-#### Wallet Integration Tests
-```bash
-# Test with Polkadot.js wallet
-npm run test:integration -- --testPathPattern=wallet/polkadot
-
-# Test with Talisman wallet
-npm run test:integration -- --testPathPattern=wallet/talisman
-
-# Test wallet switching
-npm run test:integration -- --testPathPattern=wallet/switch
-```
-
-### 3. End-to-End Tests
-
-```bash
-# Run all E2E tests
-npm run test:e2e
-
-# Run specific browser tests
-npm run test:e2e:chrome
-npm run test:e2e:firefox
-npm run test:e2e:safari
-
-# Run specific feature tests
-npm run test:e2e -- --testPathPattern=login
-npm run test:e2e -- --testPathPattern=verification
-```
-
-## Performance Testing
-
-### 1. Load Testing with k6
-
-Create `tests/performance/verification.js`:
-```javascript
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-
-export const options = {
-  stages: [
-    { duration: '30s', target: 20 }, // Ramp up
-    { duration: '1m', target: 20 },  // Stay
-    { duration: '30s', target: 0 },  // Ramp down
-  ],
-  thresholds: {
-    http_req_duration: ['p(95)<500'], // 95% of requests should be below 500ms
-    http_req_failed: ['rate<0.01'],   // Less than 1% of requests should fail
-  },
-};
-
-export default function () {
-  const payload = {
-    message: 'KeyPass Login\nIssued At: 2024-03-20T12:00:00Z\nNonce: test\nAddress: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-    signature: '0x' + '1'.repeat(128),
-    address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'
-  };
-
-  const response = http.post('http://localhost:3001/api/verify', JSON.stringify(payload), {
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  check(response, {
-    'status is 200': (r) => r.status === 200,
-    'response time < 500ms': (r) => r.timings.duration < 500,
-  });
-
-  sleep(1);
-}
-```
-
-Run the load test:
-```bash
-k6 run tests/performance/verification.js
-```
-
-### 2. Browser Performance Testing
-
-```bash
-# Run Lighthouse tests
-npm run test:lighthouse
-
-# Run Web Vitals tests
-npm run test:web-vitals
-```
-
-## Browser Compatibility Testing
-
-### 1. Manual Testing Matrix
-
-| Browser | Version | Polkadot.js | Talisman |
-|---------|---------|-------------|-----------|
-| Chrome  | Latest  | ✓          | ✓        |
-| Firefox | Latest  | ✓          | ✓        |
-| Safari  | Latest  | ✓          | ✓        |
-| Edge    | Latest  | ✓          | ✓        |
-
-### 2. Automated Browser Testing
-
-```bash
-# Run cross-browser tests
-npm run test:browsers
-
-# Test specific browser
-npm run test:browser -- --browser=chrome
-npm run test:browser -- --browser=firefox
-npm run test:browser -- --browser=safari
-```
-
-## Troubleshooting Guide
-
-### 1. Common Test Failures
-
-#### Wallet Connection Failures
-```bash
-# Error: Wallet not found
-Solution:
-1. Ensure wallet extension is installed
-2. Check if wallet is enabled for test domain
-3. Verify wallet is unlocked
-4. Check browser console for extension errors
-
-# Error: Connection timeout
-Solution:
-1. Increase timeout in test configuration
-2. Check network connectivity
-3. Verify wallet extension is responsive
-```
-
-#### Verification Failures
-```bash
-# Error: Invalid signature
-Solution:
-1. Check message format matches template
-2. Verify signature format (0x prefix, correct length)
-3. Ensure address matches signer
-4. Check timestamp is within valid range
-
-# Error: DID creation failed
-Solution:
-1. Verify address format
-2. Check network connectivity
-3. Ensure DID provider is properly configured
-```
-
-#### Integration Test Failures
-```bash
-# Error: Server not responding
-Solution:
-1. Check if server is running
-2. Verify port configuration
-3. Check for port conflicts
-4. Ensure proper CORS configuration
-
-# Error: Test timeout
-Solution:
-1. Increase test timeout
-2. Check for long-running operations
-3. Verify network performance
-4. Check for resource leaks
-```
-
-### 2. Debug Mode
-
-Enable debug logging for tests:
-```bash
-# Run tests with debug logging
-DEBUG=keypass:* npm test
-
-# Run specific test with debug
-DEBUG=keypass:wallet npm test -- --testPathPattern=wallet
-```
-
-### 3. Test Environment Setup
-
-```bash
-# Reset test environment
-npm run test:reset
-
-# Setup test wallets
-npm run test:setup-wallets
-
-# Generate test data
-npm run test:generate-data
-```
 
 ## Continuous Integration
 
-### GitHub Actions Workflow
+The CI pipeline uses GitHub Actions to run tests in a Docker environment:
 
-Create `.github/workflows/test.yml`:
-```yaml
-name: KeyPass SDK Tests
+1. **Test Execution**
+   - Runs on every push to main and pull requests
+   - Uses Docker containers for consistent test environment
+   - Runs all test suites (unit, integration, wallet connector)
+   - Generates coverage reports in `test-results/coverage`
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+2. **Test Environment**
+   - Uses Node.js 20 in Docker containers
+   - Includes verification server and test runner containers
+   - Mounts test results directory for artifact collection
+   - Uses GitHub Actions for container orchestration
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '16'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Run unit tests
-      run: npm test
-      
-    - name: Run integration tests
-      run: npm run test:integration
-      
-    - name: Run E2E tests
-      run: npm run test:e2e
-      
-    - name: Run performance tests
-      run: k6 run tests/performance/verification.js
-      
-    - name: Upload coverage
-      uses: codecov/codecov-action@v2
-```
+3. **Test Results**
+   - Test results are stored in `test-results` directory
+   - Coverage reports are generated using Jest
+   - Results are uploaded as GitHub Actions artifacts
+   - Test logs are available in GitHub Actions workflow
 
-## Best Practices
+For detailed CI configuration, see the [Docker Testing Guide](docs/docker-testing.md).
 
-1. **Test Organization**
-   - Group tests by layer
-   - Use descriptive test names
-   - Follow AAA pattern (Arrange, Act, Assert)
-   - Keep tests independent
+## Troubleshooting
 
-2. **Mocking**
-   - Mock external dependencies
-   - Use consistent mock data
-   - Reset mocks between tests
-   - Verify mock interactions
+Common issues and solutions:
 
-3. **Performance**
-   - Run performance tests regularly
-   - Monitor response times
-   - Set appropriate thresholds
-   - Test under load
+1. **Test Environment Issues**
+   - Ensure all dependencies are installed
+   - Check Jest configuration
+   - Verify environment variables
+   - Check wallet provider availability
+   - Verify DID resolution service status
+   - Check network connectivity
 
-4. **Security**
-   - Test error handling
-   - Verify input validation
-   - Check authentication flows
-   - Test session management
+2. **Mocking Problems**
+   - Verify mock implementations
+   - Check mock reset timing
+   - Ensure proper mock scope
+   - Verify wallet provider mocks
+   - Check DID resolution mocks
+   - Verify message signing mocks
 
-5. **Maintenance**
-   - Update test data regularly
-   - Review test coverage
-   - Remove obsolete tests
-   - Document test scenarios 
+3. **Async Test Failures**
+   - Check promise handling
+   - Verify timeout settings
+   - Ensure proper async/await usage
+   - Check wallet connection timeouts
+   - Verify DID resolution timeouts
+   - Test message signing timeouts
+
+4. **Wallet-Specific Issues**
+   - Wallet provider not found
+   - Connection timeout
+   - Account selection failure
+   - Message signing rejection
+   - Network disconnection
+   - DID resolution failure
+   - Invalid wallet state
+
+## Contributing
+
+When adding new tests:
+1. Follow the existing test structure
+2. Maintain consistent naming conventions
+3. Include appropriate test coverage
+4. Document any new testing patterns
+5. Update this guide if introducing new testing approaches
+6. Add wallet-specific test cases
+7. Include DID-related test scenarios
+8. Test error handling paths
+9. Verify concurrent operations
+10. Add appropriate timeouts
+
+Remember: Good tests are as important as the code they test. They provide confidence in The implementation and help prevent regressions, especially in critical wallet authentication and DID operations.

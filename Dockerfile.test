@@ -1,12 +1,24 @@
-# Use Node.js 16 as base image
-FROM node:16-alpine
+# Use Node.js 20 as base image
+FROM node:20-alpine
 
-# Install dependencies for @polkadot/util-crypto and testing
+# Install dependencies for browser testing and @polkadot/util-crypto
 RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
     python3 \
     make \
     g++ \
     wget
+
+# Set environment variables for Chrome
+ENV CHROME_BIN=/usr/bin/chromium-browser
+ENV CHROME_PATH=/usr/lib/chromium/
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 # Create app directory
 WORKDIR /app

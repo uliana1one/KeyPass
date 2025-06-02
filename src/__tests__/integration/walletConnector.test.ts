@@ -1,6 +1,10 @@
-import { connectWallet } from '../walletConnector';
-import { PolkadotJsAdapter, TalismanAdapter } from '../adapters';
-import { WalletAdapter, WalletAccount } from '../adapters/types';
+/// <reference types="jest" />
+
+import { connectWallet } from '@/walletConnector';
+import { PolkadotJsAdapter } from '../../adapters/PolkadotJsAdapter';
+import { TalismanAdapter } from '../../adapters';
+import { WalletAdapter, WalletAccount } from '../../adapters/types';
+import { WalletNotFoundError, UserRejectedError } from '../../errors/WalletErrors';
 
 // Create mock adapter implementations
 class MockAdapter implements WalletAdapter {
@@ -46,11 +50,11 @@ jest.mock('../../config/wallets.json', () => ({
 }));
 
 // Mock dynamic imports
-jest.mock('../adapters/PolkadotJsAdapter', () => ({
+jest.mock('../../adapters/PolkadotJsAdapter', () => ({
   PolkadotJsAdapter: jest.fn().mockImplementation(() => new MockAdapter(false) as unknown as PolkadotJsAdapter),
 }));
 
-jest.mock('../adapters/TalismanAdapter', () => ({
+jest.mock('../../adapters/TalismanAdapter', () => ({
   TalismanAdapter: jest.fn().mockImplementation(() => new MockAdapter(true) as unknown as TalismanAdapter),
 }));
 

@@ -8,8 +8,8 @@ This guide provides instructions for running the KeyPass SDK test suite in Docke
 
 Create `Dockerfile.server`:
 ```dockerfile
-# Use Node.js 16 as base image
-FROM node:16-alpine
+# Use Node.js 20 as base image
+FROM node:20-alpine
 
 # Install dependencies for @polkadot/util-crypto
 RUN apk add --no-cache python3 make g++
@@ -40,8 +40,8 @@ CMD ["npm", "run", "start:server"]
 
 Create `Dockerfile.test`:
 ```dockerfile
-# Use Node.js 16 as base image
-FROM node:16-alpine
+# Use Node.js 20 as base image
+FROM node:20-alpine
 
 # Install dependencies for browser testing
 RUN apk add --no-cache \
@@ -84,7 +84,6 @@ CMD ["npm", "test"]
 
 Create `docker-compose.test.yml`:
 ```yaml
-version: '3.8'
 
 services:
   # Verification server
@@ -150,38 +149,6 @@ npm run test:docker
 npm run test:docker:cleanup
 ```
 
-### 2. Run Specific Test Suites
-
-```bash
-# Run only unit tests
-docker-compose -f docker-compose.test.yml run --rm test npm run test:unit
-
-# Run only integration tests
-docker-compose -f docker-compose.test.yml run --rm test npm run test:integration
-
-# Run only wallet connector tests
-docker-compose -f docker-compose.test.yml run --rm test npm run test:wallet
-
-# Run tests for a specific layer
-docker-compose -f docker-compose.test.yml run --rm test npm test -- --testPathPattern=src/adapters
-docker-compose -f docker-compose.test.yml run --rm test npm test -- --testPathPattern=src/accounts
-docker-compose -f docker-compose.test.yml run --rm test npm test -- --testPathPattern=src/message
-docker-compose -f docker-compose.test.yml run --rm test npm test -- --testPathPattern=src/did
-docker-compose -f docker-compose.test.yml run --rm test npm test -- --testPathPattern=src/server
-```
-
-### 3. Debug Tests
-
-```bash
-# Run tests with debug logging
-docker-compose -f docker-compose.test.yml run --rm test npm test -- --debug
-
-# Run specific test with debug
-docker-compose -f docker-compose.test.yml run --rm test npm test -- --testPathPattern=walletConnector --debug
-
-# Run tests with specific test pattern
-docker-compose -f docker-compose.test.yml run --rm test npm test -- --testPathPattern=verification
-```
 
 ## CI/CD Pipeline
 
@@ -202,18 +169,20 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v3
       
     - name: Run tests in Docker
       run: |
+        # Create test-results directory if it doesn't exist
+        mkdir -p test-results/unit/coverage test-results/integration
         docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test
         
     - name: Upload test results
       if: always()
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: test-results
         path: test-results/
@@ -225,15 +194,18 @@ jobs:
 
 ### 2. Test Results
 
-The test results will be available in the `test-results` directory:
+The test results will be available in the `test-results` directory. This directory is automatically created when running tests through Docker or GitHub Actions. The structure is as follows:
+
 ```
 test-results/
 ├── unit/
-│   ├── coverage/
+│   ├── coverage/    # Contains Jest coverage reports
 │   └── test-report.json
 └── integration/
     └── test-report.json
 ```
+
+Note: The test-results directory is mounted as a volume in the Docker container, so results persist after the container stops. You can find the results in the `test-results` directory at the root of your project.
 
 ## Best Practices
 

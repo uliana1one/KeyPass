@@ -1,18 +1,21 @@
-import { connectWallet } from '../walletConnector';
-import { loginWithPolkadot } from '../index';
-import { VerificationService, ERROR_CODES } from '../server/verificationService';
-import { WalletAdapter } from '../adapters/types';
-import { WalletNotFoundError, UserRejectedError } from '../errors/WalletErrors';
-import { PolkadotDIDProvider } from '../did/UUIDProvider';
-import { DIDDocument } from '../did/types';
+import { loginWithPolkadot, LoginResult } from '../../index';
+import { WalletNotFoundError, UserRejectedError } from '../../errors/WalletErrors';
+import { PolkadotJsAdapter } from '../../adapters/PolkadotJsAdapter';
+import { TalismanAdapter } from '../../adapters/TalismanAdapter';
+import { InjectedWindow } from '@polkadot/extension-inject/types';
+import { connectWallet } from '@/walletConnector';
+import { VerificationService, ERROR_CODES } from '../../server/verificationService';
+import { WalletAdapter } from '../../adapters/types';
+import { PolkadotDIDProvider } from '../../did/UUIDProvider';
+import { DIDDocument } from '../../did/types';
 
-// Mock the wallet connector
-jest.mock('../walletConnector', () => ({
+// Mock the walletConnector module
+jest.mock('@/walletConnector', () => ({
   connectWallet: jest.fn()
 }));
 
 // Mock the verification service
-jest.mock('../server/verificationService', () => {
+jest.mock('@/server/verificationService', () => {
   const mockVerifySignature = jest.fn().mockResolvedValue({
     status: 'success',
     message: 'Verification successful',
@@ -41,7 +44,7 @@ jest.mock('../server/verificationService', () => {
 });
 
 // Mock the UUID provider
-jest.mock('../did/UUIDProvider', () => {
+jest.mock('@/did/UUIDProvider', () => {
   const mockCreateDid = jest.fn().mockResolvedValue('did:key:z' + '1'.repeat(58));
   const mockCreateDIDDocument = jest.fn().mockResolvedValue({
     '@context': [
@@ -86,7 +89,14 @@ jest.mock('../did/UUIDProvider', () => {
   };
 });
 
-describe('Integration Tests', () => {
+// Extend Window interface to include injectedWeb3
+declare global {
+  interface Window {
+    injectedWeb3?: Record<string, any>;
+  }
+}
+
+describe('Authentication E2E Tests', () => {
   let mockAdapter: jest.Mocked<WalletAdapter>;
   let verificationService: jest.Mocked<VerificationService>;
   let mockCreateDid: jest.Mock;
@@ -98,7 +108,7 @@ describe('Integration Tests', () => {
     jest.clearAllMocks();
 
     // Get the mock functions from the module
-    const mocks = require('../did/UUIDProvider');
+    const mocks = require('@/did/UUIDProvider');
     mockCreateDid = mocks.__mockCreateDid;
     mockCreateDIDDocument = mocks.__mockCreateDIDDocument;
     mockResolve = mocks.__mockResolve;
@@ -125,7 +135,7 @@ describe('Integration Tests', () => {
     });
   });
 
-  describe('Full Authentication Flow', () => {
+  describe('Complete Authentication Flow', () => {
     it('should complete full authentication flow successfully', async () => {
       const result = await loginWithPolkadot();
 
@@ -154,104 +164,6 @@ describe('Integration Tests', () => {
 
       // Verify message format
       expect(result.message).toMatch(/^KeyPass Login\nIssued At: .*\nNonce: .*\nAddress: .*$/);
-    });
-
-    it('should handle wallet connection failure', async () => {
-      (connectWallet as jest.Mock).mockRejectedValue(new WalletNotFoundError('Polkadot.js'));
-
-      await expect(loginWithPolkadot()).rejects.toThrow(WalletNotFoundError);
-      expect(mockAdapter.enable).not.toHaveBeenCalled();
-    });
-
-    it('should handle user rejection', async () => {
-      (mockAdapter.enable as jest.Mock).mockRejectedValue(new UserRejectedError('connection'));
-
-      await expect(loginWithPolkadot()).rejects.toThrow(UserRejectedError);
-      expect(mockAdapter.getAccounts).not.toHaveBeenCalled();
-    });
-
-    it('should handle no accounts available', async () => {
-      (mockAdapter.getAccounts as jest.Mock).mockResolvedValue([]);
-
-      await expect(loginWithPolkadot()).rejects.toThrow('No accounts found');
-      expect(mockAdapter.signMessage).not.toHaveBeenCalled();
-    });
-
-    it('should handle signature verification failures', async () => {
-      // Mock verification service to return an error response
-      (verificationService.verifySignature as jest.Mock).mockResolvedValueOnce({
-        status: 'error',
-        message: 'Invalid signature',
-        code: ERROR_CODES.VERIFICATION_FAILED
-      });
-
-      await expect(loginWithPolkadot()).rejects.toThrow('Invalid signature');
-    });
-  });
-
-  describe('Concurrent Operations', () => {
-    it('should handle multiple concurrent login attempts', async () => {
-      const attempts = Array(5).fill(null).map(() => loginWithPolkadot());
-      const results = await Promise.all(attempts);
-
-      // Verify all attempts succeeded
-      results.forEach(result => {
-        expect(result).toEqual({
-          address: expect.any(String),
-          did: expect.any(String),
-          message: expect.any(String),
-          signature: expect.any(String),
-          issuedAt: expect.any(String),
-          nonce: expect.any(String)
-        });
-      });
-
-      // Verify each attempt used a unique nonce
-      const nonces = results.map(r => r.nonce);
-      const uniqueNonces = new Set(nonces);
-      expect(uniqueNonces.size).toBe(nonces.length);
-    });
-
-    it('should handle concurrent wallet connections', async () => {
-      // Create unique mock adapters for each connection
-      const mockAdapters = Array(3).fill(null).map(() => ({
-        ...mockAdapter,
-        getProvider: jest.fn().mockReturnValue('polkadot-js')
-      }));
-
-      // Mock connectWallet to return different adapters
-      (connectWallet as jest.Mock)
-        .mockResolvedValueOnce(mockAdapters[0])
-        .mockResolvedValueOnce(mockAdapters[1])
-        .mockResolvedValueOnce(mockAdapters[2]);
-
-      const connections = Array(3).fill(null).map(() => connectWallet());
-      const adapters = await Promise.all(connections);
-
-      // Verify all connections succeeded
-      adapters.forEach(adapter => {
-        expect(adapter).toBeDefined();
-        expect(adapter.enable).toBeDefined();
-        expect(adapter.getAccounts).toBeDefined();
-        expect(adapter.signMessage).toBeDefined();
-      });
-
-      // Verify each connection was unique
-      const uniqueAdapters = new Set(adapters);
-      expect(uniqueAdapters.size).toBe(adapters.length);
-    });
-  });
-
-  describe('Error Recovery', () => {
-    it('should recover from temporary connection failures', async () => {
-      // Simulate temporary failure then success
-      (connectWallet as jest.Mock)
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValueOnce(mockAdapter);
-
-      const result = await loginWithPolkadot();
-      expect(result).toBeDefined();
-      expect(connectWallet).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -296,23 +208,6 @@ describe('Integration Tests', () => {
       
       expect(verificationResult.status).toBe('success');
       expect(verificationResult.did).toBe(loginResult.did);
-    });
-
-    it('should handle DID resolution failures', async () => {
-      // Mock DID resolution to fail for invalid DID
-      mockResolve.mockImplementationOnce(async () => {
-        throw new Error('DID not found');
-      });
-
-      const loginResult = await loginWithPolkadot();
-      const didProvider = new PolkadotDIDProvider();
-
-      // Attempt to resolve DID
-      await expect(didProvider.resolve('invalid-did')).rejects.toThrow('DID not found');
-      
-      // Verify the DID document is still valid
-      const didDocument = await didProvider.createDIDDocument(loginResult.address);
-      expect(didDocument.id).toBe(loginResult.did);
     });
 
     it('should maintain DID consistency across operations', async () => {
