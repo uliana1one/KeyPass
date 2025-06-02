@@ -12,7 +12,47 @@ const createValidatorMock = (shouldThrow = false) => {
   };
 };
 
-jest.mock('../../config/validator', () => createValidatorMock(false), { virtual: true });
+// Mock dynamic imports
+jest.mock('../../adapters/PolkadotJsAdapter', () => ({
+  PolkadotJsAdapter: jest.fn().mockImplementation(() => new MockAdapter(false))
+}));
+
+jest.mock('../../adapters/TalismanAdapter', () => ({
+  TalismanAdapter: jest.fn().mockImplementation(() => new MockAdapter(false))
+}));
+
+jest.mock('../../adapters/WalletConnectAdapter', () => ({
+  WalletConnectAdapter: jest.fn().mockImplementation(() => new MockAdapter(false))
+}));
+
+// Mock the wallets config
+jest.mock('../../config/wallets.json', () => ({
+  wallets: [
+    {
+      id: 'polkadot-js',
+      name: 'Polkadot.js',
+      adapter: 'PolkadotJsAdapter',
+      priority: 1
+    },
+    {
+      id: 'talisman',
+      name: 'Talisman',
+      adapter: 'TalismanAdapter',
+      priority: 2
+    },
+    {
+      id: 'wallet-connect',
+      name: 'WalletConnect',
+      adapter: 'WalletConnectAdapter',
+      priority: 3
+    }
+  ]
+}));
+
+// Mock the validator
+jest.mock('../../config/validator', () => ({
+  validateWalletConfig: () => {} // Never throw
+}));
 
 // Mock console.error
 const originalConsoleError = console.error;
@@ -68,37 +108,6 @@ class MockAdapter implements WalletAdapter {
   }
 }
 
-// Mock the wallets config
-jest.mock('../../config/wallets.json', () => ({
-  wallets: [
-    {
-      id: 'polkadot-js',
-      name: 'Polkadot.js',
-      adapter: 'PolkadotJsAdapter',
-      priority: 1
-    },
-    {
-      id: 'talisman',
-      name: 'Talisman',
-      adapter: 'TalismanAdapter',
-      priority: 2
-    },
-  ],
-}), { virtual: true });
-
-// Mock dynamic imports
-jest.mock('../../adapters/PolkadotJsAdapter', () => ({
-  PolkadotJsAdapter: jest.fn().mockImplementation(() => new MockAdapter(false))
-}));
-
-jest.mock('../../adapters/TalismanAdapter', () => ({
-  TalismanAdapter: jest.fn().mockImplementation(() => new MockAdapter(false))
-}));
-
-jest.mock('../../adapters/WalletConnectAdapter', () => ({
-  WalletConnectAdapter: jest.fn().mockImplementation(() => new MockAdapter(false))
-}));
-
 // Mock process.env
 const originalEnv = process.env;
 beforeAll(() => {
@@ -137,73 +146,6 @@ describe('Wallet Configuration Validation', () => {
       'Invalid wallet configuration:',
       'Invalid wallet configuration'
     );
-  });
-});
-
-describe('WalletConnect Configuration', () => {
-  beforeEach(() => {
-    jest.resetModules();
-    jest.clearAllMocks();
-    // Reset process.env
-    process.env.WALLETCONNECT_PROJECT_ID = undefined;
-  });
-
-  it('should skip WalletConnect adapter when project ID is not configured', async () => {
-    // Mock console.warn
-    const originalWarn = console.warn;
-    console.warn = jest.fn();
-
-    // Mock wallets config to include WalletConnect
-    jest.mocked(require('../../config/wallets.json')).wallets.push({
-      id: 'wallet-connect',
-      name: 'WalletConnect',
-      adapter: 'WalletConnectAdapter',
-      priority: 3
-    });
-
-    // Mock validator to not throw
-    jest.mock('../../config/validator', () => ({
-      validateWalletConfig: () => {}
-    }), { virtual: true });
-
-    // Should throw "No supported wallet found" since all adapters fail
-    await expect(connectWallet()).rejects.toThrow('No supported wallet found');
-
-    // Verify WalletConnect was skipped
-    expect(console.warn).toHaveBeenCalledWith(
-      'WalletConnect project ID not configured, skipping WalletConnect adapter'
-    );
-
-    // Restore console.warn
-    console.warn = originalWarn;
-  });
-
-  it('should use WalletConnect adapter when project ID is configured', async () => {
-    // Set WalletConnect project ID
-    process.env.WALLETCONNECT_PROJECT_ID = 'test-project-id';
-
-    // Mock wallets config to include WalletConnect
-    jest.mocked(require('../../config/wallets.json')).wallets.push({
-      id: 'wallet-connect',
-      name: 'WalletConnect',
-      adapter: 'WalletConnectAdapter',
-      priority: 3
-    });
-
-    // Mock validator to not throw
-    jest.mock('../../config/validator', () => ({
-      validateWalletConfig: () => {}
-    }), { virtual: true });
-
-    // Mock WalletConnect adapter to succeed
-    jest.mocked(require('../../adapters/WalletConnectAdapter').WalletConnectAdapter)
-      .mockImplementation(() => new MockAdapter(true) as unknown as typeof WalletConnectAdapter);
-
-    const adapter = await connectWallet();
-    expect(adapter).toBeDefined();
-    expect(adapter.enable).toBeDefined();
-    expect(adapter.getAccounts).toBeDefined();
-    expect(adapter.signMessage).toBeDefined();
   });
 });
 

@@ -36,6 +36,10 @@ export async function connectWallet(): Promise<WalletAdapter> {
   // Sort adapters by priority
   const sortedWallets = [...walletsConfig.wallets].sort((a, b) => a.priority - b.priority);
 
+  console.debug('WalletConnect project ID:', process.env.WALLETCONNECT_PROJECT_ID);
+  console.debug('Default config project ID:', defaultWalletConnectConfig.projectId);
+  console.debug('Available wallets:', sortedWallets.map(w => w.adapter));
+
   // Try each adapter in sequence
   for (const wallet of sortedWallets) {
     try {
@@ -48,10 +52,12 @@ export async function connectWallet(): Promise<WalletAdapter> {
           adapter = new TalismanAdapter();
           break;
         case 'WalletConnectAdapter':
+          console.debug('Attempting WalletConnect adapter...');
           if (!defaultWalletConnectConfig.projectId) {
             console.warn('WalletConnect project ID not configured, skipping WalletConnect adapter');
             continue;
           }
+          console.debug('Creating WalletConnect adapter with project ID:', defaultWalletConnectConfig.projectId);
           adapter = new WalletConnectAdapter(defaultWalletConnectConfig);
           break;
         default:
@@ -59,6 +65,7 @@ export async function connectWallet(): Promise<WalletAdapter> {
       }
 
       // Try to enable the wallet
+      console.debug('Attempting to enable wallet:', wallet.adapter);
       await adapter.enable();
       return adapter;
     } catch (error) {

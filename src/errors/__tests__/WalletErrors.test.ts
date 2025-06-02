@@ -7,7 +7,8 @@ import {
   WalletConnectionError,
   MessageValidationError,
   AddressValidationError,
-  ConfigurationError
+  ConfigurationError,
+  InvalidAddressError
 } from '../WalletErrors';
 
 describe('Wallet Errors', () => {
@@ -53,6 +54,13 @@ describe('Wallet Errors', () => {
       const error = new UserRejectedError('signing');
       expect(error.message).toBe('User rejected message signing');
     });
+
+    it('should handle unknown operation type with default message', () => {
+      const error = new UserRejectedError('unknown_operation' as any);
+      expect(error.message).toBe('User rejected operation');
+      expect(error.code).toBe('USER_REJECTED');
+      expect(error.name).toBe('UserRejectedError');
+    });
   });
 
   describe('TimeoutError', () => {
@@ -66,6 +74,13 @@ describe('Wallet Errors', () => {
     it('should handle different operations', () => {
       const error = new TimeoutError('message_signing');
       expect(error.message).toBe('message signing timed out');
+    });
+
+    it('should handle unknown operation type with default message', () => {
+      const error = new TimeoutError('unknown_operation' as any);
+      expect(error.message).toBe('operation timed out');
+      expect(error.code).toBe('OPERATION_TIMEOUT');
+      expect(error.name).toBe('TimeoutError');
     });
   });
 
@@ -81,6 +96,14 @@ describe('Wallet Errors', () => {
       const error = new InvalidSignatureError();
       expect(error.message).toBe('Invalid signature');
       expect(error.code).toBe('INVALID_SIGNATURE');
+    });
+
+    it('should handle custom error message', () => {
+      const customMessage = 'Signature verification failed: invalid format';
+      const error = new InvalidSignatureError(customMessage);
+      expect(error.message).toBe(customMessage);
+      expect(error.code).toBe('INVALID_SIGNATURE');
+      expect(error.name).toBe('InvalidSignatureError');
     });
   });
 
@@ -117,6 +140,23 @@ describe('Wallet Errors', () => {
       expect(error.message).toBe('Invalid config');
       expect(error.code).toBe('INVALID_CONFIG');
       expect(error instanceof WalletError).toBe(true);
+    });
+  });
+
+  describe('InvalidAddressError', () => {
+    it('should create error with formatted address message', () => {
+      const testAddress = '0x1234567890abcdef';
+      const error = new InvalidAddressError(testAddress);
+      expect(error.message).toBe(`Invalid address format: ${testAddress}`);
+      expect(error.code).toBe('ADDRESS_VALIDATION_ERROR');
+      expect(error.name).toBe('InvalidAddressError');
+    });
+
+    it('should handle empty address string', () => {
+      const error = new InvalidAddressError('');
+      expect(error.message).toBe('Invalid address format: ');
+      expect(error.code).toBe('ADDRESS_VALIDATION_ERROR');
+      expect(error.name).toBe('InvalidAddressError');
     });
   });
 
