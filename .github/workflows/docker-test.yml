@@ -59,8 +59,5 @@ jobs:
       uses: codecov/codecov-action@v4
       with:
         directory: ./test-results/coverage/
-        fail_ci_if_error: true
-        flags: unittests
-        name: codecov-umbrella
+        fail_ci_if_error: false  # Don't fail the workflow if Codecov upload fails
         verbose: true
-        tokenless: true  # Enable tokenless uploads for all events
