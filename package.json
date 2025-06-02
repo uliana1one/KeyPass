@@ -53,6 +53,7 @@
     "LICENSE"
   ],
   "devDependencies": {
+    "@babel/preset-env": "^7.27.2",
     "@polkadot/types-augment": "^10.11.2",
     "@polkadot/types-codec": "^10.11.2",
     "@types/express": "^4.17.21",

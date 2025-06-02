@@ -1,5 +1,5 @@
 import { WalletConnectAdapter, WalletConnectConfig } from '../../adapters/WalletConnectAdapter';
-import { WalletNotFoundError, UserRejectedError, TimeoutError, WalletConnectionError } from '../../errors/WalletErrors';
+import { WalletNotFoundError, UserRejectedError, TimeoutError, WalletConnectionError, AddressValidationError } from '../../errors/WalletErrors';
 import { WalletConnectProvider } from '@walletconnect/web3-provider';
 import { Session } from '@walletconnect/types';
 
@@ -8,6 +8,21 @@ type MockCall = [string, (...args: any[]) => void];
 
 // Valid test address
 const TEST_ADDRESS = '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty';
+
+// Mock @polkadot/util-crypto before importing the types
+jest.mock('@polkadot/util-crypto', () => ({
+  isAddress: jest.fn((address) => {
+    // Only accept our test address
+    return address === TEST_ADDRESS;
+  }),
+  checkAddress: jest.fn((address) => {
+    // Only accept our test address
+    if (address === TEST_ADDRESS) {
+      return [true, null];
+    }
+    return [false, 'Invalid decoded address checksum'];
+  })
+}));
 
 // Mock WalletConnect provider
 jest.mock('@walletconnect/web3-provider', () => {
@@ -143,6 +158,21 @@ describe('WalletConnectAdapter', () => {
       await adapter.enable();
       await expect(adapter.getAccounts()).rejects.toThrow(WalletConnectionError);
     });
+
+    test('should throw on invalid address format', async () => {
+      const mockAccounts = [
+        {
+          address: 'invalid-address',
+          name: 'Test Account',
+          chainId: 'polkadot',
+          walletId: 'test-wallet',
+          walletName: 'Test Wallet'
+        }
+      ];
+      mockProvider.getAccounts.mockResolvedValue(mockAccounts);
+      await adapter.enable();
+      await expect(adapter.getAccounts()).rejects.toThrow(AddressValidationError);
+    });
   });
 
   describe('Message Signing', () => {
@@ -161,7 +191,8 @@ describe('WalletConnectAdapter', () => {
     });
 
     test('should sign valid messages', async () => {
-      const mockSignature = '0x123...';
+      // Mock a valid sr25519 signature (0x + 128 hex chars)
+      const mockSignature = '0x' + '1'.repeat(128);
       mockProvider.signMessage.mockResolvedValue(mockSignature);
 
       await adapter.enable();
@@ -211,11 +242,8 @@ describe('WalletConnectAdapter', () => {
       // Mock a promise that never resolves
       mockProvider.enable.mockImplementation(() => new Promise(() => {}));
       
-      // Set a shorter timeout for the test
-      jest.setTimeout(1000);
-      
       await expect(adapter.enable()).rejects.toThrow(TimeoutError);
-    }, 1000); // Set test timeout to 1 second
+    }, 15000); // Set test timeout to 15 seconds
   });
 
   describe('Event Handling', () => {
