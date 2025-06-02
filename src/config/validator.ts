@@ -47,12 +47,16 @@ export function validateWalletConfig(config: WalletsConfig): void {
 
     // Validate adapter name
     if (!VALID_ADAPTERS.includes(wallet.adapter as any)) {
-      throw new ConfigurationError(`Invalid adapter name: ${wallet.adapter}. Must be one of: ${VALID_ADAPTERS.join(', ')}`);
+      throw new ConfigurationError(
+        `Invalid adapter name: ${wallet.adapter}. Must be one of: ${VALID_ADAPTERS.join(', ')}`
+      );
     }
 
     // Validate priority range
     if (wallet.priority < MIN_PRIORITY || wallet.priority > MAX_PRIORITY) {
-      throw new ConfigurationError(`Wallet priority must be between ${MIN_PRIORITY} and ${MAX_PRIORITY}`);
+      throw new ConfigurationError(
+        `Wallet priority must be between ${MIN_PRIORITY} and ${MAX_PRIORITY}`
+      );
     }
 
     // Check for duplicate IDs
@@ -73,4 +77,4 @@ export function validateWalletConfig(config: WalletsConfig): void {
   if (JSON.stringify(sortedWallets) !== JSON.stringify(config.wallets)) {
     throw new ConfigurationError('Wallets must be ordered by priority');
   }
-} 
+}

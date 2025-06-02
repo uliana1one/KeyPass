@@ -3,13 +3,19 @@ import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-d
 import { hexToU8a } from '@polkadot/util';
 import { InjectedWindow } from '@polkadot/extension-inject/types';
 import { MessageValidationError, AddressValidationError } from '../../errors/WalletErrors';
-import { WalletNotFoundError, UserRejectedError, TimeoutError, WalletConnectionError, InvalidSignatureError } from '../../errors/WalletErrors';
+import {
+  WalletNotFoundError,
+  UserRejectedError,
+  TimeoutError,
+  WalletConnectionError,
+  InvalidSignatureError,
+} from '../../errors/WalletErrors';
 
 // Mock the extension-dapp functions
 jest.mock('@polkadot/extension-dapp', () => ({
   web3Accounts: jest.fn(),
   web3Enable: jest.fn(),
-  web3FromAddress: jest.fn()
+  web3FromAddress: jest.fn(),
 }));
 
 // Mock hexToU8a so that it throws on invalid hex
@@ -20,15 +26,21 @@ jest.mock('@polkadot/util', () => ({
     }
     return new Uint8Array(0);
   }),
-  u8aToHex: jest.fn((u8a: Uint8Array) => '0x' + Array.from(u8a).map((b: number) => b.toString(16).padStart(2, '0')).join(''))
+  u8aToHex: jest.fn(
+    (u8a: Uint8Array) =>
+      '0x' +
+      Array.from(u8a)
+        .map((b: number) => b.toString(16).padStart(2, '0'))
+        .join('')
+  ),
 }));
 
 // Mock the window.injectedWeb3 object
 const mockInjectedWeb3 = {
   'polkadot-js': {
     version: '1.0.0',
-    enable: jest.fn().mockResolvedValue(true)
-  }
+    enable: jest.fn().mockResolvedValue(true),
+  },
 };
 
 // At the top, add a mock for @polkadot/util-crypto
@@ -62,15 +74,18 @@ jest.mock('../types', () => ({
     if (!signature.startsWith('0x')) {
       throw new InvalidSignatureError('Invalid signature format: missing 0x prefix');
     }
-    if (signature.length !== 130 && signature.length !== 66) { // 0x + 128 or 64 hex chars
-      throw new InvalidSignatureError('Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)');
+    if (signature.length !== 130 && signature.length !== 66) {
+      // 0x + 128 or 64 hex chars
+      throw new InvalidSignatureError(
+        'Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)'
+      );
     }
     if (!/^0x[0-9a-fA-F]+$/.test(signature)) {
       throw new InvalidSignatureError('Invalid signature format: contains invalid hex characters');
     }
   }),
   validateAddress: jest.fn(),
-  WALLET_TIMEOUT: 10000
+  WALLET_TIMEOUT: 10000,
 }));
 
 describe('PolkadotJsAdapter', () => {
@@ -79,11 +94,11 @@ describe('PolkadotJsAdapter', () => {
 
   beforeEach(() => {
     adapter = new PolkadotJsAdapter();
-    
+
     // Setup window mock
     mockWindow = window as Window & Partial<InjectedWindow>;
     mockWindow.injectedWeb3 = mockInjectedWeb3;
-    
+
     // Reset all mocks
     jest.clearAllMocks();
   });
@@ -100,7 +115,7 @@ describe('PolkadotJsAdapter', () => {
   describe('enable()', () => {
     it('should enable the wallet when extension is available', async () => {
       (web3Enable as jest.Mock).mockResolvedValue(true);
-      
+
       await expect(adapter.enable()).resolves.not.toThrow();
       expect(web3Enable).toHaveBeenCalledWith('KeyPass Login SDK');
       expect(adapter.getProvider()).toBe('polkadot-js');
@@ -108,7 +123,7 @@ describe('PolkadotJsAdapter', () => {
 
     it('should throw when extension is not installed', async () => {
       mockWindow.injectedWeb3 = undefined;
-      const error = await adapter.enable().catch(e => e);
+      const error = await adapter.enable().catch((e) => e);
       expect(error).toBeInstanceOf(WalletNotFoundError);
       expect(error.message).toBe('Polkadot.js wallet not found');
       expect(error.code).toBe('WALLET_NOT_FOUND');
@@ -116,15 +131,17 @@ describe('PolkadotJsAdapter', () => {
 
     it('should throw when user rejects connection', async () => {
       (web3Enable as jest.Mock).mockRejectedValue(new Error('User rejected'));
-      const error = await adapter.enable().catch(e => e);
+      const error = await adapter.enable().catch((e) => e);
       expect(error).toBeInstanceOf(UserRejectedError);
       expect(error.message).toBe('User rejected wallet connection');
       expect(error.code).toBe('USER_REJECTED');
     });
 
     it('should throw on timeout', async () => {
-      (web3Enable as jest.Mock).mockImplementation(() => new Promise(resolve => setTimeout(resolve, 11000)));
-      const error = await adapter.enable().catch(e => e);
+      (web3Enable as jest.Mock).mockImplementation(
+        () => new Promise((resolve) => setTimeout(resolve, 11000))
+      );
+      const error = await adapter.enable().catch((e) => e);
       expect(error).toBeInstanceOf(TimeoutError);
       expect(error.message).toBe('wallet connection timed out');
       expect(error.code).toBe('OPERATION_TIMEOUT');
@@ -133,16 +150,16 @@ describe('PolkadotJsAdapter', () => {
 
   describe('getAccounts()', () => {
     const mockAccounts = [
-      { 
+      {
         address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
         name: undefined,
-        source: 'polkadot-js'
+        source: 'polkadot-js',
       },
-      { 
+      {
         address: '5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy',
         name: undefined,
-        source: 'polkadot-js'
-      }
+        source: 'polkadot-js',
+      },
     ];
 
     beforeEach(async () => {
@@ -153,16 +170,16 @@ describe('PolkadotJsAdapter', () => {
     it('should return accounts when available', async () => {
       (web3Accounts as jest.Mock).mockResolvedValue([
         { address: mockAccounts[0].address },
-        { address: mockAccounts[1].address }
+        { address: mockAccounts[1].address },
       ]);
-      
+
       const accounts = await adapter.getAccounts();
       expect(accounts).toEqual(mockAccounts);
     });
 
     it('should throw when wallet is not enabled', async () => {
       const newAdapter = new PolkadotJsAdapter();
-      const error = await newAdapter.getAccounts().catch(e => e);
+      const error = await newAdapter.getAccounts().catch((e) => e);
       expect(error).toBeInstanceOf(WalletNotFoundError);
       expect(error.message).toBe('Wallet not enabled wallet not found');
       expect(error.code).toBe('WALLET_NOT_FOUND');
@@ -170,8 +187,8 @@ describe('PolkadotJsAdapter', () => {
 
     it('should throw when no accounts are found', async () => {
       (web3Accounts as jest.Mock).mockResolvedValue([]);
-      
-      const error = await adapter.getAccounts().catch(e => e);
+
+      const error = await adapter.getAccounts().catch((e) => e);
       expect(error).toBeInstanceOf(WalletConnectionError);
       expect(error.message).toBe('No accounts found');
       expect(error.code).toBe('CONNECTION_FAILED');
@@ -179,8 +196,8 @@ describe('PolkadotJsAdapter', () => {
 
     it('should throw when user rejects account access', async () => {
       (web3Accounts as jest.Mock).mockRejectedValue(new Error('User rejected'));
-      
-      const error = await adapter.getAccounts().catch(e => e);
+
+      const error = await adapter.getAccounts().catch((e) => e);
       expect(error).toBeInstanceOf(UserRejectedError);
       expect(error.message).toBe('User rejected account access');
       expect(error.code).toBe('USER_REJECTED');
@@ -201,8 +218,8 @@ describe('PolkadotJsAdapter', () => {
       const mockSignature = '0x' + '1'.repeat(128); // Valid sr25519 signature length
       (web3FromAddress as jest.Mock).mockResolvedValue({
         signer: {
-          signRaw: jest.fn().mockResolvedValue({ signature: mockSignature })
-        }
+          signRaw: jest.fn().mockResolvedValue({ signature: mockSignature }),
+        },
       });
 
       const signature = await adapter.signMessage(mockMessage);
@@ -211,7 +228,7 @@ describe('PolkadotJsAdapter', () => {
 
     it('should throw when wallet is not enabled', async () => {
       const newAdapter = new PolkadotJsAdapter();
-      const error = await newAdapter.signMessage(mockMessage).catch(e => e);
+      const error = await newAdapter.signMessage(mockMessage).catch((e) => e);
       expect(error).toBeInstanceOf(WalletNotFoundError);
       expect(error.message).toBe('Wallet not enabled wallet not found');
       expect(error.code).toBe('WALLET_NOT_FOUND');
@@ -219,7 +236,7 @@ describe('PolkadotJsAdapter', () => {
 
     it('should throw when no accounts are available', async () => {
       (web3Accounts as jest.Mock).mockResolvedValue([]);
-      const error = await adapter.signMessage(mockMessage).catch(e => e);
+      const error = await adapter.signMessage(mockMessage).catch((e) => e);
       expect(error).toBeInstanceOf(WalletConnectionError);
       expect(error.message).toBe('Failed to sign message: No accounts found');
       expect(error.code).toBe('CONNECTION_FAILED');
@@ -227,7 +244,7 @@ describe('PolkadotJsAdapter', () => {
 
     it('should throw when signer does not support raw signing', async () => {
       (web3FromAddress as jest.Mock).mockResolvedValue({ signer: {} });
-      const error = await adapter.signMessage(mockMessage).catch(e => e);
+      const error = await adapter.signMessage(mockMessage).catch((e) => e);
       expect(error).toBeInstanceOf(WalletConnectionError);
       expect(error.message).toBe('Failed to sign message: Signer does not support raw signing');
       expect(error.code).toBe('CONNECTION_FAILED');
@@ -236,11 +253,11 @@ describe('PolkadotJsAdapter', () => {
     it('should throw when user rejects signing', async () => {
       (web3FromAddress as jest.Mock).mockResolvedValue({
         signer: {
-          signRaw: jest.fn().mockRejectedValue(new Error('User rejected'))
-        }
+          signRaw: jest.fn().mockRejectedValue(new Error('User rejected')),
+        },
       });
-      
-      const error = await adapter.signMessage(mockMessage).catch(e => e);
+
+      const error = await adapter.signMessage(mockMessage).catch((e) => e);
       expect(error).toBeInstanceOf(UserRejectedError);
       expect(error.message).toBe('User rejected message signing');
       expect(error.code).toBe('USER_REJECTED');
@@ -249,11 +266,11 @@ describe('PolkadotJsAdapter', () => {
     it('should throw on invalid signature format', async () => {
       (web3FromAddress as jest.Mock).mockResolvedValue({
         signer: {
-          signRaw: jest.fn().mockResolvedValue({ signature: 'invalid-hex' })
-        }
+          signRaw: jest.fn().mockResolvedValue({ signature: 'invalid-hex' }),
+        },
       });
-      
-      const error = await adapter.signMessage(mockMessage).catch(e => e);
+
+      const error = await adapter.signMessage(mockMessage).catch((e) => e);
       expect(error).toBeInstanceOf(InvalidSignatureError);
       expect(error.code).toBe('INVALID_SIGNATURE');
     });
@@ -262,8 +279,8 @@ describe('PolkadotJsAdapter', () => {
       // Mock web3FromAddress to return a valid injector
       const mockInjector = {
         signer: {
-          signRaw: jest.fn().mockImplementation(() => new Promise(() => {}))
-        }
+          signRaw: jest.fn().mockImplementation(() => new Promise(() => {})),
+        },
       };
       const mockWeb3FromAddress = jest.fn().mockResolvedValue(mockInjector);
       require('@polkadot/extension-dapp').web3FromAddress = mockWeb3FromAddress;
@@ -304,11 +321,13 @@ describe('PolkadotJsAdapter', () => {
   describe('message validation', () => {
     beforeEach(async () => {
       (web3Enable as jest.Mock).mockResolvedValue(true);
-      (web3Accounts as jest.Mock).mockResolvedValue([{ address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty' }]);
+      (web3Accounts as jest.Mock).mockResolvedValue([
+        { address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty' },
+      ]);
       (web3FromAddress as jest.Mock).mockResolvedValue({
         signer: {
-          signRaw: jest.fn().mockResolvedValue({ signature: '0x' + '1'.repeat(128) })
-        }
+          signRaw: jest.fn().mockResolvedValue({ signature: '0x' + '1'.repeat(128) }),
+        },
       });
       await adapter.enable();
       // Reset the mock before each test
@@ -337,7 +356,9 @@ describe('PolkadotJsAdapter', () => {
       validateAndSanitizeMessage.mockImplementation(() => {
         throw new MessageValidationError('Message contains invalid characters');
       });
-      await expect(adapter.signMessage('Hello\u0000World')).rejects.toThrow('Message contains invalid characters');
+      await expect(adapter.signMessage('Hello\u0000World')).rejects.toThrow(
+        'Message contains invalid characters'
+      );
     });
   });
 
@@ -358,8 +379,8 @@ describe('PolkadotJsAdapter', () => {
         throw new AddressValidationError('Invalid Polkadot address');
       });
       (web3Accounts as jest.Mock).mockResolvedValue([{ address: 'invalid-address' }]);
-      
-      const error = await adapter.getAccounts().catch(e => e);
+
+      const error = await adapter.getAccounts().catch((e) => e);
       expect(error).toBeInstanceOf(AddressValidationError);
       expect(error.message).toBe('Invalid Polkadot address');
       expect(error.code).toBe('ADDRESS_VALIDATION_ERROR');
@@ -371,8 +392,8 @@ describe('PolkadotJsAdapter', () => {
         throw new AddressValidationError('Invalid address checksum or SS58 format');
       });
       (web3Accounts as jest.Mock).mockResolvedValue([{ address: 'invalid-checksum-address' }]);
-      
-      const error = await adapter.getAccounts().catch(e => e);
+
+      const error = await adapter.getAccounts().catch((e) => e);
       expect(error).toBeInstanceOf(AddressValidationError);
       expect(error.message).toBe('Invalid address checksum or SS58 format');
       expect(error.code).toBe('ADDRESS_VALIDATION_ERROR');

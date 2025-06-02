@@ -34,4 +34,4 @@ export interface VerificationError {
   message: string;
   /** Error code for client handling */
   code: string;
-} 
+}

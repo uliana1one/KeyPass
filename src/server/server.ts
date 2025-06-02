@@ -36,14 +36,14 @@ export function createServer(): express.Application {
   /**
    * POST /api/verify
    * Verifies a Polkadot wallet signature and returns the associated DID.
-   * 
+   *
    * Request body:
    * {
    *   message: string;    // The message that was signed
    *   signature: string;  // The signature in hex format (0x-prefixed)
    *   address: string;    // The Polkadot address that signed the message
    * }
-   * 
+   *
    * Response:
    * {
    *   status: number;     // HTTP status code
@@ -61,17 +61,23 @@ export function createServer(): express.Application {
         return res.status(400).json({
           status: 'error',
           message: 'Invalid request body',
-          code: ERROR_CODES.INVALID_REQUEST
+          code: ERROR_CODES.INVALID_REQUEST,
         });
       }
 
       // Check for null/undefined values
-      if (request.message === null || request.signature === null || request.address === null ||
-          request.message === undefined || request.signature === undefined || request.address === undefined) {
+      if (
+        request.message === null ||
+        request.signature === null ||
+        request.address === null ||
+        request.message === undefined ||
+        request.signature === undefined ||
+        request.address === undefined
+      ) {
         return res.status(400).json({
           status: 'error',
           message: 'Missing required fields',
-          code: ERROR_CODES.INVALID_REQUEST
+          code: ERROR_CODES.INVALID_REQUEST,
         });
       }
 
@@ -80,16 +86,20 @@ export function createServer(): express.Application {
         return res.status(400).json({
           status: 'error',
           message: 'Invalid request body',
-          code: ERROR_CODES.INVALID_REQUEST
+          code: ERROR_CODES.INVALID_REQUEST,
         });
       }
 
       // Check field types
-      if (typeof request.message !== 'string' || typeof request.signature !== 'string' || typeof request.address !== 'string') {
+      if (
+        typeof request.message !== 'string' ||
+        typeof request.signature !== 'string' ||
+        typeof request.address !== 'string'
+      ) {
         return res.status(400).json({
           status: 'error',
           message: 'Invalid request body',
-          code: ERROR_CODES.INVALID_REQUEST
+          code: ERROR_CODES.INVALID_REQUEST,
         });
       }
 
@@ -101,7 +111,7 @@ export function createServer(): express.Application {
         status: result.status,
         message: result.message,
         ...(result.did && { did: result.did }),
-        code: result.code
+        code: result.code,
       };
 
       // Use appropriate HTTP status code based on the verification result
@@ -113,7 +123,7 @@ export function createServer(): express.Application {
         return res.status(400).json({
           status: 'error',
           message: error.message,
-          code: ERROR_CODES.INVALID_MESSAGE_FORMAT
+          code: ERROR_CODES.INVALID_MESSAGE_FORMAT,
         });
       }
 
@@ -121,7 +131,7 @@ export function createServer(): express.Application {
         return res.status(400).json({
           status: 'error',
           message: 'Invalid Polkadot address',
-          code: ERROR_CODES.INVALID_ADDRESS
+          code: ERROR_CODES.INVALID_ADDRESS,
         });
       }
 
@@ -130,7 +140,7 @@ export function createServer(): express.Application {
       return res.status(400).json({
         status: 'error',
         message: 'Verification failed',
-        code: ERROR_CODES.VERIFICATION_FAILED
+        code: ERROR_CODES.VERIFICATION_FAILED,
       });
     }
   });
@@ -141,14 +151,14 @@ export function createServer(): express.Application {
     console.error('Server error:', {
       name: err.name,
       message: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     });
 
     if (err instanceof MessageValidationError) {
       return res.status(400).json({
         status: 'error',
         message: err.message,
-        code: ERROR_CODES.INVALID_MESSAGE_FORMAT
+        code: ERROR_CODES.INVALID_MESSAGE_FORMAT,
       });
     }
 
@@ -156,7 +166,7 @@ export function createServer(): express.Application {
       return res.status(400).json({
         status: 'error',
         message: 'Invalid Polkadot address',
-        code: ERROR_CODES.INVALID_ADDRESS
+        code: ERROR_CODES.INVALID_ADDRESS,
       });
     }
 
@@ -164,7 +174,7 @@ export function createServer(): express.Application {
       return res.status(400).json({
         status: 'error',
         message: 'Invalid JSON in request body',
-        code: ERROR_CODES.INVALID_JSON
+        code: ERROR_CODES.INVALID_JSON,
       });
     }
 
@@ -172,9 +182,9 @@ export function createServer(): express.Application {
     return res.status(400).json({
       status: 'error',
       message: 'Verification failed',
-      code: ERROR_CODES.VERIFICATION_FAILED
+      code: ERROR_CODES.VERIFICATION_FAILED,
     });
   });
 
   return app;
-} 
+}

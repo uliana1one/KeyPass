@@ -5,14 +5,14 @@ jest.mock('@polkadot/util-crypto', () => ({
 }));
 
 import { WalletConnectAdapter, WalletConnectConfig } from '../WalletConnectAdapter';
-import { 
-  WalletNotFoundError, 
-  UserRejectedError, 
-  TimeoutError, 
-  WalletConnectionError, 
-  InvalidSignatureError, 
+import {
+  WalletNotFoundError,
+  UserRejectedError,
+  TimeoutError,
+  WalletConnectionError,
+  InvalidSignatureError,
   AddressValidationError,
-  ConfigurationError 
+  ConfigurationError,
 } from '../../errors/WalletErrors';
 import { WalletConnectProvider } from '@walletconnect/web3-provider';
 import { Session } from '@walletconnect/types';
@@ -32,8 +32,8 @@ jest.mock('@walletconnect/web3-provider', () => {
       signMessage: jest.fn(),
       getSession: jest.fn(),
       disconnect: jest.fn(),
-      on: jest.fn()
-    }))
+      on: jest.fn(),
+    })),
   };
 });
 
@@ -46,8 +46,8 @@ describe('WalletConnectAdapter', () => {
       name: 'Test App',
       description: 'Test Description',
       url: 'https://test.app',
-      icons: ['https://test.app/icon.png']
-    }
+      icons: ['https://test.app/icon.png'],
+    },
   };
 
   beforeEach(() => {
@@ -62,21 +62,24 @@ describe('WalletConnectAdapter', () => {
       expect(WalletConnectProvider).toHaveBeenCalledWith({
         projectId: mockConfig.projectId,
         metadata: mockConfig.metadata,
-        chainId: 'polkadot'
+        chainId: 'polkadot',
       });
     });
 
     test('should throw with invalid project ID', () => {
-      expect(() => new WalletConnectAdapter({
-        ...mockConfig,
-        projectId: ''
-      })).toThrow('WalletConnect project ID is required');
+      expect(
+        () =>
+          new WalletConnectAdapter({
+            ...mockConfig,
+            projectId: '',
+          })
+      ).toThrow('WalletConnect project ID is required');
     });
 
     test('should set default chain ID if not provided', () => {
       expect(WalletConnectProvider).toHaveBeenCalledWith(
         expect.objectContaining({
-          chainId: 'polkadot'
+          chainId: 'polkadot',
         })
       );
     });
@@ -86,7 +89,7 @@ describe('WalletConnectAdapter', () => {
     beforeEach(() => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty']
+        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'],
       });
     });
 
@@ -103,14 +106,17 @@ describe('WalletConnectAdapter', () => {
     });
 
     test('should handle session expiration', async () => {
-      const mockSession: Session = { chainId: 'polkadot', accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'] };
+      const mockSession: Session = {
+        chainId: 'polkadot',
+        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'],
+      };
       mockProvider.getSession.mockResolvedValue(mockSession);
-      
+
       // Simulate session expiration
       const sessionExpireHandler = mockProvider.on.mock.calls.find(
         (call: MockCall) => call[0] === 'session_expire'
       )?.[1];
-      
+
       if (sessionExpireHandler) {
         await sessionExpireHandler();
         expect(adapter.getSession()).toBeNull();
@@ -122,7 +128,7 @@ describe('WalletConnectAdapter', () => {
       const sessionUpdateHandler = mockProvider.on.mock.calls.find(
         (call: MockCall) => call[0] === 'session_update'
       )?.[1];
-      
+
       if (sessionUpdateHandler) {
         const mockCallback = jest.fn();
         adapter.on('sessionUpdate', mockCallback);
@@ -136,7 +142,7 @@ describe('WalletConnectAdapter', () => {
       const chainChangedHandler = mockProvider.on.mock.calls.find(
         (call: MockCall) => call[0] === 'chainChanged'
       )?.[1];
-      
+
       if (chainChangedHandler) {
         const mockCallback = jest.fn();
         adapter.on('chainChanged', mockCallback);
@@ -150,7 +156,7 @@ describe('WalletConnectAdapter', () => {
     beforeEach(() => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty']
+        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'],
       });
     });
 
@@ -161,8 +167,8 @@ describe('WalletConnectAdapter', () => {
           name: 'Test Account',
           chainId: 'polkadot',
           walletId: 'test-wallet',
-          walletName: 'Test Wallet'
-        }
+          walletName: 'Test Wallet',
+        },
       ];
       mockProvider.getAccounts.mockResolvedValue(mockAccounts);
 
@@ -173,7 +179,7 @@ describe('WalletConnectAdapter', () => {
       expect(accounts[0]).toEqual({
         address: mockAccounts[0].address,
         name: mockAccounts[0].name,
-        source: 'walletconnect'
+        source: 'walletconnect',
       });
     });
 
@@ -192,19 +198,21 @@ describe('WalletConnectAdapter', () => {
     beforeEach(() => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty']
+        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'],
       });
     });
 
     test('should sign valid messages', async () => {
       const mockSignature = '0x' + '1'.repeat(128); // Valid sr25519 signature format
       mockProvider.signMessage.mockResolvedValue(mockSignature);
-      mockProvider.getAccounts.mockResolvedValue([{
-        address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-        chainId: 'polkadot',
-        walletId: 'test-wallet',
-        walletName: 'Test Wallet'
-      }]);
+      mockProvider.getAccounts.mockResolvedValue([
+        {
+          address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+          chainId: 'polkadot',
+          walletId: 'test-wallet',
+          walletName: 'Test Wallet',
+        },
+      ]);
 
       await adapter.enable();
       const signature = await adapter.signMessage('Test message');
@@ -212,7 +220,7 @@ describe('WalletConnectAdapter', () => {
       expect(signature).toBe(mockSignature);
       expect(mockProvider.signMessage).toHaveBeenCalledWith({
         message: 'Test message',
-        chainId: 'polkadot'
+        chainId: 'polkadot',
       });
     });
 
@@ -227,48 +235,56 @@ describe('WalletConnectAdapter', () => {
     });
 
     test('should handle user rejection', async () => {
-      mockProvider.getAccounts.mockResolvedValue([{
-        address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-        chainId: 'polkadot',
-        walletId: 'test-wallet',
-        walletName: 'Test Wallet'
-      }]);
+      mockProvider.getAccounts.mockResolvedValue([
+        {
+          address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+          chainId: 'polkadot',
+          walletId: 'test-wallet',
+          walletName: 'Test Wallet',
+        },
+      ]);
       mockProvider.signMessage.mockRejectedValue(new Error('User rejected'));
       await adapter.enable();
       await expect(adapter.signMessage('Test message')).rejects.toThrow(UserRejectedError);
     });
 
     test('should handle invalid signature format', async () => {
-      mockProvider.getAccounts.mockResolvedValue([{
-        address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-        chainId: 'polkadot',
-        walletId: 'test-wallet',
-        walletName: 'Test Wallet'
-      }]);
+      mockProvider.getAccounts.mockResolvedValue([
+        {
+          address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+          chainId: 'polkadot',
+          walletId: 'test-wallet',
+          walletName: 'Test Wallet',
+        },
+      ]);
       mockProvider.signMessage.mockResolvedValue('invalid-signature-format');
       await adapter.enable();
       await expect(adapter.signMessage('Test message')).rejects.toThrow(InvalidSignatureError);
     });
 
     test('should handle signing timeout', async () => {
-      mockProvider.getAccounts.mockResolvedValue([{
-        address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-        chainId: 'polkadot',
-        walletId: 'test-wallet',
-        walletName: 'Test Wallet'
-      }]);
+      mockProvider.getAccounts.mockResolvedValue([
+        {
+          address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+          chainId: 'polkadot',
+          walletId: 'test-wallet',
+          walletName: 'Test Wallet',
+        },
+      ]);
       mockProvider.signMessage.mockImplementation(() => new Promise(() => {})); // Never resolves
       await adapter.enable();
       await expect(adapter.signMessage('Test message')).rejects.toThrow(TimeoutError);
-    });
+    }, 15000); // Add custom timeout of 15 seconds
 
     test('should handle unknown signing errors', async () => {
-      mockProvider.getAccounts.mockResolvedValue([{
-        address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-        chainId: 'polkadot',
-        walletId: 'test-wallet',
-        walletName: 'Test Wallet'
-      }]);
+      mockProvider.getAccounts.mockResolvedValue([
+        {
+          address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+          chainId: 'polkadot',
+          walletId: 'test-wallet',
+          walletName: 'Test Wallet',
+        },
+      ]);
       mockProvider.signMessage.mockRejectedValue(new Error('Unknown error'));
       await adapter.enable();
       await expect(adapter.signMessage('Test message')).rejects.toThrow(WalletConnectionError);
@@ -279,7 +295,7 @@ describe('WalletConnectAdapter', () => {
     test('should handle successful connection', async () => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty']
+        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'],
       });
 
       await adapter.enable();
@@ -299,17 +315,20 @@ describe('WalletConnectAdapter', () => {
     test('should cleanup timeout state on successful connection', async () => {
       // Mock a delayed successful connection
       let resolveEnable: (value: void | PromiseLike<void>) => void;
-      mockProvider.enable.mockImplementation(() => new Promise<void>(resolve => {
-        resolveEnable = resolve;
-      }));
+      mockProvider.enable.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveEnable = resolve;
+          })
+      );
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: [TEST_ADDRESS]
+        accounts: [TEST_ADDRESS],
       });
 
       // Start enable process
       const enablePromise = adapter.enable();
-      
+
       // Simulate successful connection after a delay
       resolveEnable!();
       await enablePromise;
@@ -321,7 +340,10 @@ describe('WalletConnectAdapter', () => {
 
   describe('Event Handling', () => {
     test('should emit session events', async () => {
-      const mockSession: Session = { chainId: 'polkadot', accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'] };
+      const mockSession: Session = {
+        chainId: 'polkadot',
+        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'],
+      };
       const sessionUpdateHandler = mockProvider.on.mock.calls.find(
         (call: MockCall) => call[0] === 'session_update'
       )?.[1];
@@ -386,12 +408,12 @@ describe('WalletConnectAdapter', () => {
     test('should initialize with custom relay URL', () => {
       const customConfig = {
         ...mockConfig,
-        relayUrl: 'wss://custom.relay.url'
+        relayUrl: 'wss://custom.relay.url',
       };
       new WalletConnectAdapter(customConfig);
       expect(WalletConnectProvider).toHaveBeenCalledWith(
         expect.objectContaining({
-          relayUrl: 'wss://custom.relay.url'
+          relayUrl: 'wss://custom.relay.url',
         })
       );
     });
@@ -399,7 +421,7 @@ describe('WalletConnectAdapter', () => {
     test('should initialize with custom session timeout', () => {
       const customConfig = {
         ...mockConfig,
-        sessionTimeout: 3600000 // 1 hour
+        sessionTimeout: 3600000, // 1 hour
       };
       const customAdapter = new WalletConnectAdapter(customConfig);
       expect(customAdapter['config'].sessionTimeout).toBe(3600000);
@@ -410,7 +432,7 @@ describe('WalletConnectAdapter', () => {
     beforeEach(() => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty']
+        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'],
       });
     });
 
@@ -438,15 +460,24 @@ describe('WalletConnectAdapter', () => {
       if (disconnectHandler) {
         // Mock failed reconnection attempts
         mockProvider.enable.mockRejectedValue(new Error('Connection failed'));
-        
+
         const mockCallback = jest.fn();
         adapter.on('reconnectFailed', mockCallback);
 
-        // Trigger disconnect multiple times to exceed max attempts
-        for (let i = 0; i < 4; i++) {
-          await disconnectHandler();
-        }
+        // First disconnect should trigger reconnect attempt
+        await disconnectHandler();
+        expect(mockProvider.enable).toHaveBeenCalledTimes(1);
 
+        // Second disconnect should trigger another reconnect attempt
+        await disconnectHandler();
+        expect(mockProvider.enable).toHaveBeenCalledTimes(2);
+
+        // Third disconnect should trigger final reconnect attempt
+        await disconnectHandler();
+        expect(mockProvider.enable).toHaveBeenCalledTimes(3);
+
+        // Fourth disconnect should trigger reconnectFailed event
+        await disconnectHandler();
         expect(mockCallback).toHaveBeenCalled();
         expect(adapter.getSession()).toBeNull();
       }
@@ -465,19 +496,24 @@ describe('WalletConnectAdapter', () => {
 
   describe('Address Validation', () => {
     test('should handle invalid address format in getAccounts', async () => {
+      // Mock the validatePolkadotAddress function to throw for invalid addresses
+      jest.spyOn(require('@polkadot/util-crypto'), 'isAddress').mockReturnValueOnce(false);
+
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty']
+        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'],
       });
-      mockProvider.getAccounts.mockResolvedValue([{
-        address: 'invalid-address',
-        chainId: 'polkadot',
-        walletId: 'test-wallet',
-        walletName: 'Test Wallet'
-      }]);
+      mockProvider.getAccounts.mockResolvedValue([
+        {
+          address: 'invalid-address',
+          chainId: 'polkadot',
+          walletId: 'test-wallet',
+          walletName: 'Test Wallet',
+        },
+      ]);
 
       await adapter.enable();
       await expect(adapter.getAccounts()).rejects.toThrow(AddressValidationError);
     });
   });
-}); 
+});

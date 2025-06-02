@@ -1,7 +1,7 @@
 /**
  * Enum representing different types of blockchain wallets supported by the system.
  * This enum is used to distinguish between different wallet implementations and protocols.
- * 
+ *
  * @enum {string}
  */
 export const WalletType = {
@@ -10,20 +10,20 @@ export const WalletType = {
   /** Ethereum wallet (e.g., MetaMask, Coinbase Wallet) */
   ETHEREUM: 'ethereum',
   /** WalletConnect protocol for connecting to various wallets */
-  WALLETCONNECT: 'walletconnect'
+  WALLETCONNECT: 'walletconnect',
 } as const;
 
 /**
  * Type representing the possible values of the WalletType enum.
  * This ensures type safety when using wallet types throughout the application.
  */
-export type WalletType = typeof WalletType[keyof typeof WalletType];
+export type WalletType = (typeof WalletType)[keyof typeof WalletType];
 
 /**
  * Enum representing common Ethereum network chain IDs.
  * These values are used to identify different Ethereum networks when connecting
  * to Ethereum wallets.
- * 
+ *
  * @enum {number}
  */
 export const EthereumChainId = {
@@ -36,20 +36,20 @@ export const EthereumChainId = {
   /** Mumbai Testnet (Polygon) */
   MUMBAI: 80001,
   /** Goerli Testnet */
-  GOERLI: 5
+  GOERLI: 5,
 } as const;
 
 /**
  * Type representing the possible values of the EthereumChainId enum.
  * This ensures type safety when using chain IDs throughout the application.
  */
-export type EthereumChainId = typeof EthereumChainId[keyof typeof EthereumChainId];
+export type EthereumChainId = (typeof EthereumChainId)[keyof typeof EthereumChainId];
 
 /**
  * Union type representing all supported wallet types in the system.
  * This type is used to ensure type safety when handling different wallet types
  * throughout the application.
- * 
+ *
  * @example
  * ```typescript
  * function connectWallet(type: SupportedWalletType) {
@@ -81,4 +81,4 @@ export interface WalletConfig {
   chainId?: EthereumChainId;
   /** Optional timeout in milliseconds for wallet operations */
   timeout?: number;
-} 
+}

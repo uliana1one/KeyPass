@@ -1,5 +1,8 @@
 export class WalletError extends Error {
-  constructor(message: string, public code: string) {
+  constructor(
+    message: string,
+    public code: string
+  ) {
     super(message);
     this.name = 'WalletError';
   }
@@ -12,7 +15,12 @@ export class WalletNotFoundError extends WalletError {
   }
 }
 
-export type WalletOperation = 'connection' | 'signing' | 'account_access' | 'wallet_connection' | 'message_signing';
+export type WalletOperation =
+  | 'connection'
+  | 'signing'
+  | 'account_access'
+  | 'wallet_connection'
+  | 'message_signing';
 
 export class UserRejectedError extends WalletError {
   constructor(operation: WalletOperation) {
@@ -39,11 +47,12 @@ export class UserRejectedError extends WalletError {
 
 export class TimeoutError extends WalletError {
   constructor(operation: WalletOperation) {
-    const message = operation === 'wallet_connection' 
-      ? 'wallet connection timed out'
-      : operation === 'message_signing'
-      ? 'message signing timed out'
-      : 'operation timed out';
+    const message =
+      operation === 'wallet_connection'
+        ? 'wallet connection timed out'
+        : operation === 'message_signing'
+          ? 'message signing timed out'
+          : 'operation timed out';
     super(message, 'OPERATION_TIMEOUT');
     this.name = 'TimeoutError';
   }
@@ -89,4 +98,4 @@ export class AddressValidationError extends WalletError {
     super(message, 'INVALID_ADDRESS');
     this.name = 'AddressValidationError';
   }
-} 
+}

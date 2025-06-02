@@ -78,4 +78,4 @@ export interface DIDProvider {
    * @throws {Error} If the DID document cannot be created
    */
   createDIDDocument(address: string): Promise<DIDDocument>;
-} 
+}

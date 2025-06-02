@@ -11,7 +11,7 @@ import { DIDDocument } from '../../did/types';
 
 // Mock the walletConnector module
 jest.mock('@/walletConnector', () => ({
-  connectWallet: jest.fn()
+  connectWallet: jest.fn(),
 }));
 
 // Mock the verification service
@@ -20,12 +20,12 @@ jest.mock('@/server/verificationService', () => {
     status: 'success',
     message: 'Verification successful',
     code: 'SUCCESS',
-    did: 'did:key:z' + '1'.repeat(58)
+    did: 'did:key:z' + '1'.repeat(58),
   });
 
   return {
     VerificationService: jest.fn().mockImplementation(() => ({
-      verifySignature: mockVerifySignature
+      verifySignature: mockVerifySignature,
     })),
     ERROR_CODES: {
       VERIFICATION_FAILED: 'VERIFICATION_FAILED',
@@ -38,8 +38,8 @@ jest.mock('@/server/verificationService', () => {
       INVALID_ADDRESS: 'INVALID_ADDRESS',
       MESSAGE_EXPIRED: 'MESSAGE_EXPIRED',
       MESSAGE_FUTURE: 'MESSAGE_FUTURE',
-      DID_CREATION_FAILED: 'DID_CREATION_FAILED'
-    }
+      DID_CREATION_FAILED: 'DID_CREATION_FAILED',
+    },
   };
 });
 
@@ -50,22 +50,24 @@ jest.mock('@/did/UUIDProvider', () => {
     '@context': [
       'https://www.w3.org/ns/did/v1',
       'https://w3id.org/security/suites/ed25519-2020/v1',
-      'https://w3id.org/security/suites/sr25519-2020/v1'
+      'https://w3id.org/security/suites/sr25519-2020/v1',
     ],
     id: 'did:key:z' + '1'.repeat(58),
     controller: 'did:key:z' + '1'.repeat(58),
-    verificationMethod: [{
-      id: 'did:key:z' + '1'.repeat(58) + '#key-1',
-      type: 'Sr25519VerificationKey2020',
-      controller: 'did:key:z' + '1'.repeat(58),
-      publicKeyMultibase: 'z' + '1'.repeat(58)
-    }],
+    verificationMethod: [
+      {
+        id: 'did:key:z' + '1'.repeat(58) + '#key-1',
+        type: 'Sr25519VerificationKey2020',
+        controller: 'did:key:z' + '1'.repeat(58),
+        publicKeyMultibase: 'z' + '1'.repeat(58),
+      },
+    ],
     authentication: ['did:key:z' + '1'.repeat(58) + '#key-1'],
     assertionMethod: ['did:key:z' + '1'.repeat(58) + '#key-1'],
     keyAgreement: [],
     capabilityInvocation: ['did:key:z' + '1'.repeat(58) + '#key-1'],
     capabilityDelegation: ['did:key:z' + '1'.repeat(58) + '#key-1'],
-    service: []
+    service: [],
   });
 
   const mockResolve = jest.fn().mockImplementation(async (did: string) => {
@@ -78,14 +80,14 @@ jest.mock('@/did/UUIDProvider', () => {
   const MockPolkadotDIDProvider = jest.fn().mockImplementation(() => ({
     createDid: mockCreateDid,
     createDIDDocument: mockCreateDIDDocument,
-    resolve: mockResolve
+    resolve: mockResolve,
   }));
 
   return {
     PolkadotDIDProvider: MockPolkadotDIDProvider,
     __mockCreateDid: mockCreateDid,
     __mockCreateDIDDocument: mockCreateDIDDocument,
-    __mockResolve: mockResolve
+    __mockResolve: mockResolve,
   };
 });
 
@@ -116,13 +118,15 @@ describe('Authentication E2E Tests', () => {
     // Setup mock adapter
     mockAdapter = {
       enable: jest.fn().mockResolvedValue(undefined),
-      getAccounts: jest.fn().mockImplementation(async () => [{
-        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-        name: 'Test Account',
-        source: 'polkadot-js'
-      }]),
+      getAccounts: jest.fn().mockImplementation(async () => [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          name: 'Test Account',
+          source: 'polkadot-js',
+        },
+      ]),
       signMessage: jest.fn().mockResolvedValue('0x' + '1'.repeat(128)),
-      getProvider: jest.fn().mockReturnValue('polkadot-js')
+      getProvider: jest.fn().mockReturnValue('polkadot-js'),
     };
 
     // Get the mock instance
@@ -159,7 +163,7 @@ describe('Authentication E2E Tests', () => {
         message: expect.any(String),
         signature: expect.any(String),
         issuedAt: expect.any(String),
-        nonce: expect.any(String)
+        nonce: expect.any(String),
       });
 
       // Verify message format
@@ -171,15 +175,15 @@ describe('Authentication E2E Tests', () => {
     it('should complete full flow from wallet connection to DID resolution', async () => {
       // 1. Connect wallet and login
       const loginResult = await loginWithPolkadot();
-      
+
       // 2. Verify login result
       expect(loginResult.did).toBeDefined();
       expect(loginResult.address).toBe('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
-      
+
       // 3. Create DID document
       const didProvider = new PolkadotDIDProvider();
       const didDocument = await didProvider.createDIDDocument(loginResult.address);
-      
+
       // 4. Verify DID document structure
       expect(didDocument.id).toBe(loginResult.did);
       expect(didDocument.verificationMethod).toHaveLength(1);
@@ -187,25 +191,25 @@ describe('Authentication E2E Tests', () => {
       expect((didDocument as DIDDocument).assertionMethod!).toHaveLength(1);
       expect(didDocument.capabilityInvocation).toHaveLength(1);
       expect(didDocument.capabilityDelegation).toHaveLength(1);
-      
+
       // 5. Verify DID document relationships
       const verificationMethod = didDocument.verificationMethod![0];
       expect(verificationMethod.type).toBe('Sr25519VerificationKey2020');
       expect(verificationMethod.controller).toBe(loginResult.did);
       expect(didDocument.authentication![0]).toBe(verificationMethod.id);
       expect((didDocument as DIDDocument).assertionMethod![0]).toBe(verificationMethod.id);
-      
+
       // 6. Verify DID resolution
       const resolvedDocument = await didProvider.resolve(loginResult.did);
       expect(resolvedDocument).toEqual(didDocument);
-      
+
       // 7. Verify DID can be used for verification
       const verificationResult = await verificationService.verifySignature({
         message: loginResult.message,
         signature: loginResult.signature,
-        address: loginResult.address
+        address: loginResult.address,
       });
-      
+
       expect(verificationResult.status).toBe('success');
       expect(verificationResult.did).toBe(loginResult.did);
     });
@@ -215,17 +219,18 @@ describe('Authentication E2E Tests', () => {
       const loginResult1 = await loginWithPolkadot();
       const didProvider = new PolkadotDIDProvider();
       const didDocument1 = await didProvider.createDIDDocument(loginResult1.address);
-      
+
       // 2. Second login with same account
       const loginResult2 = await loginWithPolkadot();
       const didDocument2 = await didProvider.createDIDDocument(loginResult2.address);
-      
+
       // 3. Verify DID consistency
       expect(loginResult1.did).toBe(loginResult2.did);
       expect(didDocument1.id).toBe(didDocument2.id);
-      expect(didDocument1.verificationMethod![0].publicKeyMultibase)
-        .toBe(didDocument2.verificationMethod![0].publicKeyMultibase);
-      
+      expect(didDocument1.verificationMethod![0].publicKeyMultibase).toBe(
+        didDocument2.verificationMethod![0].publicKeyMultibase
+      );
+
       // 4. Verify both DIDs can be resolved
       const resolvedDoc1 = await didProvider.resolve(loginResult1.did);
       const resolvedDoc2 = await didProvider.resolve(loginResult2.did);
@@ -235,27 +240,27 @@ describe('Authentication E2E Tests', () => {
     it('should handle concurrent DID operations', async () => {
       const didProvider = new PolkadotDIDProvider();
       const address = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
-      
+
       // Perform concurrent DID operations
       const [doc1, doc2, doc3] = await Promise.all([
         didProvider.createDIDDocument(address),
         didProvider.createDIDDocument(address),
-        didProvider.createDIDDocument(address)
+        didProvider.createDIDDocument(address),
       ]);
-      
+
       // Verify all documents are identical
       expect(doc1).toEqual(doc2);
       expect(doc2).toEqual(doc3);
-      
+
       // Verify concurrent resolution
       const [resolved1, resolved2, resolved3] = await Promise.all([
         didProvider.resolve(doc1.id),
         didProvider.resolve(doc2.id),
-        didProvider.resolve(doc3.id)
+        didProvider.resolve(doc3.id),
       ]);
-      
+
       expect(resolved1).toEqual(resolved2);
       expect(resolved2).toEqual(resolved3);
     });
   });
-}); 
+});

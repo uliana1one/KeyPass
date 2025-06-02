@@ -6,5 +6,5 @@ global.TextDecoder = TextDecoder;
 // Mock window.injectedWeb3
 Object.defineProperty(window, 'injectedWeb3', {
   writable: true,
-  value: {}
-}); 
+  value: {},
+});

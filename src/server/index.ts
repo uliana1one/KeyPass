@@ -7,4 +7,4 @@ const host = '0.0.0.0';
 app.listen(port, host, () => {
   console.log(`Server running on port ${port}`);
   console.log(`Verification endpoint available at http://${host}:${port}/api/verify`);
-}); 
+});

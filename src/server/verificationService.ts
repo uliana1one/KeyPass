@@ -19,11 +19,8 @@ export const ERROR_CODES = {
   INVALID_ADDRESS: 'INVALID_ADDRESS',
   MESSAGE_EXPIRED: 'MESSAGE_EXPIRED',
   MESSAGE_FUTURE: 'MESSAGE_FUTURE',
-  DID_CREATION_FAILED: 'DID_CREATION_FAILED'
+  DID_CREATION_FAILED: 'DID_CREATION_FAILED',
 } as const;
-
-// Valid test address used in tests
-const VALID_ADDRESS = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
 
 /**
  * Service for verifying Polkadot wallet signatures and managing DIDs.
@@ -31,13 +28,13 @@ const VALID_ADDRESS = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
  * - Verifying message signatures using sr25519 and ed25519 algorithms
  * - Managing DID (Decentralized Identifier) creation and validation
  * - Validating message age and format
- * 
+ *
  * The service implements security best practices including:
  * - Message age validation (5-minute expiration)
  * - Message length limits
  * - Signature format validation
  * - Address format validation
- * 
+ *
  * @example
  * ```typescript
  * const service = new VerificationService();
@@ -77,17 +74,22 @@ export class VerificationService {
     }
 
     // Split message into lines and normalize whitespace
-    const lines = message.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
-    
+    const lines = message
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
     // Check for required fields
     const requiredFields = ['Issued At:', 'Nonce:', 'Address:'];
-    const missingFields = requiredFields.filter(field => 
-      !lines.some(line => line.startsWith(field))
+    const missingFields = requiredFields.filter(
+      (field) => !lines.some((line) => line.startsWith(field))
     );
 
     if (missingFields.length > 0) {
-      const missingFieldMessages = missingFields.map(field => `${field}`).join(', ');
-      throw new MessageValidationError(`Invalid message format: missing required fields: ${missingFieldMessages}`);
+      const missingFieldMessages = missingFields.map((field) => `${field}`).join(', ');
+      throw new MessageValidationError(
+        `Invalid message format: missing required fields: ${missingFieldMessages}`
+      );
     }
 
     // Extract and validate each field
@@ -105,7 +107,9 @@ export class VerificationService {
       } else if (line.startsWith('Nonce:')) {
         nonce = line.substring(line.indexOf(':') + 1).trim();
         if (!nonce) {
-          throw new MessageValidationError('Invalid message format: missing required fields: Nonce:');
+          throw new MessageValidationError(
+            'Invalid message format: missing required fields: Nonce:'
+          );
         }
       } else if (line.startsWith('Address:')) {
         address = line.substring(line.indexOf(':') + 1).trim();
@@ -122,7 +126,9 @@ export class VerificationService {
       if (!issuedAt) missingFields.push('Issued At:');
       if (!nonce) missingFields.push('Nonce:');
       if (!address) missingFields.push('Address:');
-      throw new MessageValidationError(`Invalid message format: missing required fields: ${missingFields.join(', ')}`);
+      throw new MessageValidationError(
+        `Invalid message format: missing required fields: ${missingFields.join(', ')}`
+      );
     }
 
     // Check for any unexpected lines
@@ -132,10 +138,12 @@ export class VerificationService {
     }
 
     // Validate line order
-    if (lines[0] !== 'KeyPass Login' ||
-        !lines[1].startsWith('Issued At:') ||
-        !lines[2].startsWith('Nonce:') ||
-        !lines[3].startsWith('Address:')) {
+    if (
+      lines[0] !== 'KeyPass Login' ||
+      !lines[1].startsWith('Issued At:') ||
+      !lines[2].startsWith('Nonce:') ||
+      !lines[3].startsWith('Address:')
+    ) {
       throw new MessageValidationError('Invalid message format: incorrect field order');
     }
   }
@@ -147,9 +155,9 @@ export class VerificationService {
    */
   private validateMessageTimestamp(message: string): void {
     // Split message into lines and find the timestamp
-    const lines = message.split(/\r?\n/).map(line => line.trim());
-    const timestampLine = lines.find(line => line.startsWith('Issued At:'));
-    
+    const lines = message.split(/\r?\n/).map((line) => line.trim());
+    const timestampLine = lines.find((line) => line.startsWith('Issued At:'));
+
     if (!timestampLine) {
       throw new MessageValidationError('Invalid message format: missing timestamp');
     }
@@ -157,7 +165,7 @@ export class VerificationService {
     const issuedAt = timestampLine.substring(timestampLine.indexOf(':') + 1).trim();
     const messageTime = new Date(issuedAt).getTime();
     const now = Date.now();
-    
+
     if (isNaN(messageTime)) {
       throw new MessageValidationError('Invalid timestamp format');
     }
@@ -166,8 +174,88 @@ export class VerificationService {
       throw new MessageValidationError('Message has expired');
     }
 
-    if (messageTime > now + 60000) { // Allow 1 minute clock skew
+    if (messageTime > now + 60000) {
+      // Allow 1 minute clock skew
       throw new MessageValidationError('Message timestamp is in the future');
+    }
+  }
+
+  /**
+   * Validates the age of a message.
+   * Messages must be signed within the last 5 minutes.
+   *
+   * @param message - The message to validate
+   * @throws {MessageValidationError} If the message is too old
+   * @private
+   */
+  private validateMessageAge(message: string): void {
+    const lines = message.split(/\r?\n/).map((line) => line.trim());
+    const timestampLine = lines.find((line) => line.startsWith('Issued At:'));
+
+    if (!timestampLine) {
+      throw new MessageValidationError('Invalid message format: missing timestamp');
+    }
+
+    const issuedAt = timestampLine.substring(timestampLine.indexOf(':') + 1).trim();
+    const messageTime = new Date(issuedAt).getTime();
+    const now = Date.now();
+
+    if (isNaN(messageTime)) {
+      throw new MessageValidationError('Invalid timestamp format');
+    }
+
+    if (now - messageTime > this.MAX_MESSAGE_AGE_MS) {
+      throw new MessageValidationError('Message has expired');
+    }
+
+    if (messageTime > now + 60000) {
+      // Allow 1 minute clock skew
+      throw new MessageValidationError('Message timestamp is in the future');
+    }
+  }
+
+  /**
+   * Validates the length of a message.
+   * Messages must not exceed 256 characters.
+   *
+   * @param message - The message to validate
+   * @throws {MessageValidationError} If the message is too long
+   * @private
+   */
+  private validateMessageLength(message: string): void {
+    if (message.length > this.MAX_MESSAGE_LENGTH) {
+      throw new MessageValidationError(
+        `Message exceeds maximum length of ${this.MAX_MESSAGE_LENGTH} characters`
+      );
+    }
+  }
+
+  /**
+   * Attempts to verify a signature using both sr25519 and ed25519 algorithms.
+   * Returns true if either verification succeeds.
+   *
+   * @param message - The message that was signed
+   * @param signature - The signature to verify
+   * @param address - The address that signed the message
+   * @returns Promise resolving to true if verification succeeds
+   * @throws {Error} If both verification attempts fail
+   * @private
+   */
+  private async verifySignatureWithBothAlgorithms(
+    message: string,
+    signature: string,
+    address: string
+  ): Promise<boolean> {
+    const messageU8a = new TextEncoder().encode(message);
+    const signatureU8a = hexToU8a(signature);
+
+    try {
+      const isValidSr25519 = sr25519Verify(messageU8a, signatureU8a, address);
+      const isValidEd25519 = ed25519Verify(messageU8a, signatureU8a, address);
+      return isValidSr25519 || isValidEd25519;
+    } catch (error) {
+      console.error('Signature verification error:', error);
+      return false;
     }
   }
 
@@ -184,7 +272,7 @@ export class VerificationService {
         return {
           status: 'error',
           message: 'Invalid request body',
-          code: ERROR_CODES.INVALID_REQUEST
+          code: ERROR_CODES.INVALID_REQUEST,
         };
       }
 
@@ -193,7 +281,7 @@ export class VerificationService {
         return {
           status: 'error',
           message: 'Invalid request body',
-          code: ERROR_CODES.INVALID_REQUEST
+          code: ERROR_CODES.INVALID_REQUEST,
         };
       }
 
@@ -201,18 +289,12 @@ export class VerificationService {
         return {
           status: 'error',
           message: 'Invalid message format: missing required fields',
-          code: ERROR_CODES.INVALID_MESSAGE_FORMAT
+          code: ERROR_CODES.INVALID_MESSAGE_FORMAT,
         };
       }
 
       // Validate message length
-      if (request.message.length > this.MAX_MESSAGE_LENGTH) {
-        return {
-          status: 'error',
-          message: `Message exceeds maximum length of ${this.MAX_MESSAGE_LENGTH} characters`,
-          code: ERROR_CODES.MESSAGE_TOO_LONG
-        };
-      }
+      this.validateMessageLength(request.message);
 
       // Validate message format first
       try {
@@ -223,13 +305,13 @@ export class VerificationService {
             return {
               status: 'error',
               message: error.message,
-              code: ERROR_CODES.VERIFICATION_FAILED
+              code: ERROR_CODES.VERIFICATION_FAILED,
             };
           }
           return {
             status: 'error',
             message: error.message,
-            code: ERROR_CODES.INVALID_MESSAGE_FORMAT
+            code: ERROR_CODES.INVALID_MESSAGE_FORMAT,
           };
         }
         throw error;
@@ -244,21 +326,21 @@ export class VerificationService {
             return {
               status: 'error',
               message: error.message,
-              code: ERROR_CODES.MESSAGE_EXPIRED
+              code: ERROR_CODES.MESSAGE_EXPIRED,
             };
           }
           if (error.message === 'Message timestamp is in the future') {
             return {
               status: 'error',
               message: error.message,
-              code: ERROR_CODES.MESSAGE_FUTURE
+              code: ERROR_CODES.MESSAGE_FUTURE,
             };
           }
           // For other message validation errors from timestamp validation
           return {
             status: 'error',
             message: error.message,
-            code: ERROR_CODES.INVALID_MESSAGE_FORMAT
+            code: ERROR_CODES.INVALID_MESSAGE_FORMAT,
           };
         }
         throw error;
@@ -272,7 +354,7 @@ export class VerificationService {
           return {
             status: 'error',
             message: 'Invalid Polkadot address',
-            code: ERROR_CODES.INVALID_ADDRESS
+            code: ERROR_CODES.INVALID_ADDRESS,
           };
         }
         throw error;
@@ -287,14 +369,14 @@ export class VerificationService {
             return {
               status: 'error',
               message: 'Invalid signature length',
-              code: ERROR_CODES.INVALID_SIGNATURE_LENGTH
+              code: ERROR_CODES.INVALID_SIGNATURE_LENGTH,
             };
           }
           if (error.message.includes('format')) {
             return {
               status: 'error',
               message: 'Invalid signature format',
-              code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
+              code: ERROR_CODES.INVALID_SIGNATURE_FORMAT,
             };
           }
         }
@@ -302,33 +384,22 @@ export class VerificationService {
         return {
           status: 'error',
           message: 'Invalid signature format',
-          code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
+          code: ERROR_CODES.INVALID_SIGNATURE_FORMAT,
         };
       }
 
       // Try both signature types
-      const messageU8a = new TextEncoder().encode(request.message);
-      const signatureU8a = hexToU8a(request.signature);
-      // Don't convert address to Uint8Array, use it as-is
-      try {
-        const isValidSr25519 = sr25519Verify(messageU8a, signatureU8a, request.address);
-        const isValidEd25519 = ed25519Verify(messageU8a, signatureU8a, request.address);
+      const isValid = await this.verifySignatureWithBothAlgorithms(
+        request.message,
+        request.signature,
+        request.address
+      );
 
-        if (!isValidSr25519 && !isValidEd25519) {
-          return {
-            status: 'error',
-            message: 'Verification failed',
-            code: ERROR_CODES.VERIFICATION_FAILED
-          };
-        }
-      } catch (error) {
-        // Log the actual error for debugging
-        console.error('Signature verification error:', error);
-        // Return verification failed instead of throwing
+      if (!isValid) {
         return {
           status: 'error',
           message: 'Verification failed',
-          code: ERROR_CODES.VERIFICATION_FAILED
+          code: ERROR_CODES.VERIFICATION_FAILED,
         };
       }
 
@@ -339,16 +410,17 @@ export class VerificationService {
           status: 'success',
           message: 'Verification successful',
           code: 'SUCCESS',
-          did
+          did,
         };
-      } catch (error) {
+      } catch (error: unknown) {
+        console.error('DID creation error:', error);
         return {
           status: 'error',
           message: 'Failed to create DID',
-          code: ERROR_CODES.DID_CREATION_FAILED
+          code: ERROR_CODES.DID_CREATION_FAILED,
         };
       }
-    } catch (error) {
+    } catch (error: unknown) {
       // Only log and return internal error for truly unexpected errors
       console.error('Unexpected verification error:', {
         error,
@@ -356,7 +428,7 @@ export class VerificationService {
         message: error instanceof Error ? error.message : 'Unknown',
         stack: error instanceof Error ? error.stack : undefined,
         isMessageValidationError: error instanceof MessageValidationError,
-        isAddressValidationError: error instanceof AddressValidationError
+        isAddressValidationError: error instanceof AddressValidationError,
       });
 
       // Re-throw validation errors to be handled by the caller
@@ -364,20 +436,11 @@ export class VerificationService {
         throw error;
       }
 
-      // If this is a DID creation error, return the appropriate response
-      if (error instanceof Error && error.message.includes('DID creation failed')) {
-        return {
-          status: 'error',
-          message: 'Failed to create DID',
-          code: ERROR_CODES.DID_CREATION_FAILED
-        };
-      }
-
       // Return verification failed for other errors
       return {
         status: 'error',
         message: 'Verification failed',
-        code: ERROR_CODES.VERIFICATION_FAILED
+        code: ERROR_CODES.VERIFICATION_FAILED,
       };
     }
   }
@@ -394,51 +457,7 @@ export class VerificationService {
       template: messageFormat.template,
       address,
       nonce,
-      issuedAt
+      issuedAt,
     });
   }
-
-  /**
-   * Validates the age of a message.
-   * Messages must be signed within the last 5 minutes.
-   * 
-   * @param message - The message to validate
-   * @throws {Error} If the message is too old
-   * @private
-   */
-  private validateMessageAge(message: string): void {
-    // Implementation of validateMessageAge method
-  }
-
-  /**
-   * Validates the length of a message.
-   * Messages must not exceed 256 characters.
-   * 
-   * @param message - The message to validate
-   * @throws {Error} If the message is too long
-   * @private
-   */
-  private validateMessageLength(message: string): void {
-    // Implementation of validateMessageLength method
-  }
-
-  /**
-   * Attempts to verify a signature using both sr25519 and ed25519 algorithms.
-   * Returns true if either verification succeeds.
-   * 
-   * @param message - The message that was signed
-   * @param signature - The signature to verify
-   * @param address - The address that signed the message
-   * @returns Promise resolving to true if verification succeeds
-   * @throws {Error} If both verification attempts fail
-   * @private
-   */
-  private async verifySignatureWithBothAlgorithms(
-    message: string,
-    signature: string,
-    address: string
-  ): Promise<boolean> {
-    // Implementation of verifySignatureWithBothAlgorithms method
-    return false; // Placeholder return, actual implementation needed
-  }
-} 
+}

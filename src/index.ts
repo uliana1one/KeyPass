@@ -36,9 +36,9 @@ export interface LoginResult {
  * 4. Signs the message
  * 5. Verifies the signature
  * 6. Creates a DID for the address
- * 
+ *
  * The function includes automatic retry logic for network errors.
- * 
+ *
  * @param retryCount - Number of retry attempts for network errors (default: 1)
  * @returns Promise resolving to a LoginResult object containing all login data
  * @throws {WalletNotFoundError} If no wallet is found
@@ -46,7 +46,7 @@ export interface LoginResult {
  * @throws {WalletConnectionError} If wallet connection fails
  * @throws {MessageValidationError} If message validation fails
  * @throws {InvalidSignatureError} If signature verification fails
- * 
+ *
  * @example
  * ```typescript
  * try {
@@ -81,12 +81,12 @@ export async function loginWithPolkadot(retryCount = 1): Promise<LoginResult> {
         issuedAt,
       });
       const signature = await adapter.signMessage(message);
-      
+
       // Verify the signature
       const verificationResult = await verificationService.verifySignature({
         address,
         message,
-        signature
+        signature,
       });
 
       if (verificationResult.status === 'error') {
@@ -102,17 +102,17 @@ export async function loginWithPolkadot(retryCount = 1): Promise<LoginResult> {
         message,
         did,
         issuedAt,
-        nonce
+        nonce,
       };
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      
+
       // If this wasn't the last attempt and we got a network error, wait and retry
       if (attempt < retryCount && lastError.message.includes('Network error')) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second before retry
         continue;
       }
-      
+
       // If we get here, either it's the last attempt or it's not a network error
       throw lastError;
     }

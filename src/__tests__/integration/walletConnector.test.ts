@@ -8,21 +8,21 @@ const createValidatorMock = (shouldThrow = false) => {
       if (shouldThrow) {
         throw new ConfigurationError('Invalid wallet configuration');
       }
-    }
+    },
   };
 };
 
 // Mock dynamic imports
 jest.mock('../../adapters/PolkadotJsAdapter', () => ({
-  PolkadotJsAdapter: jest.fn().mockImplementation(() => new MockAdapter(false))
+  PolkadotJsAdapter: jest.fn().mockImplementation(() => new MockAdapter(false)),
 }));
 
 jest.mock('../../adapters/TalismanAdapter', () => ({
-  TalismanAdapter: jest.fn().mockImplementation(() => new MockAdapter(false))
+  TalismanAdapter: jest.fn().mockImplementation(() => new MockAdapter(false)),
 }));
 
 jest.mock('../../adapters/WalletConnectAdapter', () => ({
-  WalletConnectAdapter: jest.fn().mockImplementation(() => new MockAdapter(false))
+  WalletConnectAdapter: jest.fn().mockImplementation(() => new MockAdapter(false)),
 }));
 
 // Mock the wallets config
@@ -32,26 +32,26 @@ jest.mock('../../config/wallets.json', () => ({
       id: 'polkadot-js',
       name: 'Polkadot.js',
       adapter: 'PolkadotJsAdapter',
-      priority: 1
+      priority: 1,
     },
     {
       id: 'talisman',
       name: 'Talisman',
       adapter: 'TalismanAdapter',
-      priority: 2
+      priority: 2,
     },
     {
       id: 'wallet-connect',
       name: 'WalletConnect',
       adapter: 'WalletConnectAdapter',
-      priority: 3
-    }
-  ]
+      priority: 3,
+    },
+  ],
 }));
 
 // Mock the validator
 jest.mock('../../config/validator', () => ({
-  validateWalletConfig: () => {} // Never throw
+  validateWalletConfig: () => {}, // Never throw
 }));
 
 // Mock console.error
@@ -63,7 +63,11 @@ import { PolkadotJsAdapter } from '../../adapters/PolkadotJsAdapter';
 import { TalismanAdapter } from '../../adapters';
 import { WalletConnectAdapter } from '../../adapters/WalletConnectAdapter';
 import { WalletAdapter, WalletAccount } from '../../adapters/types';
-import { WalletNotFoundError, UserRejectedError, ConfigurationError } from '../../errors/WalletErrors';
+import {
+  WalletNotFoundError,
+  UserRejectedError,
+  ConfigurationError,
+} from '../../errors/WalletErrors';
 
 // Create mock adapter implementations
 class MockAdapter implements WalletAdapter {
@@ -121,7 +125,7 @@ afterAll(() => {
 // Configuration validation tests in a separate describe block
 describe('Wallet Configuration Validation', () => {
   const originalConsoleError = console.error;
-  
+
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
@@ -135,7 +139,7 @@ describe('Wallet Configuration Validation', () => {
   it('should handle configuration validation error', async () => {
     // Override the validator mock for this specific test
     jest.mock('../../config/validator', () => createValidatorMock(true), { virtual: true });
-    
+
     await expect(async () => {
       await jest.isolateModulesAsync(async () => {
         await import('../../walletConnector');
@@ -157,8 +161,12 @@ describe('connectWallet()', () => {
 
   it('should try each adapter in sequence', async () => {
     // Mock PolkadotJs to fail and Talisman to succeed
-    jest.mocked(PolkadotJsAdapter).mockImplementation(() => new MockAdapter(false) as unknown as PolkadotJsAdapter);
-    jest.mocked(TalismanAdapter).mockImplementation(() => new MockAdapter(true) as unknown as TalismanAdapter);
+    jest
+      .mocked(PolkadotJsAdapter)
+      .mockImplementation(() => new MockAdapter(false) as unknown as PolkadotJsAdapter);
+    jest
+      .mocked(TalismanAdapter)
+      .mockImplementation(() => new MockAdapter(true) as unknown as TalismanAdapter);
 
     const adapter = await connectWallet();
 
@@ -175,8 +183,12 @@ describe('connectWallet()', () => {
 
   it('should throw when no adapters are available', async () => {
     // Mock both adapters to fail
-    jest.mocked(PolkadotJsAdapter).mockImplementation(() => new MockAdapter(false) as unknown as PolkadotJsAdapter);
-    jest.mocked(TalismanAdapter).mockImplementation(() => new MockAdapter(false) as unknown as TalismanAdapter);
+    jest
+      .mocked(PolkadotJsAdapter)
+      .mockImplementation(() => new MockAdapter(false) as unknown as PolkadotJsAdapter);
+    jest
+      .mocked(TalismanAdapter)
+      .mockImplementation(() => new MockAdapter(false) as unknown as TalismanAdapter);
 
     await expect(connectWallet()).rejects.toThrow('No supported wallet found');
 

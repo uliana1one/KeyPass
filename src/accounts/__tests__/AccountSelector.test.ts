@@ -10,7 +10,7 @@ describe('selectAccount', () => {
     const adapter = createMockAdapter([]);
     await expect(selectAccount(adapter)).rejects.toMatchObject({
       message: 'No accounts found',
-      code: 'NO_ACCOUNTS'
+      code: 'NO_ACCOUNTS',
     });
   });
 
@@ -23,7 +23,7 @@ describe('selectAccount', () => {
     const adapter = createMockAdapter([{ address: '0x123' }, { address: '0x456' }]);
     await expect(selectAccount(adapter)).rejects.toMatchObject({
       message: 'Account selection not implemented',
-      code: 'MULTIPLE_ACCOUNTS'
+      code: 'MULTIPLE_ACCOUNTS',
     });
   });
 });

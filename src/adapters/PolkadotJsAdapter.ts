@@ -2,15 +2,23 @@ import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-d
 import { hexToU8a, u8aToHex } from '@polkadot/util';
 import { isAddress } from '@polkadot/util-crypto';
 import { InjectedWindow } from '@polkadot/extension-inject/types';
-import { WalletAdapter, WalletAccount, validateAddress, validateSignature, WALLET_TIMEOUT, validateAndSanitizeMessage, validatePolkadotAddress } from './types';
-import { 
-  WalletNotFoundError, 
-  UserRejectedError, 
-  TimeoutError, 
+import {
+  WalletAdapter,
+  WalletAccount,
+  validateAddress,
+  validateSignature,
+  WALLET_TIMEOUT,
+  validateAndSanitizeMessage,
+  validatePolkadotAddress,
+} from './types';
+import {
+  WalletNotFoundError,
+  UserRejectedError,
+  TimeoutError,
   InvalidSignatureError,
   WalletConnectionError,
   MessageValidationError,
-  AddressValidationError
+  AddressValidationError,
 } from '../errors/WalletErrors';
 
 const POLKADOT_EXTENSION_NAME = 'polkadot-js';
@@ -69,7 +77,7 @@ export class PolkadotJsAdapter implements WalletAdapter {
           this.connectionTimeout = null;
         }
       }
-      
+
       this.provider = 'polkadot-js';
       this.enabled = true;
     } catch (error) {
@@ -117,8 +125,7 @@ export class PolkadotJsAdapter implements WalletAdapter {
         }
       });
     } catch (error) {
-      if (error instanceof AddressValidationError || 
-          error instanceof WalletConnectionError) {
+      if (error instanceof AddressValidationError || error instanceof WalletConnectionError) {
         throw error;
       }
       if (error instanceof Error) {
@@ -138,7 +145,7 @@ export class PolkadotJsAdapter implements WalletAdapter {
    */
   public async signMessage(message: string): Promise<string> {
     if (!this.enabled) throw new WalletNotFoundError('Wallet not enabled');
-    
+
     let sanitizedMessage: string;
     try {
       // Validate and sanitize message first
@@ -159,15 +166,23 @@ export class PolkadotJsAdapter implements WalletAdapter {
       const account = accounts[0];
       const injector = await web3FromAddress(account.address);
       if (!injector.signer || !injector.signer.signRaw) {
-        throw new WalletConnectionError('Failed to sign message: Signer does not support raw signing');
+        throw new WalletConnectionError(
+          'Failed to sign message: Signer does not support raw signing'
+        );
       }
 
       const messageU8a = new TextEncoder().encode(sanitizedMessage);
-      const signPromise = injector.signer.signRaw({ address: account.address, data: u8aToHex(messageU8a), type: 'bytes' });
-      const timeoutPromise = new Promise((_, reject) => 
+      const signPromise = injector.signer.signRaw({
+        address: account.address,
+        data: u8aToHex(messageU8a),
+        type: 'bytes',
+      });
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new TimeoutError('message_signing')), WALLET_TIMEOUT)
       );
-      const { signature } = await Promise.race([signPromise, timeoutPromise]) as { signature: string };
+      const { signature } = (await Promise.race([signPromise, timeoutPromise])) as {
+        signature: string;
+      };
 
       try {
         validateSignature(signature);
@@ -178,10 +193,12 @@ export class PolkadotJsAdapter implements WalletAdapter {
         throw new InvalidSignatureError(errorMessage);
       }
     } catch (error) {
-      if (error instanceof MessageValidationError ||
-          error instanceof InvalidSignatureError ||
-          error instanceof TimeoutError ||
-          error instanceof UserRejectedError) {
+      if (
+        error instanceof MessageValidationError ||
+        error instanceof InvalidSignatureError ||
+        error instanceof TimeoutError ||
+        error instanceof UserRejectedError
+      ) {
         throw error;
       }
       if (error instanceof Error) {

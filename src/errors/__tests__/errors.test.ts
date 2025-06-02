@@ -8,7 +8,7 @@ import {
   ConfigurationError,
   WalletConnectionError,
   MessageValidationError,
-  AddressValidationError
+  AddressValidationError,
 } from '../../errors/WalletErrors';
 
 describe('Wallet Error Classes', () => {
@@ -38,7 +38,7 @@ describe('Wallet Error Classes', () => {
       ['wallet_connection', 'User rejected wallet connection'],
       ['signing', 'User rejected message signing'],
       ['message_signing', 'User rejected message signing'],
-      ['account_access', 'User rejected account access']
+      ['account_access', 'User rejected account access'],
     ])('should create error for %s operation', (operation, expectedMessage) => {
       const error = new UserRejectedError(operation as any);
       expect(error).toBeInstanceOf(WalletError);
@@ -52,7 +52,7 @@ describe('Wallet Error Classes', () => {
     it.each([
       ['wallet_connection', 'wallet connection timed out'],
       ['message_signing', 'message signing timed out'],
-      ['signing', 'operation timed out']
+      ['signing', 'operation timed out'],
     ])('should create error for %s operation', (operation, expectedMessage) => {
       const error = new TimeoutError(operation as any);
       expect(error).toBeInstanceOf(WalletError);
@@ -126,4 +126,4 @@ describe('Wallet Error Classes', () => {
       expect(error.name).toBe('AddressValidationError');
     });
   });
-}); 
+});

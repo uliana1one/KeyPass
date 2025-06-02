@@ -8,7 +8,7 @@ import {
   MessageValidationError,
   AddressValidationError,
   ConfigurationError,
-  InvalidAddressError
+  InvalidAddressError,
 } from '../WalletErrors';
 
 describe('Wallet Errors', () => {
@@ -168,4 +168,4 @@ describe('Wallet Errors', () => {
       expect(error.stack).toContain('WalletErrors.test.ts');
     });
   });
-}); 
+});

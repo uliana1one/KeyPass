@@ -2,15 +2,23 @@ import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-d
 import { hexToU8a, u8aToHex } from '@polkadot/util';
 import { isAddress } from '@polkadot/util-crypto';
 import { InjectedWindow } from '@polkadot/extension-inject/types';
-import { WalletAdapter, WalletAccount, validateAddress, validateSignature, WALLET_TIMEOUT, validateAndSanitizeMessage, validatePolkadotAddress } from './types';
-import { 
-  WalletNotFoundError, 
-  UserRejectedError, 
-  TimeoutError, 
+import {
+  WalletAdapter,
+  WalletAccount,
+  validateAddress,
+  validateSignature,
+  WALLET_TIMEOUT,
+  validateAndSanitizeMessage,
+  validatePolkadotAddress,
+} from './types';
+import {
+  WalletNotFoundError,
+  UserRejectedError,
+  TimeoutError,
   InvalidSignatureError,
   WalletConnectionError,
   MessageValidationError,
-  AddressValidationError
+  AddressValidationError,
 } from '../errors/WalletErrors';
 
 const TALISMAN_EXTENSION_NAME = 'talisman';
@@ -20,14 +28,14 @@ const WALLET_CONNECT_NAME = 'wallet-connect';
  * Adapter for the Talisman browser extension wallet.
  * Handles connection, account listing, and message signing for the
  * Talisman wallet extension, with fallback to WalletConnect.
- * 
+ *
  * This adapter implements the WalletAdapter interface and provides
  * functionality for:
  * - Connecting to the Talisman wallet extension
  * - Listing available accounts
  * - Signing messages
  * - Managing wallet connection state
- * 
+ *
  * @example
  * ```typescript
  * const adapter = new TalismanAdapter();
@@ -44,7 +52,7 @@ export class TalismanAdapter implements WalletAdapter {
   /**
    * Attempts to enable the Talisman wallet extension.
    * This should be called before any other wallet operations.
-   * 
+   *
    * @throws {WalletNotFoundError} If the Talisman extension is not installed
    * @throws {UserRejectedError} If the user rejects the connection request
    * @throws {TimeoutError} If the connection request times out
@@ -55,13 +63,13 @@ export class TalismanAdapter implements WalletAdapter {
 
     try {
       const injectedWindow = window as Window & InjectedWindow;
-      
+
       // Try Talisman first
       if (injectedWindow.injectedWeb3?.[TALISMAN_EXTENSION_NAME]) {
         await this.enableProvider(TALISMAN_EXTENSION_NAME);
         return;
       }
-      
+
       // Fallback to WalletConnect if Talisman is not available
       if (injectedWindow.injectedWeb3?.[WALLET_CONNECT_NAME]) {
         await this.enableProvider(WALLET_CONNECT_NAME);
@@ -79,9 +87,11 @@ export class TalismanAdapter implements WalletAdapter {
         this.connectionTimeout = null;
       }
 
-      if (error instanceof WalletNotFoundError || 
-          error instanceof TimeoutError || 
-          error instanceof UserRejectedError) {
+      if (
+        error instanceof WalletNotFoundError ||
+        error instanceof TimeoutError ||
+        error instanceof UserRejectedError
+      ) {
         throw error;
       }
       if (error instanceof Error) {
@@ -119,7 +129,7 @@ export class TalismanAdapter implements WalletAdapter {
     });
 
     await Promise.race([enablePromise, timeoutPromise]);
-    
+
     // Clear timeout on success
     if (this.connectionTimeout) {
       clearTimeout(this.connectionTimeout);
@@ -133,7 +143,7 @@ export class TalismanAdapter implements WalletAdapter {
   /**
    * Retrieves a list of accounts from the Talisman wallet.
    * Returns an array of account objects containing addresses and metadata.
-   * 
+   *
    * @returns Promise resolving to an array of WalletAccount objects
    * @throws {WalletNotFoundError} If the wallet is not enabled
    * @throws {WalletConnectionError} If no accounts are found or connection fails
@@ -159,8 +169,7 @@ export class TalismanAdapter implements WalletAdapter {
         }
       });
     } catch (error) {
-      if (error instanceof AddressValidationError || 
-          error instanceof WalletConnectionError) {
+      if (error instanceof AddressValidationError || error instanceof WalletConnectionError) {
         throw error;
       }
       if (error instanceof Error) {
@@ -175,7 +184,7 @@ export class TalismanAdapter implements WalletAdapter {
   /**
    * Signs a message using the Talisman wallet.
    * The message is first validated and sanitized before signing.
-   * 
+   *
    * @param message - The message to sign
    * @returns Promise resolving to the signature as a hex string
    * @throws {WalletNotFoundError} If the wallet is not enabled
@@ -187,7 +196,7 @@ export class TalismanAdapter implements WalletAdapter {
    */
   public async signMessage(message: string): Promise<string> {
     if (!this.enabled) throw new WalletNotFoundError('Wallet not enabled');
-    
+
     let sanitizedMessage: string;
     try {
       // Validate and sanitize message first
@@ -208,15 +217,23 @@ export class TalismanAdapter implements WalletAdapter {
       const account = accounts[0];
       const injector = await web3FromAddress(account.address);
       if (!injector.signer || !injector.signer.signRaw) {
-        throw new WalletConnectionError('Failed to sign message: Signer does not support raw signing');
+        throw new WalletConnectionError(
+          'Failed to sign message: Signer does not support raw signing'
+        );
       }
 
       const messageU8a = new TextEncoder().encode(sanitizedMessage);
-      const signPromise = injector.signer.signRaw({ address: account.address, data: u8aToHex(messageU8a), type: 'bytes' });
-      const timeoutPromise = new Promise((_, reject) => 
+      const signPromise = injector.signer.signRaw({
+        address: account.address,
+        data: u8aToHex(messageU8a),
+        type: 'bytes',
+      });
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new TimeoutError('message_signing')), WALLET_TIMEOUT)
       );
-      const { signature } = await Promise.race([signPromise, timeoutPromise]) as { signature: string };
+      const { signature } = (await Promise.race([signPromise, timeoutPromise])) as {
+        signature: string;
+      };
 
       try {
         validateSignature(signature);
@@ -228,14 +245,16 @@ export class TalismanAdapter implements WalletAdapter {
       }
     } catch (error) {
       // Handle known error types
-      if (error instanceof MessageValidationError ||
-          error instanceof InvalidSignatureError ||
-          error instanceof TimeoutError ||
-          error instanceof UserRejectedError ||
-          error instanceof WalletConnectionError) {
+      if (
+        error instanceof MessageValidationError ||
+        error instanceof InvalidSignatureError ||
+        error instanceof TimeoutError ||
+        error instanceof UserRejectedError ||
+        error instanceof WalletConnectionError
+      ) {
         throw error;
       }
-      
+
       // Handle Error instances with specific messages
       if (error instanceof Error) {
         if (error.message.includes('User rejected')) {
@@ -251,7 +270,7 @@ export class TalismanAdapter implements WalletAdapter {
         // For other Error instances, preserve the message
         throw new WalletConnectionError(`Failed to sign message: ${error.message}`);
       }
-      
+
       // Handle non-Error objects
       throw new WalletConnectionError('Failed to sign message: Unknown error');
     }
@@ -260,7 +279,7 @@ export class TalismanAdapter implements WalletAdapter {
   /**
    * Returns the current wallet provider being used.
    * Can be either 'talisman' or 'wallet-connect'.
-   * 
+   *
    * @returns The provider name or null if not connected
    */
   public getProvider(): string | null {
@@ -271,7 +290,7 @@ export class TalismanAdapter implements WalletAdapter {
    * Disconnects the wallet adapter and cleans up resources.
    * Resets the connection state and clears any pending timeouts.
    * Should be called when switching wallets or logging out.
-   * 
+   *
    * @example
    * ```typescript
    * adapter.disconnect();
@@ -288,7 +307,7 @@ export class TalismanAdapter implements WalletAdapter {
 
   /**
    * Validates a Polkadot address format.
-   * 
+   *
    * @param address - The address to validate
    * @throws {AddressValidationError} If the address is invalid
    * @private

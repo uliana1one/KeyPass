@@ -12,13 +12,13 @@ jest.mock('@polkadot/util-crypto', () => {
   return {
     sr25519Verify: mockSr25519Verify,
     ed25519Verify: mockEd25519Verify,
-    hexToU8a: jest.fn().mockImplementation((hex) => new Uint8Array(hex.length / 2))
+    hexToU8a: jest.fn().mockImplementation((hex) => new Uint8Array(hex.length / 2)),
   };
 });
 
 jest.mock('../../adapters/types', () => ({
   validatePolkadotAddress: jest.fn(),
-  validateSignature: jest.fn()
+  validateSignature: jest.fn(),
 }));
 
 describe('VerificationService', () => {
@@ -30,7 +30,7 @@ describe('VerificationService', () => {
   let sr25519Verify: jest.Mock;
   let ed25519Verify: jest.Mock;
   let validateSignature: jest.Mock;
-  let adapters: { 
+  let adapters: {
     validatePolkadotAddress: jest.Mock;
     validateSignature: jest.Mock;
   };
@@ -38,22 +38,22 @@ describe('VerificationService', () => {
   const createValidRequest = () => ({
     message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`,
     signature: VALID_SIGNATURE,
-    address: VALID_ADDRESS
+    address: VALID_ADDRESS,
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Get the mock functions
     const crypto = require('@polkadot/util-crypto');
     adapters = require('../../adapters/types');
     sr25519Verify = crypto.sr25519Verify;
     ed25519Verify = crypto.ed25519Verify;
     validateSignature = adapters.validateSignature;
-    
+
     // Setup mock signature validation to pass by default
     validateSignature.mockImplementation(() => {});
-    
+
     // Setup mock DID provider
     mockDidProvider = {
       createDid: jest.fn().mockResolvedValue(VALID_DID),
@@ -67,18 +67,18 @@ describe('VerificationService', () => {
         keyAgreement: [],
         capabilityInvocation: [],
         capabilityDelegation: [],
-        service: []
-      })
+        service: [],
+      }),
     } as unknown as jest.Mocked<PolkadotDIDProvider>;
 
-    ((PolkadotDIDProvider as unknown) as jest.Mock).mockImplementation(() => mockDidProvider);
-    
+    (PolkadotDIDProvider as unknown as jest.Mock).mockImplementation(() => mockDidProvider);
+
     // Create service instance
     service = new VerificationService();
   });
 
   describe('Message Format Validation', () => {
-    const createValidMessage = (address: string = VALID_ADDRESS) => 
+    const createValidMessage = (address: string = VALID_ADDRESS) =>
       `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: ${Math.random().toString(36)}\nAddress: ${address}`;
 
     it('should accept valid message format', () => {
@@ -88,38 +88,44 @@ describe('VerificationService', () => {
 
     it('should reject message without KeyPass Login prefix', () => {
       const message = `Invalid Prefix\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`;
-      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS))
-        .toThrow(MessageValidationError);
+      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS)).toThrow(
+        MessageValidationError
+      );
     });
 
     it('should reject message with missing required fields', () => {
       const message = 'KeyPass Login\nIssued At: 2024-03-20T12:00:00Z\nAddress: ' + VALID_ADDRESS;
-      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS))
-        .toThrow(MessageValidationError);
+      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS)).toThrow(
+        MessageValidationError
+      );
     });
 
     it('should reject message with invalid timestamp format', () => {
       const message = `KeyPass Login\nIssued At: invalid-date\nNonce: abc\nAddress: ${VALID_ADDRESS}`;
-      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS))
-        .toThrow(MessageValidationError);
+      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS)).toThrow(
+        MessageValidationError
+      );
     });
 
     it('should reject message with address mismatch', () => {
       const message = createValidMessage('5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty');
-      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS))
-        .toThrow(MessageValidationError);
+      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS)).toThrow(
+        MessageValidationError
+      );
     });
 
     it('should reject message with unexpected content', () => {
       const message = createValidMessage() + '\nExtra Line';
-      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS))
-        .toThrow(MessageValidationError);
+      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS)).toThrow(
+        MessageValidationError
+      );
     });
 
     it('should reject message with incorrect field order', () => {
       const message = `KeyPass Login\nAddress: ${VALID_ADDRESS}\nIssued At: ${new Date().toISOString()}\nNonce: abc`;
-      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS))
-        .toThrow(MessageValidationError);
+      expect(() => (service as any).validateMessageFormat(message, VALID_ADDRESS)).toThrow(
+        MessageValidationError
+      );
     });
   });
 
@@ -135,21 +141,24 @@ describe('VerificationService', () => {
     it('should reject expired message', () => {
       const expiredDate = new Date(Date.now() - 6 * 60 * 1000); // 6 minutes ago
       const message = createMessageWithTimestamp(expiredDate);
-      expect(() => (service as any).validateMessageTimestamp(message))
-        .toThrow(MessageValidationError);
+      expect(() => (service as any).validateMessageTimestamp(message)).toThrow(
+        MessageValidationError
+      );
     });
 
     it('should reject future-dated message', () => {
       const futureDate = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes in future
       const message = createMessageWithTimestamp(futureDate);
-      expect(() => (service as any).validateMessageTimestamp(message))
-        .toThrow(MessageValidationError);
+      expect(() => (service as any).validateMessageTimestamp(message)).toThrow(
+        MessageValidationError
+      );
     });
 
     it('should reject message with invalid timestamp format', () => {
       const message = `KeyPass Login\nIssued At: invalid-date\nNonce: abc\nAddress: ${VALID_ADDRESS}`;
-      expect(() => (service as any).validateMessageTimestamp(message))
-        .toThrow(MessageValidationError);
+      expect(() => (service as any).validateMessageTimestamp(message)).toThrow(
+        MessageValidationError
+      );
     });
   });
 
@@ -171,7 +180,7 @@ describe('VerificationService', () => {
         status: 'success',
         message: 'Verification successful',
         code: 'SUCCESS',
-        did: VALID_DID
+        did: VALID_DID,
       });
     });
 
@@ -185,7 +194,7 @@ describe('VerificationService', () => {
         status: 'success',
         message: 'Verification successful',
         code: 'SUCCESS',
-        did: VALID_DID
+        did: VALID_DID,
       });
     });
 
@@ -196,30 +205,32 @@ describe('VerificationService', () => {
 
       const result = await service.verifySignature({
         ...createValidRequest(),
-        signature: 'invalid-signature'
+        signature: 'invalid-signature',
       });
 
       expect(result).toEqual({
         status: 'error',
         message: 'Invalid signature format',
-        code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
+        code: ERROR_CODES.INVALID_SIGNATURE_FORMAT,
       });
     });
 
     it('should reject invalid signature length', async () => {
       validateSignature.mockImplementation(() => {
-        throw new Error('Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)');
+        throw new Error(
+          'Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)'
+        );
       });
 
       const result = await service.verifySignature({
         ...createValidRequest(),
-        signature: '0x' + '1'.repeat(64) // Too short
+        signature: '0x' + '1'.repeat(64), // Too short
       });
 
       expect(result).toEqual({
         status: 'error',
         message: 'Invalid signature length',
-        code: ERROR_CODES.INVALID_SIGNATURE_LENGTH
+        code: ERROR_CODES.INVALID_SIGNATURE_LENGTH,
       });
     });
 
@@ -231,7 +242,7 @@ describe('VerificationService', () => {
       expect(result).toEqual({
         status: 'error',
         message: 'Verification failed',
-        code: ERROR_CODES.VERIFICATION_FAILED
+        code: ERROR_CODES.VERIFICATION_FAILED,
       });
     });
 
@@ -244,7 +255,7 @@ describe('VerificationService', () => {
       expect(result).toEqual({
         status: 'error',
         message: 'Verification failed',
-        code: ERROR_CODES.VERIFICATION_FAILED
+        code: ERROR_CODES.VERIFICATION_FAILED,
       });
     });
   });
@@ -258,12 +269,12 @@ describe('VerificationService', () => {
 
     it('should create DID for valid address', async () => {
       const result = await service.verifySignature(createValidRequest());
-      
+
       expect(result).toEqual({
         status: 'success',
         message: 'Verification successful',
         code: 'SUCCESS',
-        did: VALID_DID
+        did: VALID_DID,
       });
       expect(mockDidProvider.createDid).toHaveBeenCalledWith(VALID_ADDRESS);
     });
@@ -275,7 +286,7 @@ describe('VerificationService', () => {
       expect(result).toEqual({
         status: 'error',
         message: 'Failed to create DID',
-        code: ERROR_CODES.DID_CREATION_FAILED
+        code: ERROR_CODES.DID_CREATION_FAILED,
       });
     });
 
@@ -294,7 +305,7 @@ describe('VerificationService', () => {
       expect(result).toEqual({
         status: 'error',
         message: 'Failed to create DID',
-        code: ERROR_CODES.DID_CREATION_FAILED
+        code: ERROR_CODES.DID_CREATION_FAILED,
       });
     });
   });
@@ -310,20 +321,20 @@ describe('VerificationService', () => {
       expect(result).toEqual({
         status: 'error',
         message: 'Invalid request body',
-        code: ERROR_CODES.INVALID_REQUEST
+        code: ERROR_CODES.INVALID_REQUEST,
       });
     });
 
     it('should handle missing message', async () => {
       const result = await service.verifySignature({
         signature: VALID_SIGNATURE,
-        address: VALID_ADDRESS
+        address: VALID_ADDRESS,
       } as any);
 
       expect(result).toEqual({
         status: 'error',
         message: 'Invalid request body',
-        code: ERROR_CODES.INVALID_REQUEST
+        code: ERROR_CODES.INVALID_REQUEST,
       });
     });
 
@@ -331,13 +342,13 @@ describe('VerificationService', () => {
       const result = await service.verifySignature({
         message: 'a'.repeat(257), // Exceeds MAX_MESSAGE_LENGTH
         signature: VALID_SIGNATURE,
-        address: VALID_ADDRESS
+        address: VALID_ADDRESS,
       });
 
       expect(result).toEqual({
         status: 'error',
         message: 'Message exceeds maximum length of 256 characters',
-        code: ERROR_CODES.MESSAGE_TOO_LONG
+        code: ERROR_CODES.MESSAGE_TOO_LONG,
       });
     });
 
@@ -345,13 +356,13 @@ describe('VerificationService', () => {
       const result = await service.verifySignature({
         message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty`,
         signature: VALID_SIGNATURE,
-        address: VALID_ADDRESS // Different from message address
+        address: VALID_ADDRESS, // Different from message address
       });
 
       expect(result).toEqual({
         status: 'error',
         message: 'Message tampering detected: address mismatch',
-        code: ERROR_CODES.VERIFICATION_FAILED
+        code: ERROR_CODES.VERIFICATION_FAILED,
       });
     });
 
@@ -368,7 +379,7 @@ describe('VerificationService', () => {
       expect(result).toEqual({
         status: 'error',
         message: 'Verification failed',
-        code: ERROR_CODES.VERIFICATION_FAILED
+        code: ERROR_CODES.VERIFICATION_FAILED,
       });
     });
 
@@ -381,13 +392,13 @@ describe('VerificationService', () => {
       const result = await service.verifySignature({
         message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: ${invalidAddress}`,
         signature: VALID_SIGNATURE,
-        address: invalidAddress
+        address: invalidAddress,
       });
 
       expect(result).toEqual({
         status: 'error',
         message: 'Invalid Polkadot address',
-        code: ERROR_CODES.INVALID_ADDRESS
+        code: ERROR_CODES.INVALID_ADDRESS,
       });
     });
 
@@ -397,13 +408,13 @@ describe('VerificationService', () => {
         const result = await service.verifySignature({
           message: tamperedMessage,
           signature: VALID_SIGNATURE,
-          address: VALID_ADDRESS // Different from message address
+          address: VALID_ADDRESS, // Different from message address
         });
 
         expect(result).toEqual({
           status: 'error',
           message: 'Message tampering detected: address mismatch',
-          code: ERROR_CODES.VERIFICATION_FAILED
+          code: ERROR_CODES.VERIFICATION_FAILED,
         });
       });
 
@@ -412,13 +423,13 @@ describe('VerificationService', () => {
         const result = await service.verifySignature({
           message: tamperedMessage,
           signature: VALID_SIGNATURE,
-          address: VALID_ADDRESS
+          address: VALID_ADDRESS,
         });
 
         expect(result).toEqual({
           status: 'error',
           message: 'Message timestamp is in the future',
-          code: ERROR_CODES.MESSAGE_FUTURE
+          code: ERROR_CODES.MESSAGE_FUTURE,
         });
       });
     });
@@ -427,34 +438,34 @@ describe('VerificationService', () => {
       it('should reject expired message', async () => {
         const expiredDate = new Date(Date.now() - 6 * 60 * 1000); // 6 minutes ago
         const expiredMessage = `KeyPass Login\nIssued At: ${expiredDate.toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`;
-        
+
         const result = await service.verifySignature({
           message: expiredMessage,
           signature: VALID_SIGNATURE,
-          address: VALID_ADDRESS
+          address: VALID_ADDRESS,
         });
 
         expect(result).toEqual({
           status: 'error',
           message: 'Message has expired',
-          code: ERROR_CODES.MESSAGE_EXPIRED
+          code: ERROR_CODES.MESSAGE_EXPIRED,
         });
       });
 
       it('should reject future-dated message', async () => {
         const futureDate = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes in future
         const futureMessage = `KeyPass Login\nIssued At: ${futureDate.toISOString()}\nNonce: abc\nAddress: ${VALID_ADDRESS}`;
-        
+
         const result = await service.verifySignature({
           message: futureMessage,
           signature: VALID_SIGNATURE,
-          address: VALID_ADDRESS
+          address: VALID_ADDRESS,
         });
 
         expect(result).toEqual({
           status: 'error',
           message: 'Message timestamp is in the future',
-          code: ERROR_CODES.MESSAGE_FUTURE
+          code: ERROR_CODES.MESSAGE_FUTURE,
         });
       });
     });
@@ -469,13 +480,13 @@ describe('VerificationService', () => {
         const result = await service.verifySignature({
           message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc\nAddress: ${invalidAddress}`,
           signature: VALID_SIGNATURE,
-          address: invalidAddress
+          address: invalidAddress,
         });
 
         expect(result).toEqual({
           status: 'error',
           message: 'Invalid Polkadot address',
-          code: ERROR_CODES.INVALID_ADDRESS
+          code: ERROR_CODES.INVALID_ADDRESS,
         });
       });
 
@@ -487,13 +498,13 @@ describe('VerificationService', () => {
         const result = await service.verifySignature({
           message: createValidRequest().message,
           signature: VALID_SIGNATURE,
-          address: VALID_ADDRESS
+          address: VALID_ADDRESS,
         });
 
         expect(result).toEqual({
           status: 'error',
           message: 'Verification failed',
-          code: ERROR_CODES.VERIFICATION_FAILED
+          code: ERROR_CODES.VERIFICATION_FAILED,
         });
       });
     });
@@ -507,13 +518,13 @@ describe('VerificationService', () => {
         const result = await service.verifySignature({
           message: createValidRequest().message,
           signature: '0x' + '1'.repeat(64), // Too short
-          address: VALID_ADDRESS
+          address: VALID_ADDRESS,
         });
 
         expect(result).toEqual({
           status: 'error',
           message: 'Invalid signature length',
-          code: ERROR_CODES.INVALID_SIGNATURE_LENGTH
+          code: ERROR_CODES.INVALID_SIGNATURE_LENGTH,
         });
       });
 
@@ -525,13 +536,13 @@ describe('VerificationService', () => {
         const result = await service.verifySignature({
           message: createValidRequest().message,
           signature: 'invalid-signature',
-          address: VALID_ADDRESS
+          address: VALID_ADDRESS,
         });
 
         expect(result).toEqual({
           status: 'error',
           message: 'Invalid signature format',
-          code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
+          code: ERROR_CODES.INVALID_SIGNATURE_FORMAT,
         });
       });
 
@@ -543,67 +554,71 @@ describe('VerificationService', () => {
         const result = await service.verifySignature({
           message: createValidRequest().message,
           signature: VALID_SIGNATURE,
-          address: VALID_ADDRESS
+          address: VALID_ADDRESS,
         });
 
         expect(result).toEqual({
           status: 'error',
           message: 'Invalid signature format',
-          code: ERROR_CODES.INVALID_SIGNATURE_FORMAT
+          code: ERROR_CODES.INVALID_SIGNATURE_FORMAT,
         });
       });
     });
 
     describe('DID Creation Error Handling', () => {
       it('should handle DID creation failure with specific error', async () => {
-        mockDidProvider.createDid.mockRejectedValueOnce(new Error('DID creation failed: Invalid address format'));
-        
+        mockDidProvider.createDid.mockRejectedValueOnce(
+          new Error('DID creation failed: Invalid address format')
+        );
+
         // Make sure signature verification passes
         sr25519Verify.mockReturnValue(true);
         ed25519Verify.mockReturnValue(false);
 
         const result = await service.verifySignature(createValidRequest());
-        
+
         expect(result).toEqual({
           status: 'error',
           message: 'Failed to create DID',
-          code: ERROR_CODES.DID_CREATION_FAILED
+          code: ERROR_CODES.DID_CREATION_FAILED,
         });
       });
 
       it('should handle unexpected DID creation errors', async () => {
         mockDidProvider.createDid.mockRejectedValueOnce(new Error('Unexpected DID creation error'));
-        
+
         // Make sure signature verification passes
         sr25519Verify.mockReturnValue(true);
         ed25519Verify.mockReturnValue(false);
 
         const result = await service.verifySignature(createValidRequest());
-        
+
         expect(result).toEqual({
           status: 'error',
           message: 'Failed to create DID',
-          code: ERROR_CODES.DID_CREATION_FAILED
+          code: ERROR_CODES.DID_CREATION_FAILED,
         });
       });
 
       it('should handle DID creation errors during unexpected verification errors', async () => {
         // First make sure signature validation passes
         validateSignature.mockImplementation(() => {});
-        
+
         // Then make sure crypto verification passes
         sr25519Verify.mockReturnValue(true);
         ed25519Verify.mockReturnValue(false);
-        
+
         // Finally mock DID creation to fail
-        mockDidProvider.createDid.mockRejectedValueOnce(new Error('DID creation failed: Invalid address'));
+        mockDidProvider.createDid.mockRejectedValueOnce(
+          new Error('DID creation failed: Invalid address')
+        );
 
         const result = await service.verifySignature(createValidRequest());
-        
+
         expect(result).toEqual({
           status: 'error',
           message: 'Failed to create DID',
-          code: ERROR_CODES.DID_CREATION_FAILED
+          code: ERROR_CODES.DID_CREATION_FAILED,
         });
       });
     });
@@ -624,8 +639,8 @@ describe('VerificationService', () => {
         template: expect.any(String),
         address,
         nonce,
-        issuedAt
+        issuedAt,
       });
     });
   });
-}); 
+});

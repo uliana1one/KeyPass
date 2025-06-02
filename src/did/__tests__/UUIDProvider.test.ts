@@ -23,24 +23,32 @@ jest.mock('@polkadot/util-crypto', () => ({
   decodeAddress: jest.fn((address: string) => {
     console.log('decodeAddress called with:', address);
     if (address === VALID_ADDRESS) {
-      return new Uint8Array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+      return new Uint8Array([
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1,
+      ]);
     }
     if (address === VALID_ADDRESS_2) {
-      return new Uint8Array([2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+      return new Uint8Array([
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2,
+      ]);
     }
     throw new Error('Invalid address');
   }),
   encodeAddress: jest.fn((key: Uint8Array) => {
     console.log('encodeAddress called with:', key);
-    if (key.every(byte => byte === 1)) return VALID_ADDRESS;
-    if (key.every(byte => byte === 2)) return VALID_ADDRESS_2;
+    if (key.every((byte) => byte === 1)) return VALID_ADDRESS;
+    if (key.every((byte) => byte === 2)) return VALID_ADDRESS_2;
     throw new Error('Invalid key');
   }),
   base58Encode: jest.fn((input: Uint8Array) => {
     console.log('base58Encode called with:', input);
-    if (input.every((byte: number) => byte === 1)) return 'zz1111111111111111111111111111111111111111111111111111111111111111';
-    if (input.every((byte: number) => byte === 2)) return 'zz2222222222222222222222222222222222222222222222222222222222222222';
-    if (input.length === 32 && input.every(byte => byte === 1)) return 'base58encodedkey';
+    if (input.every((byte: number) => byte === 1))
+      return 'zz1111111111111111111111111111111111111111111111111111111111111111';
+    if (input.every((byte: number) => byte === 2))
+      return 'zz2222222222222222222222222222222222222222222222222222222222222222';
+    if (input.length === 32 && input.every((byte) => byte === 1)) return 'base58encodedkey';
     throw new Error('Base58 encoding failed');
   }),
   base58Decode: jest.fn((input: string) => {
@@ -51,15 +59,15 @@ jest.mock('@polkadot/util-crypto', () => ({
     if (key.startsWith('z1') || key === 'base58encodedkey') return new Uint8Array(32).fill(1);
     if (key.startsWith('z2')) return new Uint8Array(32).fill(2);
     throw new Error('Invalid base58 input');
-  })
+  }),
 }));
 
 jest.mock('../../adapters/types', () => {
   const validAddresses = new Set([
-    '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',  // VALID_ADDRESS
-    '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'   // VALID_ADDRESS_2
+    '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY', // VALID_ADDRESS
+    '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty', // VALID_ADDRESS_2
   ]);
-  
+
   return {
     validatePolkadotAddress: jest.fn((address: string) => {
       // Check if the address is in our set of valid addresses
@@ -72,7 +80,7 @@ jest.mock('../../adapters/types', () => {
       }
       throw new AddressValidationError('Invalid address format');
     }),
-    validateSignature: jest.fn()
+    validateSignature: jest.fn(),
   };
 });
 
@@ -84,18 +92,20 @@ describe('PolkadotDIDProvider', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Remove the mock override that was causing the test to fail
     // (decodeAddress as jest.Mock).mockReturnValue(VALID_PUBLIC_KEY);
     (base58Decode as jest.Mock).mockReturnValue(VALID_PUBLIC_KEY);
-    
+
     provider = new PolkadotDIDProvider();
   });
 
   describe('createDid', () => {
     it('should create a valid DID for a valid address', async () => {
       const did = await provider.createDid(VALID_ADDRESS);
-      expect(did).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`);
+      expect(did).toBe(
+        `did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`
+      );
       expect(decodeAddress).toHaveBeenCalledWith(VALID_ADDRESS);
       expect(base58Encode).toHaveBeenCalledWith(new Uint8Array(32).fill(1));
     });
@@ -103,8 +113,12 @@ describe('PolkadotDIDProvider', () => {
     it('should create different DIDs for different addresses', async () => {
       const did1 = await provider.createDid(VALID_ADDRESS);
       const did2 = await provider.createDid(VALID_ADDRESS_2);
-      expect(did1).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`);
-      expect(did2).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz2222222222222222222222222222222222222222222222222222222222222222`);
+      expect(did1).toBe(
+        `did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`
+      );
+      expect(did2).toBe(
+        `did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz2222222222222222222222222222222222222222222222222222222222222222`
+      );
       expect(did1).not.toBe(did2);
     });
 
@@ -146,7 +160,9 @@ describe('PolkadotDIDProvider', () => {
         throw new Error('Base58 encoding failed');
       });
 
-      await expect(provider.createDid(VALID_ADDRESS)).rejects.toThrow('Failed to encode public key');
+      await expect(provider.createDid(VALID_ADDRESS)).rejects.toThrow(
+        'Failed to encode public key'
+      );
     });
   });
 
@@ -154,7 +170,7 @@ describe('PolkadotDIDProvider', () => {
     beforeEach(() => {
       // Reset mocks to ensure clean state
       jest.clearAllMocks();
-      
+
       // Set up default mock behavior for valid addresses
       (decodeAddress as jest.Mock).mockImplementation((address) => {
         if (address === VALID_ADDRESS) {
@@ -180,27 +196,37 @@ describe('PolkadotDIDProvider', () => {
 
     it('should create a valid DID document', async () => {
       const doc = await provider.createDIDDocument(VALID_ADDRESS);
-      
+
       expect(doc).toEqual({
         '@context': [
           'https://www.w3.org/ns/did/v1',
           'https://w3id.org/security/suites/ed25519-2020/v1',
-          'https://w3id.org/security/suites/sr25519-2020/v1'
+          'https://w3id.org/security/suites/sr25519-2020/v1',
         ],
         id: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey`,
         controller: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey`,
-        verificationMethod: [{
-          id: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`,
-          type: 'Sr25519VerificationKey2020',
-          controller: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey`,
-          publicKeyMultibase: MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey'
-        }],
-        authentication: [`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`],
-        assertionMethod: [`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`],
+        verificationMethod: [
+          {
+            id: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`,
+            type: 'Sr25519VerificationKey2020',
+            controller: `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey`,
+            publicKeyMultibase: MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey',
+          },
+        ],
+        authentication: [
+          `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`,
+        ],
+        assertionMethod: [
+          `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`,
+        ],
         keyAgreement: [],
-        capabilityInvocation: [`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`],
-        capabilityDelegation: [`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`],
-        service: []
+        capabilityInvocation: [
+          `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`,
+        ],
+        capabilityDelegation: [
+          `did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey#${(MULTIBASE_PREFIXES.BASE58BTC + 'base58encodedkey').slice(0, 8)}`,
+        ],
+        service: [],
       });
     });
 
@@ -225,16 +251,22 @@ describe('PolkadotDIDProvider', () => {
           }
           throw new Error('Base58 encoding failed');
         });
-      
+
       const doc1 = await provider.createDIDDocument(VALID_ADDRESS);
       const doc2 = await provider.createDIDDocument(VALID_ADDRESS_2);
-      
+
       expect(doc1.id).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey1`);
       expect(doc2.id).toBe(`did:key:${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey2`);
       expect(doc1.id).not.toBe(doc2.id);
-      expect(doc1.verificationMethod[0].publicKeyMultibase).toBe(`${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey1`);
-      expect(doc2.verificationMethod[0].publicKeyMultibase).toBe(`${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey2`);
-      expect(doc1.verificationMethod[0].publicKeyMultibase).not.toBe(doc2.verificationMethod[0].publicKeyMultibase);
+      expect(doc1.verificationMethod[0].publicKeyMultibase).toBe(
+        `${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey1`
+      );
+      expect(doc2.verificationMethod[0].publicKeyMultibase).toBe(
+        `${MULTIBASE_PREFIXES.BASE58BTC}base58encodedkey2`
+      );
+      expect(doc1.verificationMethod[0].publicKeyMultibase).not.toBe(
+        doc2.verificationMethod[0].publicKeyMultibase
+      );
     });
 
     it('should throw AddressValidationError for invalid address', async () => {
@@ -242,7 +274,9 @@ describe('PolkadotDIDProvider', () => {
         throw new Error('Invalid address');
       });
 
-      await expect(provider.createDIDDocument('invalid-address')).rejects.toThrow(AddressValidationError);
+      await expect(provider.createDIDDocument('invalid-address')).rejects.toThrow(
+        AddressValidationError
+      );
     });
 
     it('should handle base58 encoding errors', async () => {
@@ -252,7 +286,9 @@ describe('PolkadotDIDProvider', () => {
         throw new Error('Base58 encoding failed');
       });
 
-      await expect(provider.createDIDDocument(VALID_ADDRESS)).rejects.toThrow('Failed to encode public key');
+      await expect(provider.createDIDDocument(VALID_ADDRESS)).rejects.toThrow(
+        'Failed to encode public key'
+      );
     });
   });
 
@@ -275,7 +311,9 @@ describe('PolkadotDIDProvider', () => {
     });
 
     it('should throw AddressValidationError for invalid address', async () => {
-      await expect(provider.createDIDDocument('invalid-address')).rejects.toThrow(AddressValidationError);
+      await expect(provider.createDIDDocument('invalid-address')).rejects.toThrow(
+        AddressValidationError
+      );
     });
   });
 
@@ -296,13 +334,13 @@ describe('PolkadotDIDProvider', () => {
       (base58Encode as jest.Mock)
         .mockReturnValueOnce('zz1111111111111111111111111111111111111111111111111111111111111111')
         .mockReturnValueOnce('zz2222222222222222222222222222222222222222222222222222222222222222');
-      
+
       const did1 = 'did:key:z' + '1'.repeat(58);
       const did2 = 'did:key:z' + '2'.repeat(58);
-      
+
       const doc1 = await provider.resolve(did1);
       const doc2 = await provider.resolve(did2);
-      
+
       expect(doc1.id).toBe(did1);
       expect(doc2.id).toBe(did2);
       expect(doc1).not.toEqual(doc2);
@@ -312,7 +350,7 @@ describe('PolkadotDIDProvider', () => {
       // Set up mock return values
       (base58Encode as jest.Mock).mockReturnValueOnce('base58encodedkey');
       (base58Decode as jest.Mock).mockReturnValueOnce(new Uint8Array(32).fill(1));
-      
+
       const doc = await provider.resolve(VALID_DID);
       expect(doc.id).toBe(VALID_DID);
       expect(doc.controller).toBe(VALID_DID);
@@ -361,13 +399,13 @@ describe('PolkadotDIDProvider', () => {
       (base58Decode as jest.Mock)
         .mockReturnValueOnce(new Uint8Array(32).fill(1))
         .mockReturnValueOnce(new Uint8Array(32).fill(2));
-      
+
       const did1 = `did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz1111111111111111111111111111111111111111111111111111111111111111`;
       const did2 = `did:key:${MULTIBASE_PREFIXES.BASE58BTC}zz2222222222222222222222222222222222222222222222222222222222222222`;
-      
+
       const address1 = await provider.extractAddress(did1);
       const address2 = await provider.extractAddress(did2);
-      
+
       expect(address1).toBe(VALID_ADDRESS);
       expect(address2).toBe(VALID_ADDRESS_2);
     });
@@ -388,7 +426,9 @@ describe('PolkadotDIDProvider', () => {
 
     it('should throw error for DID with wrong multibase prefix', async () => {
       const invalidDid = 'did:key:wrongprefix' + VALID_BASE58;
-      await expect(provider.extractAddress(invalidDid)).rejects.toThrow('Invalid public key in DID');
+      await expect(provider.extractAddress(invalidDid)).rejects.toThrow(
+        'Invalid public key in DID'
+      );
     });
 
     it('should preserve specific error message for invalid public key', async () => {

@@ -10,7 +10,7 @@ jest.mock('@polkadot/util-crypto', () => ({
       return [true, null];
     }
     return [false, 'Invalid decoded address checksum'];
-  })
+  }),
 }));
 
 import { validateAndSanitizeMessage, validatePolkadotAddress, validateSignature } from '../types';
@@ -31,7 +31,7 @@ describe('Types Module', () => {
     it('should handle message length limits', () => {
       const longMessage = 'a'.repeat(300);
       expect(() => validateAndSanitizeMessage(longMessage)).toThrow(MessageValidationError);
-      
+
       const validMessage = 'a'.repeat(256);
       expect(() => validateAndSanitizeMessage(validMessage)).not.toThrow();
     });
@@ -56,7 +56,7 @@ describe('Types Module', () => {
       '0x123',
       '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQYinvalid',
       '',
-      '   '
+      '   ',
     ];
 
     it('should accept valid addresses', () => {
@@ -64,7 +64,7 @@ describe('Types Module', () => {
     });
 
     it('should reject invalid addresses', () => {
-      invalidAddresses.forEach(address => {
+      invalidAddresses.forEach((address) => {
         expect(() => validatePolkadotAddress(address)).toThrow(AddressValidationError);
       });
     });
@@ -85,7 +85,7 @@ describe('Types Module', () => {
       '',
       '   ',
       null,
-      undefined
+      undefined,
     ];
 
     it('should accept valid signatures', () => {
@@ -93,7 +93,7 @@ describe('Types Module', () => {
     });
 
     it('should reject invalid signatures', () => {
-      invalidSignatures.forEach(signature => {
+      invalidSignatures.forEach((signature) => {
         expect(() => validateSignature(signature as any)).toThrow();
       });
     });
@@ -103,4 +103,4 @@ describe('Types Module', () => {
       expect(() => validateSignature('0x0')).toThrow();
     });
   });
-}); 
+});

@@ -1,12 +1,13 @@
 import { buildLoginMessage } from '../messageBuilder';
 
 describe('buildLoginMessage', () => {
-  const validTemplate = 'KeyPass Login\nIssued At: {{issuedAt}}\nNonce: {{nonce}}\nAddress: {{address}}';
+  const validTemplate =
+    'KeyPass Login\nIssued At: {{issuedAt}}\nNonce: {{nonce}}\nAddress: {{address}}';
   const validParams = {
     template: validTemplate,
     address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
     nonce: 'abc123',
-    issuedAt: '2024-03-20T12:00:00Z'
+    issuedAt: '2024-03-20T12:00:00Z',
   };
 
   it('should build message with all placeholders replaced', async () => {
@@ -20,16 +21,18 @@ describe('buildLoginMessage', () => {
     const template = 'Login with {{address}} at {{issuedAt}}';
     const message = await buildLoginMessage({
       ...validParams,
-      template
+      template,
     });
-    expect(message).toBe('Login with 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY at 2024-03-20T12:00:00Z');
+    expect(message).toBe(
+      'Login with 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY at 2024-03-20T12:00:00Z'
+    );
   });
 
   it('should handle template with no placeholders', async () => {
     const template = 'Static message';
     const message = await buildLoginMessage({
       ...validParams,
-      template
+      template,
     });
     expect(message).toBe('Static message');
   });
@@ -38,7 +41,7 @@ describe('buildLoginMessage', () => {
     const template = 'Login with {{address}} and {{address}}';
     const message = await buildLoginMessage({
       ...validParams,
-      template
+      template,
     });
     expect(message).toBe(
       'Login with 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY and 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'
@@ -49,7 +52,7 @@ describe('buildLoginMessage', () => {
     const template = 'Login with {{address}} at {{issuedAt}} and {{nonce}}';
     const message = await buildLoginMessage({
       ...validParams,
-      template
+      template,
     });
     expect(message).toBe(
       'Login with 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY at 2024-03-20T12:00:00Z and abc123'
@@ -60,16 +63,18 @@ describe('buildLoginMessage', () => {
     const template = 'Login with {{ address }} at {{ issuedAt }}';
     const message = await buildLoginMessage({
       ...validParams,
-      template
+      template,
     });
-    expect(message).toBe('Login with 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY at 2024-03-20T12:00:00Z');
+    expect(message).toBe(
+      'Login with 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY at 2024-03-20T12:00:00Z'
+    );
   });
 
   it('should handle template with escaped placeholders', async () => {
     const template = 'Login with \\{{address}} at {{issuedAt}}';
     const message = await buildLoginMessage({
       ...validParams,
-      template
+      template,
     });
     expect(message).toBe('Login with {{address}} at 2024-03-20T12:00:00Z');
   });
@@ -78,7 +83,7 @@ describe('buildLoginMessage', () => {
     await expect(
       buildLoginMessage({
         ...validParams,
-        nonce: undefined
+        nonce: undefined,
       })
     ).rejects.toThrow('Missing placeholder: nonce');
   });
@@ -89,7 +94,7 @@ describe('buildLoginMessage', () => {
       buildLoginMessage({
         ...validParams,
         template,
-        address: undefined as any
+        address: undefined as any,
       })
     ).rejects.toThrow('Missing placeholder: address');
   });
@@ -100,7 +105,7 @@ describe('buildLoginMessage', () => {
       buildLoginMessage({
         ...validParams,
         template,
-        issuedAt: undefined as any
+        issuedAt: undefined as any,
       })
     ).rejects.toThrow('Missing placeholder: issuedAt');
   });
@@ -109,7 +114,7 @@ describe('buildLoginMessage', () => {
     await expect(
       buildLoginMessage({
         ...validParams,
-        template: undefined as any
+        template: undefined as any,
       })
     ).rejects.toThrow('Template is required');
   });
@@ -118,7 +123,7 @@ describe('buildLoginMessage', () => {
     await expect(
       buildLoginMessage({
         ...validParams,
-        template: 123 as any
+        template: 123 as any,
       })
     ).rejects.toThrow('Template must be a string');
   });
@@ -127,18 +132,16 @@ describe('buildLoginMessage', () => {
     const message = await buildLoginMessage({
       ...validParams,
       nonce: '',
-      address: ''
+      address: '',
     });
-    expect(message).toBe(
-      'KeyPass Login\nIssued At: 2024-03-20T12:00:00Z\nNonce: \nAddress: '
-    );
+    expect(message).toBe('KeyPass Login\nIssued At: 2024-03-20T12:00:00Z\nNonce: \nAddress: ');
   });
 
   it('should handle special characters in values', async () => {
     const message = await buildLoginMessage({
       ...validParams,
       nonce: 'abc\n123',
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\n'
+      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\n',
     });
     expect(message).toBe(
       'KeyPass Login\nIssued At: 2024-03-20T12:00:00Z\nNonce: abc\n123\nAddress: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\n'
@@ -146,10 +149,11 @@ describe('buildLoginMessage', () => {
   });
 
   it('should handle template with multiple newlines', async () => {
-    const template = 'KeyPass Login\n\nIssued At: {{issuedAt}}\n\nNonce: {{nonce}}\n\nAddress: {{address}}';
+    const template =
+      'KeyPass Login\n\nIssued At: {{issuedAt}}\n\nNonce: {{nonce}}\n\nAddress: {{address}}';
     const message = await buildLoginMessage({
       ...validParams,
-      template
+      template,
     });
     expect(message).toBe(
       'KeyPass Login\n\nIssued At: 2024-03-20T12:00:00Z\n\nNonce: abc123\n\nAddress: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'
@@ -160,7 +164,7 @@ describe('buildLoginMessage', () => {
     const template = 'Login with {{Address}} at {{ISSUEDAT}} and {{Nonce}}';
     const message = await buildLoginMessage({
       ...validParams,
-      template
+      template,
     });
     expect(message).toBe(
       'Login with 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY at 2024-03-20T12:00:00Z and abc123'
@@ -171,8 +175,10 @@ describe('buildLoginMessage', () => {
     const template = '🔑 Login with {{address}} at {{issuedAt}}';
     const message = await buildLoginMessage({
       ...validParams,
-      template
+      template,
     });
-    expect(message).toBe('🔑 Login with 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY at 2024-03-20T12:00:00Z');
+    expect(message).toBe(
+      '🔑 Login with 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY at 2024-03-20T12:00:00Z'
+    );
   });
 });

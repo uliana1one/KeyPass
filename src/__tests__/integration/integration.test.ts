@@ -10,7 +10,7 @@ import { VerificationResponse } from '../../server/types';
 
 // Mock the walletConnector module
 jest.mock('../../walletConnector', () => ({
-  connectWallet: jest.fn()
+  connectWallet: jest.fn(),
 }));
 
 // Mock the verification service
@@ -19,12 +19,12 @@ jest.mock('../../server/verificationService', () => {
     status: 'success',
     message: 'Verification successful',
     code: 'SUCCESS',
-    did: 'did:key:z' + '1'.repeat(58)
+    did: 'did:key:z' + '1'.repeat(58),
   });
 
   return {
     VerificationService: jest.fn().mockImplementation(() => ({
-      verifySignature: mockVerifySignature
+      verifySignature: mockVerifySignature,
     })),
     ERROR_CODES: {
       VERIFICATION_FAILED: 'VERIFICATION_FAILED',
@@ -37,8 +37,8 @@ jest.mock('../../server/verificationService', () => {
       INVALID_ADDRESS: 'INVALID_ADDRESS',
       MESSAGE_EXPIRED: 'MESSAGE_EXPIRED',
       MESSAGE_FUTURE: 'MESSAGE_FUTURE',
-      DID_CREATION_FAILED: 'DID_CREATION_FAILED'
-    }
+      DID_CREATION_FAILED: 'DID_CREATION_FAILED',
+    },
   };
 });
 
@@ -49,22 +49,24 @@ jest.mock('../../did/UUIDProvider', () => {
     '@context': [
       'https://www.w3.org/ns/did/v1',
       'https://w3id.org/security/suites/ed25519-2020/v1',
-      'https://w3id.org/security/suites/sr25519-2020/v1'
+      'https://w3id.org/security/suites/sr25519-2020/v1',
     ],
     id: 'did:key:z' + '1'.repeat(58),
     controller: 'did:key:z' + '1'.repeat(58),
-    verificationMethod: [{
-      id: 'did:key:z' + '1'.repeat(58) + '#key-1',
-      type: 'Sr25519VerificationKey2020',
-      controller: 'did:key:z' + '1'.repeat(58),
-      publicKeyMultibase: 'z' + '1'.repeat(58)
-    }],
+    verificationMethod: [
+      {
+        id: 'did:key:z' + '1'.repeat(58) + '#key-1',
+        type: 'Sr25519VerificationKey2020',
+        controller: 'did:key:z' + '1'.repeat(58),
+        publicKeyMultibase: 'z' + '1'.repeat(58),
+      },
+    ],
     authentication: ['did:key:z' + '1'.repeat(58) + '#key-1'],
     assertionMethod: ['did:key:z' + '1'.repeat(58) + '#key-1'],
     keyAgreement: [],
     capabilityInvocation: ['did:key:z' + '1'.repeat(58) + '#key-1'],
     capabilityDelegation: ['did:key:z' + '1'.repeat(58) + '#key-1'],
-    service: []
+    service: [],
   });
 
   const mockResolve = jest.fn().mockImplementation(async (did: string) => {
@@ -77,14 +79,14 @@ jest.mock('../../did/UUIDProvider', () => {
   const MockPolkadotDIDProvider = jest.fn().mockImplementation(() => ({
     createDid: mockCreateDid,
     createDIDDocument: mockCreateDIDDocument,
-    resolve: mockResolve
+    resolve: mockResolve,
   }));
 
   return {
     PolkadotDIDProvider: MockPolkadotDIDProvider,
     __mockCreateDid: mockCreateDid,
     __mockCreateDIDDocument: mockCreateDIDDocument,
-    __mockResolve: mockResolve
+    __mockResolve: mockResolve,
   };
 });
 
@@ -108,13 +110,15 @@ describe('Authentication Integration Tests', () => {
     // Setup mock adapter
     mockAdapter = {
       enable: jest.fn().mockResolvedValue(undefined),
-      getAccounts: jest.fn().mockImplementation(async () => [{
-        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-        name: 'Test Account',
-        source: 'polkadot-js'
-      }]),
+      getAccounts: jest.fn().mockImplementation(async () => [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          name: 'Test Account',
+          source: 'polkadot-js',
+        },
+      ]),
       signMessage: jest.fn().mockResolvedValue('0x' + '1'.repeat(128)),
-      getProvider: jest.fn().mockReturnValue('polkadot-js')
+      getProvider: jest.fn().mockReturnValue('polkadot-js'),
     };
 
     // Get the mock instance
@@ -156,7 +160,7 @@ describe('Authentication Integration Tests', () => {
       (verificationService.verifySignature as jest.Mock).mockResolvedValueOnce({
         status: 'error',
         message: 'Invalid signature',
-        code: ERROR_CODES.VERIFICATION_FAILED
+        code: ERROR_CODES.VERIFICATION_FAILED,
       });
 
       await expect(loginWithPolkadot()).rejects.toThrow('Invalid signature');
@@ -165,7 +169,9 @@ describe('Authentication Integration Tests', () => {
 
   describe('Concurrent Operations', () => {
     it('should handle multiple concurrent login attempts', async () => {
-      const attempts = Array(5).fill(null).map(() => loginWithPolkadot());
+      const attempts = Array(5)
+        .fill(null)
+        .map(() => loginWithPolkadot());
       const results: LoginResult[] = await Promise.all(attempts);
 
       // Verify all attempts succeeded
@@ -176,7 +182,7 @@ describe('Authentication Integration Tests', () => {
           message: expect.any(String),
           signature: expect.any(String),
           issuedAt: expect.any(String),
-          nonce: expect.any(String)
+          nonce: expect.any(String),
         });
       });
 
@@ -188,10 +194,12 @@ describe('Authentication Integration Tests', () => {
 
     it('should handle concurrent wallet connections', async () => {
       // Create unique mock adapters for each connection
-      const mockAdapters = Array(3).fill(null).map(() => ({
-        ...mockAdapter,
-        getProvider: jest.fn().mockReturnValue('polkadot-js')
-      }));
+      const mockAdapters = Array(3)
+        .fill(null)
+        .map(() => ({
+          ...mockAdapter,
+          getProvider: jest.fn().mockReturnValue('polkadot-js'),
+        }));
 
       // Mock connectWallet to return different adapters
       (connectWallet as jest.Mock)
@@ -199,11 +207,13 @@ describe('Authentication Integration Tests', () => {
         .mockResolvedValueOnce(mockAdapters[1])
         .mockResolvedValueOnce(mockAdapters[2]);
 
-      const connections = Array(3).fill(null).map(() => connectWallet());
+      const connections = Array(3)
+        .fill(null)
+        .map(() => connectWallet());
       const adapters = await Promise.all(connections);
 
       // Verify all connections succeeded
-      adapters.forEach(adapter => {
+      adapters.forEach((adapter) => {
         expect(adapter).toBeDefined();
         expect(adapter.enable).toBeDefined();
         expect(adapter.getAccounts).toBeDefined();
@@ -241,10 +251,10 @@ describe('Authentication Integration Tests', () => {
 
       // Attempt to resolve DID
       await expect(didProvider.resolve('invalid-did')).rejects.toThrow('DID not found');
-      
+
       // Verify the DID document is still valid
       const didDocument = await didProvider.createDIDDocument(loginResult.address);
       expect(didDocument.id).toBe(loginResult.did);
     });
   });
-}); 
+});

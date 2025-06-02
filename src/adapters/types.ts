@@ -16,7 +16,7 @@ export interface WalletAdapter {
 }
 
 export interface WalletAdapterConstructor {
-  new(): WalletAdapter;
+  new (): WalletAdapter;
 }
 
 export function validateAddress(address: string): void {
@@ -35,7 +35,9 @@ export function validateSignature(signature: string): void {
   // Check length (0x + 128 hex chars for sr25519, 0x + 64 hex chars for ed25519)
   const hexLength = signature.length - 2; // subtract 0x
   if (hexLength !== 128 && hexLength !== 64) {
-    throw new Error('Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)');
+    throw new Error(
+      'Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)'
+    );
   }
 
   // Check for valid hex characters
@@ -44,7 +46,7 @@ export function validateSignature(signature: string): void {
   }
 }
 
-export const WALLET_TIMEOUT = 10000; // 10 seconds 
+export const WALLET_TIMEOUT = 10000; // 10 seconds
 
 const INVALID_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/;
 
@@ -120,4 +122,4 @@ export function validatePolkadotAddress(address: string, ss58Format = 42): void 
   if (!isValid) {
     throw new AddressValidationError(error || 'Invalid address checksum or SS58 format');
   }
-} 
+}

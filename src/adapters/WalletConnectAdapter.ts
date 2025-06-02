@@ -1,16 +1,24 @@
 import { WalletConnectProvider } from '@walletconnect/web3-provider';
 import { Session } from '@walletconnect/types';
 import { EventEmitter } from 'events';
-import { WalletAdapter, WalletAccount, validateAddress, validateSignature, WALLET_TIMEOUT, validateAndSanitizeMessage, validatePolkadotAddress } from './types';
-import { 
-  WalletNotFoundError, 
-  UserRejectedError, 
-  TimeoutError, 
+import {
+  WalletAdapter,
+  WalletAccount,
+  validateAddress,
+  validateSignature,
+  WALLET_TIMEOUT,
+  validateAndSanitizeMessage,
+  validatePolkadotAddress,
+} from './types';
+import {
+  WalletNotFoundError,
+  UserRejectedError,
+  TimeoutError,
   InvalidSignatureError,
   WalletConnectionError,
   MessageValidationError,
   AddressValidationError,
-  ConfigurationError
+  ConfigurationError,
 } from '../errors/WalletErrors';
 
 // Add type declarations for WalletConnect
@@ -57,16 +65,16 @@ interface WalletConnectAccount {
 type EventHandler = (...args: any[]) => void;
 
 export interface WalletConnectConfig {
-  projectId: string;           // WalletConnect project ID
+  projectId: string; // WalletConnect project ID
   metadata: {
     name: string;
     description: string;
     url: string;
     icons: string[];
   };
-  relayUrl?: string;          // Optional custom relay URL
-  chainId?: string;           // Default chain ID
-  sessionTimeout?: number;    // Session timeout in milliseconds
+  relayUrl?: string; // Optional custom relay URL
+  chainId?: string; // Default chain ID
+  sessionTimeout?: number; // Session timeout in milliseconds
 }
 
 /**
@@ -76,7 +84,7 @@ export interface WalletConnectConfig {
  * functionality for connecting to any wallet that supports WalletConnect.
  */
 export class WalletConnectAdapter implements WalletAdapter {
-  private provider!: WalletConnectProvider;  // Using definite assignment assertion
+  private provider!: WalletConnectProvider; // Using definite assignment assertion
   private session: Session | null = null;
   private eventEmitter: EventEmitter;
   private config: WalletConnectConfig;
@@ -91,9 +99,9 @@ export class WalletConnectAdapter implements WalletAdapter {
 
     this.config = {
       sessionTimeout: 24 * 60 * 60 * 1000, // 24 hours default
-      ...config
+      ...config,
     };
-    
+
     this.eventEmitter = new EventEmitter();
     this.initializeProvider();
   }
@@ -109,7 +117,9 @@ export class WalletConnectAdapter implements WalletAdapter {
 
       this.setupEventListeners();
     } catch (error) {
-      throw new ConfigurationError(`Failed to initialize WalletConnect provider: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new ConfigurationError(
+        `Failed to initialize WalletConnect provider: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -118,11 +128,11 @@ export class WalletConnectAdapter implements WalletAdapter {
     this.provider.on('session_update', this.handleSessionUpdate.bind(this));
     this.provider.on('session_delete', this.handleSessionDelete.bind(this));
     this.provider.on('session_expire', this.handleSessionExpire.bind(this));
-    
+
     // Handle connection events
     this.provider.on('connect', this.handleConnect.bind(this));
     this.provider.on('disconnect', this.handleDisconnect.bind(this));
-    
+
     // Handle chain events
     this.provider.on('chainChanged', this.handleChainChanged.bind(this));
   }
@@ -130,7 +140,7 @@ export class WalletConnectAdapter implements WalletAdapter {
   /**
    * Attempts to enable the WalletConnect provider.
    * This should be called before any other wallet operations.
-   * 
+   *
    * @throws {WalletNotFoundError} If no wallet is available
    * @throws {UserRejectedError} If the user rejects the connection request
    * @throws {TimeoutError} If the connection request times out
@@ -154,7 +164,7 @@ export class WalletConnectAdapter implements WalletAdapter {
         });
 
         await Promise.race([enablePromise, timeoutPromise]);
-        
+
         // Clear timeout on success
         if (this.connectionTimeout) {
           clearTimeout(this.connectionTimeout);
@@ -183,14 +193,16 @@ export class WalletConnectAdapter implements WalletAdapter {
           throw new WalletNotFoundError('WalletConnect');
         }
       }
-      throw new WalletConnectionError(`Failed to enable WalletConnect: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new WalletConnectionError(
+        `Failed to enable WalletConnect: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   /**
    * Retrieves a list of accounts from the connected wallet.
    * Returns an array of account objects containing addresses and metadata.
-   * 
+   *
    * @returns Promise resolving to an array of WalletAccount objects
    * @throws {WalletNotFoundError} If no session is active
    * @throws {WalletConnectionError} If no accounts are found or connection fails
@@ -203,7 +215,7 @@ export class WalletConnectAdapter implements WalletAdapter {
     }
 
     try {
-      const accounts = await this.provider.getAccounts() as WalletConnectAccount[];
+      const accounts = (await this.provider.getAccounts()) as WalletConnectAccount[];
       if (!accounts || accounts.length === 0) {
         throw new WalletConnectionError('No accounts found');
       }
@@ -214,7 +226,7 @@ export class WalletConnectAdapter implements WalletAdapter {
           return {
             address: acc.address,
             name: acc.name || `Account ${acc.address.slice(0, 8)}...`,
-            source: 'walletconnect'
+            source: 'walletconnect',
           };
         } catch (error) {
           if (error instanceof AddressValidationError) {
@@ -224,8 +236,7 @@ export class WalletConnectAdapter implements WalletAdapter {
         }
       });
     } catch (error) {
-      if (error instanceof AddressValidationError || 
-          error instanceof WalletConnectionError) {
+      if (error instanceof AddressValidationError || error instanceof WalletConnectionError) {
         throw error;
       }
       if (error instanceof Error) {
@@ -233,14 +244,16 @@ export class WalletConnectAdapter implements WalletAdapter {
           throw new UserRejectedError('account_access');
         }
       }
-      throw new WalletConnectionError(`Failed to get accounts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new WalletConnectionError(
+        `Failed to get accounts: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   /**
    * Signs a message using the connected wallet.
    * The message is first validated and sanitized before signing.
-   * 
+   *
    * @param message - The message to sign
    * @returns Promise resolving to the signature as a hex string
    * @throws {WalletNotFoundError} If no session is active
@@ -254,7 +267,7 @@ export class WalletConnectAdapter implements WalletAdapter {
     if (!this.session) {
       throw new WalletNotFoundError('No active session');
     }
-    
+
     let sanitizedMessage: string;
     try {
       sanitizedMessage = validateAndSanitizeMessage(message);
@@ -277,24 +290,28 @@ export class WalletConnectAdapter implements WalletAdapter {
         chainId: this.session.chainId,
       });
 
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new TimeoutError('message_signing')), WALLET_TIMEOUT)
       );
 
-      const signature = await Promise.race([signPromise, timeoutPromise]) as string;
+      const signature = (await Promise.race([signPromise, timeoutPromise])) as string;
 
       try {
         validateSignature(signature);
         return signature;
       } catch (error) {
-        throw new InvalidSignatureError(error instanceof Error ? error.message : 'Invalid signature format');
+        throw new InvalidSignatureError(
+          error instanceof Error ? error.message : 'Invalid signature format'
+        );
       }
     } catch (error) {
-      if (error instanceof MessageValidationError ||
-          error instanceof InvalidSignatureError ||
-          error instanceof TimeoutError ||
-          error instanceof UserRejectedError ||
-          error instanceof WalletConnectionError) {
+      if (
+        error instanceof MessageValidationError ||
+        error instanceof InvalidSignatureError ||
+        error instanceof TimeoutError ||
+        error instanceof UserRejectedError ||
+        error instanceof WalletConnectionError
+      ) {
         throw error;
       }
       if (error instanceof Error) {
@@ -315,7 +332,7 @@ export class WalletConnectAdapter implements WalletAdapter {
 
   /**
    * Returns the current wallet provider being used (walletconnect).
-   * 
+   *
    * @returns The provider name or null if not connected
    */
   public getProvider(): string | null {
@@ -357,7 +374,19 @@ export class WalletConnectAdapter implements WalletAdapter {
   private async handleDisconnect(): Promise<void> {
     if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
       this.reconnectAttempts++;
-      await this.reconnect();
+      try {
+        await this.reconnect();
+      } catch (error) {
+        // If this was the last attempt, emit reconnectFailed
+        if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+          await this.cleanup();
+          this.eventEmitter.emit('reconnectFailed');
+        } else {
+          // Instead of emitting disconnect, directly try to reconnect
+          // This ensures we don't get into an event loop
+          await this.reconnect();
+        }
+      }
     } else {
       await this.cleanup();
       this.eventEmitter.emit('disconnect');
@@ -371,9 +400,12 @@ export class WalletConnectAdapter implements WalletAdapter {
   private async reconnect(): Promise<void> {
     try {
       await this.enable();
+      // Only reset reconnectAttempts on successful reconnection
+      this.reconnectAttempts = 0;
+      this.eventEmitter.emit('connect');
     } catch (error) {
-      await this.cleanup();
-      this.eventEmitter.emit('reconnectFailed');
+      // Just rethrow the error - let handleDisconnect handle the failure
+      throw error;
     }
   }
 
@@ -391,7 +423,7 @@ export class WalletConnectAdapter implements WalletAdapter {
 
   /**
    * Validates a Polkadot address format.
-   * 
+   *
    * @param address - The address to validate
    * @throws {AddressValidationError} If the address is invalid
    * @private
@@ -416,4 +448,4 @@ export class WalletConnectAdapter implements WalletAdapter {
   public off(event: string, callback: EventHandler): void {
     this.eventEmitter.off(event, callback);
   }
-} 
+}

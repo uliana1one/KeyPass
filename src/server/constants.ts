@@ -16,7 +16,7 @@ export const ERROR_CODES = {
   INVALID_ADDRESS: 'INVALID_ADDRESS',
 
   // Success code
-  SUCCESS: 'SUCCESS'
+  SUCCESS: 'SUCCESS',
 } as const;
 
 // Maximum allowed message length
@@ -26,4 +26,4 @@ export const MAX_MESSAGE_LENGTH = 256;
 export const CLOCK_SKEW_TOLERANCE = 60 * 1000;
 
 // Message expiration time in milliseconds (5 minutes)
-export const MESSAGE_EXPIRATION_TIME = 5 * 60 * 1000; 
+export const MESSAGE_EXPIRATION_TIME = 5 * 60 * 1000;

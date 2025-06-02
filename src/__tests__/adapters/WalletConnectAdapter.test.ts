@@ -1,5 +1,11 @@
 import { WalletConnectAdapter, WalletConnectConfig } from '../../adapters/WalletConnectAdapter';
-import { WalletNotFoundError, UserRejectedError, TimeoutError, WalletConnectionError, AddressValidationError } from '../../errors/WalletErrors';
+import {
+  WalletNotFoundError,
+  UserRejectedError,
+  TimeoutError,
+  WalletConnectionError,
+  AddressValidationError,
+} from '../../errors/WalletErrors';
 import { WalletConnectProvider } from '@walletconnect/web3-provider';
 import { Session } from '@walletconnect/types';
 
@@ -21,7 +27,7 @@ jest.mock('@polkadot/util-crypto', () => ({
       return [true, null];
     }
     return [false, 'Invalid decoded address checksum'];
-  })
+  }),
 }));
 
 // Mock WalletConnect provider
@@ -33,8 +39,8 @@ jest.mock('@walletconnect/web3-provider', () => {
       signMessage: jest.fn(),
       getSession: jest.fn(),
       disconnect: jest.fn(),
-      on: jest.fn()
-    }))
+      on: jest.fn(),
+    })),
   };
 });
 
@@ -47,8 +53,8 @@ describe('WalletConnectAdapter', () => {
       name: 'Test App',
       description: 'Test Description',
       url: 'https://test.app',
-      icons: ['https://test.app/icon.png']
-    }
+      icons: ['https://test.app/icon.png'],
+    },
   };
 
   beforeEach(() => {
@@ -63,21 +69,24 @@ describe('WalletConnectAdapter', () => {
       expect(WalletConnectProvider).toHaveBeenCalledWith({
         projectId: mockConfig.projectId,
         metadata: mockConfig.metadata,
-        chainId: 'polkadot'
+        chainId: 'polkadot',
       });
     });
 
     test('should throw with invalid project ID', () => {
-      expect(() => new WalletConnectAdapter({
-        ...mockConfig,
-        projectId: ''
-      })).toThrow('WalletConnect project ID is required');
+      expect(
+        () =>
+          new WalletConnectAdapter({
+            ...mockConfig,
+            projectId: '',
+          })
+      ).toThrow('WalletConnect project ID is required');
     });
 
     test('should set default chain ID if not provided', () => {
       expect(WalletConnectProvider).toHaveBeenCalledWith(
         expect.objectContaining({
-          chainId: 'polkadot'
+          chainId: 'polkadot',
         })
       );
     });
@@ -87,7 +96,7 @@ describe('WalletConnectAdapter', () => {
     beforeEach(() => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: [TEST_ADDRESS]
+        accounts: [TEST_ADDRESS],
       });
     });
 
@@ -106,11 +115,11 @@ describe('WalletConnectAdapter', () => {
     test('should handle session expiration', async () => {
       const mockSession: Session = { chainId: 'polkadot', accounts: [TEST_ADDRESS] };
       mockProvider.getSession.mockResolvedValue(mockSession);
-      
+
       const sessionExpireHandler = mockProvider.on.mock.calls.find(
         (call: MockCall) => call[0] === 'session_expire'
       )?.[1];
-      
+
       if (sessionExpireHandler) {
         await sessionExpireHandler();
         expect(adapter.getSession()).toBeNull();
@@ -122,7 +131,7 @@ describe('WalletConnectAdapter', () => {
     beforeEach(() => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: [TEST_ADDRESS]
+        accounts: [TEST_ADDRESS],
       });
     });
 
@@ -133,8 +142,8 @@ describe('WalletConnectAdapter', () => {
           name: 'Test Account',
           chainId: 'polkadot',
           walletId: 'test-wallet',
-          walletName: 'Test Wallet'
-        }
+          walletName: 'Test Wallet',
+        },
       ];
       mockProvider.getAccounts.mockResolvedValue(mockAccounts);
 
@@ -145,7 +154,7 @@ describe('WalletConnectAdapter', () => {
       expect(accounts[0]).toEqual({
         address: mockAccounts[0].address,
         name: mockAccounts[0].name,
-        source: 'walletconnect'
+        source: 'walletconnect',
       });
     });
 
@@ -166,8 +175,8 @@ describe('WalletConnectAdapter', () => {
           name: 'Test Account',
           chainId: 'polkadot',
           walletId: 'test-wallet',
-          walletName: 'Test Wallet'
-        }
+          walletName: 'Test Wallet',
+        },
       ];
       mockProvider.getAccounts.mockResolvedValue(mockAccounts);
       await adapter.enable();
@@ -179,15 +188,17 @@ describe('WalletConnectAdapter', () => {
     beforeEach(() => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: [TEST_ADDRESS]
+        accounts: [TEST_ADDRESS],
       });
-      mockProvider.getAccounts.mockResolvedValue([{
-        address: TEST_ADDRESS,
-        name: 'Test Account',
-        chainId: 'polkadot',
-        walletId: 'test-wallet',
-        walletName: 'Test Wallet'
-      }]);
+      mockProvider.getAccounts.mockResolvedValue([
+        {
+          address: TEST_ADDRESS,
+          name: 'Test Account',
+          chainId: 'polkadot',
+          walletId: 'test-wallet',
+          walletName: 'Test Wallet',
+        },
+      ]);
     });
 
     test('should sign valid messages', async () => {
@@ -201,7 +212,7 @@ describe('WalletConnectAdapter', () => {
       expect(signature).toBe(mockSignature);
       expect(mockProvider.signMessage).toHaveBeenCalledWith({
         message: 'Test message',
-        chainId: 'polkadot'
+        chainId: 'polkadot',
       });
     });
 
@@ -226,7 +237,7 @@ describe('WalletConnectAdapter', () => {
     test('should handle successful connection', async () => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: [TEST_ADDRESS]
+        accounts: [TEST_ADDRESS],
       });
 
       await adapter.enable();
@@ -241,7 +252,7 @@ describe('WalletConnectAdapter', () => {
     test('should handle timeout', async () => {
       // Mock a promise that never resolves
       mockProvider.enable.mockImplementation(() => new Promise(() => {}));
-      
+
       await expect(adapter.enable()).rejects.toThrow(TimeoutError);
     }, 15000); // Set test timeout to 15 seconds
   });
@@ -293,4 +304,4 @@ describe('WalletConnectAdapter', () => {
       }
     });
   });
-}); 
+});

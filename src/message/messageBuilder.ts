@@ -48,6 +48,6 @@ export async function buildLoginMessage(params: MessageParams): Promise<string> 
 export interface MessageParams {
   template: string;
   address: string;
-  nonce: string | undefined;  // Allow undefined for testing
+  nonce: string | undefined; // Allow undefined for testing
   issuedAt: string;
 }

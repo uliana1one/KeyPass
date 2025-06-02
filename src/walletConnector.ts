@@ -1,7 +1,7 @@
 import walletsConfig from '../config/wallets.json';
 import { validateWalletConfig } from './config/validator';
-import { WalletAdapter, WalletAdapterConstructor } from './adapters/types';
-import { WalletConnectionError, ConfigurationError } from './errors/WalletErrors';
+import { WalletAdapter } from './adapters/types';
+import { ConfigurationError, WalletNotFoundError } from './errors/WalletErrors';
 import { PolkadotJsAdapter } from './adapters/PolkadotJsAdapter';
 import { TalismanAdapter } from './adapters/TalismanAdapter';
 import { WalletConnectAdapter, WalletConnectConfig } from './adapters/WalletConnectAdapter';
@@ -23,8 +23,8 @@ const defaultWalletConnectConfig: WalletConnectConfig = {
     name: 'KeyPass Login SDK',
     description: 'KeyPass Login SDK for Polkadot wallets',
     url: 'https://keypass.app',
-    icons: ['https://keypass.app/icon.png']
-  }
+    icons: ['https://keypass.app/icon.png'],
+  },
 };
 
 /**
@@ -38,7 +38,10 @@ export async function connectWallet(): Promise<WalletAdapter> {
 
   console.debug('WalletConnect project ID:', process.env.WALLETCONNECT_PROJECT_ID);
   console.debug('Default config project ID:', defaultWalletConnectConfig.projectId);
-  console.debug('Available wallets:', sortedWallets.map(w => w.adapter));
+  console.debug(
+    'Available wallets:',
+    sortedWallets.map((w) => w.adapter)
+  );
 
   // Try each adapter in sequence
   for (const wallet of sortedWallets) {
@@ -57,7 +60,10 @@ export async function connectWallet(): Promise<WalletAdapter> {
             console.warn('WalletConnect project ID not configured, skipping WalletConnect adapter');
             continue;
           }
-          console.debug('Creating WalletConnect adapter with project ID:', defaultWalletConnectConfig.projectId);
+          console.debug(
+            'Creating WalletConnect adapter with project ID:',
+            defaultWalletConnectConfig.projectId
+          );
           adapter = new WalletConnectAdapter(defaultWalletConnectConfig);
           break;
         default:
@@ -68,12 +74,16 @@ export async function connectWallet(): Promise<WalletAdapter> {
       console.debug('Attempting to enable wallet:', wallet.adapter);
       await adapter.enable();
       return adapter;
-    } catch (error) {
+    } catch (error: unknown) {
       // Log the error but continue trying other adapters
-      console.debug(`Failed to connect to ${wallet.name}:`, error);
+      if (error instanceof Error) {
+        console.debug(`Failed to connect to ${wallet.name}:`, error.message);
+      } else {
+        console.debug(`Failed to connect to ${wallet.name}: Unknown error`);
+      }
       continue;
     }
   }
 
-  throw new Error('No supported wallet found');
+  throw new WalletNotFoundError('No supported wallet found');
 }

@@ -13,7 +13,7 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
   private static readonly DID_CONTEXT = [
     'https://www.w3.org/ns/did/v1',
     'https://w3id.org/security/suites/ed25519-2020/v1',
-    'https://w3id.org/security/suites/sr25519-2020/v1'
+    'https://w3id.org/security/suites/sr25519-2020/v1',
   ];
 
   /**
@@ -34,7 +34,7 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
    */
   public async createDid(address: string): Promise<string> {
     this.validateAddress(address);
-    
+
     let publicKey: Uint8Array;
     try {
       // Decode the address to get the public key
@@ -42,11 +42,11 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
     } catch (error) {
       throw new AddressValidationError('Invalid Polkadot address');
     }
-    
+
     try {
       // Encode the public key in base58
       const base58Key = base58Encode(publicKey);
-      
+
       // Create the did:key identifier with multibase prefix
       return `did:key:${MULTIBASE_PREFIXES.BASE58BTC}${base58Key}`;
     } catch (error) {
@@ -78,7 +78,7 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
         keyAgreement: [],
         capabilityInvocation: [verificationMethod.id],
         capabilityDelegation: [verificationMethod.id],
-        service: []
+        service: [],
       };
     } catch (error) {
       if (error instanceof Error && error.message === 'Failed to encode public key') {
@@ -112,7 +112,7 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
       keyAgreement: [],
       capabilityInvocation: [verificationMethod.id],
       capabilityDelegation: [verificationMethod.id],
-      service: []
+      service: [],
     };
   }
 
@@ -130,7 +130,7 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
     // Extract the multibase-encoded public key
     const multibaseKey = did.slice(8); // Remove 'did:key:'
     console.log('multibaseKey:', multibaseKey);
-    
+
     // Validate that there's content after 'did:key:'
     if (!multibaseKey || multibaseKey.length === 0) {
       throw new Error('Invalid DID format');
@@ -145,14 +145,14 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
     if (!multibaseKey.startsWith(MULTIBASE_PREFIXES.BASE58BTC)) {
       throw new Error('Invalid public key in DID');
     }
-    
+
     try {
       // Decode the base58 key
       const keyToDecode = multibaseKey.slice(1); // Remove multibase prefix
       console.log('keyToDecode:', keyToDecode);
       const publicKey = base58Decode(keyToDecode);
       console.log('publicKey:', publicKey);
-      
+
       try {
         // Encode as a Polkadot address
         const address = encodeAddress(publicKey);
@@ -182,7 +182,10 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
    * @returns The verification method
    * @private
    */
-  private async createVerificationMethod(did: string, address: string): Promise<VerificationMethod> {
+  private async createVerificationMethod(
+    did: string,
+    address: string
+  ): Promise<VerificationMethod> {
     try {
       const publicKey = decodeAddress(address);
       const base58Key = base58Encode(publicKey);
@@ -192,7 +195,7 @@ export class PolkadotDIDProvider implements DIDProvider, DIDResolver {
         id: `${did}#${multibaseKey.slice(0, 8)}`,
         type: VERIFICATION_METHOD_TYPES.SR25519_2020,
         controller: did,
-        publicKeyMultibase: multibaseKey
+        publicKeyMultibase: multibaseKey,
       };
     } catch (error) {
       if (error instanceof Error && error.message === 'Base58 encoding failed') {

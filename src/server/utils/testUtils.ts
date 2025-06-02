@@ -38,18 +38,22 @@ function generateMockSignature(message: string): string {
 export async function mockSignMessage(message: string, address: string): Promise<string> {
   // Set up mock verification functions if not already set
   if (!(sr25519Verify as jest.Mock).mock.calls.length) {
-    (sr25519Verify as jest.Mock).mockImplementation((msg: Uint8Array, sig: Uint8Array, addr: string) => {
-      const expectedSig = new Uint8Array(64);
-      for (let i = 0; i < expectedSig.length; i++) {
-        expectedSig[i] = msg[i % msg.length] ^ i;
+    (sr25519Verify as jest.Mock).mockImplementation(
+      (msg: Uint8Array, sig: Uint8Array, addr: string) => {
+        const expectedSig = new Uint8Array(64);
+        for (let i = 0; i < expectedSig.length; i++) {
+          expectedSig[i] = msg[i % msg.length] ^ i;
+        }
+        return sig.every((byte, i) => byte === expectedSig[i]);
       }
-      return sig.every((byte, i) => byte === expectedSig[i]);
-    });
+    );
   }
   if (!(ed25519Verify as jest.Mock).mock.calls.length) {
-    (ed25519Verify as jest.Mock).mockImplementation((msg: Uint8Array, sig: Uint8Array, addr: string) => {
-      return sig.every(byte => byte === 0x32);
-    });
+    (ed25519Verify as jest.Mock).mockImplementation(
+      (msg: Uint8Array, sig: Uint8Array, addr: string) => {
+        return sig.every((byte) => byte === 0x32);
+      }
+    );
   }
 
   // Mock the sr25519Sign function to return a predictable signature
@@ -90,4 +94,4 @@ export function createFutureMessage(address: string = TEST_ADDRESS): string {
 export function createClockSkewMessage(address: string = TEST_ADDRESS): string {
   const skewTime = new Date(Date.now() + 0.5 * 60 * 1000).toISOString(); // 30 seconds in future
   return `KeyPass Login\nIssued At: ${skewTime}\nNonce: ${TEST_NONCE}\nAddress: ${address}`;
-} 
+}

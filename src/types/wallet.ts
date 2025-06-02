@@ -24,4 +24,4 @@ export interface KeyPassSession {
   did: string;
   account: WalletAccount;
   timestamp: number;
-} 
+}

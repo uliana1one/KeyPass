@@ -3,17 +3,23 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      useESM: true,
-      tsconfig: 'tsconfig.json'
-    }],
-    '^.+\\.jsx?$': ['babel-jest', {
-      presets: ['@babel/preset-env']
-    }]
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: 'tsconfig.json',
+      },
+    ],
+    '^.+\\.jsx?$': [
+      'babel-jest',
+      {
+        presets: ['@babel/preset-env'],
+      },
+    ],
   },
   transformIgnorePatterns: [
     // Transform all ESM modules and specific packages
-    'node_modules/(?!(@walletconnect|@polkadot|preact|@babel/runtime|@walletconnect/web3-provider|@walletconnect/types|@walletconnect/qrcode-modal)/)'
+    'node_modules/(?!(@walletconnect|@polkadot|preact|@babel/runtime|@walletconnect/web3-provider|@walletconnect/types|@walletconnect/qrcode-modal)/)',
   ],
   extensionsToTreatAsEsm: ['.ts', '.tsx', '.mts'],
   moduleNameMapper: {
@@ -22,7 +28,7 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     // Handle specific ESM packages
     '^@walletconnect/(.*)$': '<rootDir>/node_modules/@walletconnect/$1',
-    '^preact/(.*)$': '<rootDir>/node_modules/preact/$1'
+    '^preact/(.*)$': '<rootDir>/node_modules/preact/$1',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
@@ -30,7 +36,7 @@ module.exports = {
   // Add this to handle ESM modules
   globals: {
     'ts-jest': {
-      useESM: true
-    }
-  }
+      useESM: true,
+    },
+  },
 };
