@@ -220,7 +220,7 @@ export class WalletConnectAdapter implements WalletAdapter {
           if (error instanceof AddressValidationError) {
             throw error;
           }
-          throw new WalletConnectionError('Invalid Polkadot address format');
+          throw new AddressValidationError('Invalid Polkadot address format');
         }
       });
     } catch (error) {
@@ -300,6 +300,9 @@ export class WalletConnectAdapter implements WalletAdapter {
           }
           if (error.message.includes('Invalid signature')) {
             throw new InvalidSignatureError(error.message);
+          }
+          if (error.message.includes('timeout')) {
+            throw new TimeoutError('message_signing');
           }
         }
         throw new WalletConnectionError(`Failed to sign message: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -403,10 +406,7 @@ export class WalletConnectAdapter implements WalletAdapter {
     try {
       validatePolkadotAddress(address);
     } catch (error) {
-      if (error instanceof AddressValidationError) {
-        throw new AddressValidationError('Invalid Polkadot address');
-      }
-      throw error;
+      throw new AddressValidationError('Invalid Polkadot address format');
     }
   }
 

@@ -182,6 +182,12 @@ describe('WalletConnectAdapter', () => {
     });
 
     test('should handle user rejection', async () => {
+      mockProvider.getAccounts.mockResolvedValue([{
+        address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+        chainId: 'polkadot',
+        walletId: 'test-wallet',
+        walletName: 'Test Wallet'
+      }]);
       mockProvider.signMessage.mockRejectedValue(new Error('User rejected'));
       await adapter.enable();
       await expect(adapter.signMessage('Test message')).rejects.toThrow(UserRejectedError);
@@ -207,7 +213,7 @@ describe('WalletConnectAdapter', () => {
     test('should handle timeout', async () => {
       mockProvider.enable.mockImplementation(() => new Promise(() => {})); // Never resolves
       await expect(adapter.enable()).rejects.toThrow(TimeoutError);
-    });
+    }, 15000); // Set timeout for this specific test to 15 seconds
   });
 
   describe('Event Handling', () => {
