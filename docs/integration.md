@@ -1,505 +1,434 @@
-# KeyPass Login SDK Integration Guide
+# Integration Guide
 
-## Overview
-
-KeyPass Login SDK provides secure wallet-based authentication for Polkadot applications. This guide will help you integrate the SDK into your application with proper security considerations and error handling.
-
+This guide provides detailed technical information for integrating the KeyPass Login SDK into your application.
 ## Installation
 
-> **Note**: The package is currently in development and not yet published to npm. There are several ways to test it in your project.
-
-### Method 1: Using npm link (Recommended for local development)
-
 ```bash
-# Clone the repository
-git clone https://github.com/uliana1one/keypass.git
-cd keypass
-
-# Install dependencies
-npm install
-
-# Build the package
-npm run build
-
-# Link it to your project
-npm link
-
-# In your project directory
-npm link @keypass/login-sdk
+npm install @keypass/login-sdk
 ```
 
-### Method 2: Using Git URL (For testing in other projects)
+## Configuration
 
-In your project's `package.json`:
+### Environment Variables
+
+Create a `.env` file in your project root:
+
+```bash
+# Required for WalletConnect
+WALLETCONNECT_PROJECT_ID=your_project_id_here
+
+# Optional: Override default timeouts (in milliseconds)
+WALLET_TIMEOUT=30000
+MAX_MESSAGE_AGE_MS=300000
+```
+
+### Quick Start
+
+The basic integration is very simple:
+
+```typescript
+import { connectWallet } from '@keypass/login-sdk';
+
+// Connect to wallet
+const wallet = await connectWallet();
+
+// Get accounts
+const accounts = await wallet.getAccounts();
+console.log('Available accounts:', accounts);
+```
+
+That's all you need to get started! The SDK handles:
+- Wallet detection and connection
+- Session management
+- Error handling
+- Security considerations
+
+The rest of this guide provides detailed information about:
+- Configuration options
+- Advanced features
+- Error handling
+- Security considerations
+- Best practices
+
+But for basic usage, the two lines above are sufficient.
+
+
+### Wallet Configuration
+
+The SDK supports multiple wallet types with configurable priorities. The default configuration is in `wallets.json`:
+
 ```json
 {
-  "dependencies": {
-    "@keypass/login-sdk": "github:uliana1one/keypass"
-  }
+  "wallets": [
+    {
+      "id": "polkadot-js",
+      "name": "Polkadot.js",
+      "adapter": "PolkadotJsAdapter",
+      "priority": 1
+    },
+    {
+      "id": "talisman",
+      "name": "Talisman",
+      "adapter": "TalismanAdapter",
+      "priority": 2
+    },
+    {
+      "id": "walletconnect",
+      "name": "WalletConnect",
+      "adapter": "WalletConnectAdapter",
+      "priority": 3
+    }
+  ]
 }
 ```
 
-Then run:
-```bash
-npm install
-```
-
-### Method 3: Using Local Path (For testing in other projects)
-
-In your project's `package.json`:
-```json
-{
-  "dependencies": {
-    "@keypass/login-sdk": "file:../path/to/keypass"
-  }
-}
-```
-
-Then run:
-```bash
-npm install
-```
-
-> **Note**: While the package is in development, you might encounter breaking changes. We recommend using Method 1 (npm link) for local development as it allows you to easily update to the latest changes.
-
-## Prerequisites
-
-Before integrating the SDK, ensure:
-
-1. Your application is served over HTTPS
-2. Users have either [Polkadot.js](https://polkadot.js.org/extension/) or [Talisman](https://talisman.xyz/) wallet installed
-3. Your backend is prepared to handle signature verification
-4. You have a secure storage solution for session management
-
-## Core Features
-
-The SDK provides:
-
-- Wallet connection and account management
-- Secure message signing and verification
-- DID (Decentralized Identifier) generation
-- Automatic retry for network errors
-- Comprehensive error handling
-- Message validation and sanitization
-- Session management utilities
+You can override this configuration by providing your own `wallets.json` file.
 
 ## Basic Integration
 
-### 1. Initialize Authentication
+### 1. Initialize the SDK
 
 ```typescript
-import { loginWithPolkadot, LoginResult } from '@keypass/login-sdk';
+import { connectWallet, loginWithPolkadot } from '@keypass/login-sdk';
 
-class AuthService {
-  private currentUser: LoginResult | null = null;
-  private sessionTimeout: NodeJS.Timeout | null = null;
-  private readonly SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+// The SDK is automatically initialized when imported
+// No explicit initialization needed
+```
 
-  async login(retryCount = 2): Promise<LoginResult> {
-    try {
-      const result = await loginWithPolkadot(retryCount);
-      
-      // Verify the signature server-side
-      const verificationResult = await this.verifySignature(result);
-      if (!verificationResult.isValid) {
-        throw new Error('Signature verification failed');
-      }
+### 2. Connect to Wallet
 
-      // Store the session
-      this.setSession(result);
-      
-      return result;
-    } catch (error) {
-      this.handleLoginError(error);
-      throw error;
-    }
-  }
-
-  private setSession(result: LoginResult): void {
-    this.currentUser = result;
-    this.setupSessionTimeout();
+```typescript
+async function connectToWallet() {
+  try {
+    const wallet = await connectWallet();
     
-    // Store in secure storage
-    // Note: Replace with your secure storage solution
-    localStorage.setItem('auth', JSON.stringify({
-      ...result,
-      expiresAt: Date.now() + this.SESSION_DURATION
-    }));
-  }
-
-  private setupSessionTimeout(): void {
-    if (this.sessionTimeout) {
-      clearTimeout(this.sessionTimeout);
-    }
+    // Get the connected wallet type
+    const provider = wallet.getProvider();
+    console.log('Connected to:', provider); // 'polkadot-js' | 'talisman' | 'walletconnect'
     
-    this.sessionTimeout = setTimeout(() => {
-      this.logout();
-    }, this.SESSION_DURATION);
-  }
-
-  async logout(): Promise<void> {
-    this.currentUser = null;
-    if (this.sessionTimeout) {
-      clearTimeout(this.sessionTimeout);
-      this.sessionTimeout = null;
+    // Get accounts
+    const accounts = await wallet.getAccounts();
+    console.log('Available accounts:', accounts);
+    
+    // Listen for wallet events
+    wallet.on('disconnect', () => {
+      console.log('Wallet disconnected');
+    });
+    
+    wallet.on('sessionExpire', () => {
+      console.log('Session expired');
+    });
+    
+    return wallet;
+  } catch (error) {
+    if (error.name === 'WalletNotFoundError') {
+      console.error('No wallet found. Please install a wallet extension.');
+    } else if (error.name === 'UserRejectedError') {
+      console.error('User rejected the connection request');
+    } else {
+      console.error('Connection failed:', error.message);
     }
-    localStorage.removeItem('auth');
+    throw error;
   }
+}
+```
 
-  private async verifySignature(result: LoginResult): Promise<{ isValid: boolean }> {
-    // Implement your server-side verification
-    const response = await fetch('/api/verify', {
+### 3. Implement Authentication
+
+```typescript
+async function authenticate() {
+  try {
+    const result = await loginWithPolkadot();
+    
+    // Send authentication data to your backend
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: result.message,
-        signature: result.signature,
         address: result.address,
+        signature: result.signature,
+        message: result.message,
+        did: result.did,
         nonce: result.nonce,
         issuedAt: result.issuedAt
       })
     });
     
-    return response.json();
-  }
-
-  private handleLoginError(error: unknown): void {
-    if (error instanceof Error) {
-      switch (error.code) {
-        case 'WALLET_NOT_FOUND':
-          // Handle missing wallet
-          console.error('Please install a Polkadot wallet');
-          break;
-        case 'USER_REJECTED':
-          // Handle user rejection
-          console.error('Login was rejected by user');
-          break;
-        case 'WALLET_CONNECTION_ERROR':
-          // Handle connection issues
-          console.error('Failed to connect to wallet');
-          break;
-        case 'MESSAGE_VALIDATION_ERROR':
-          // Handle invalid message
-          console.error('Invalid message format');
-          break;
-        case 'INVALID_SIGNATURE':
-          // Handle signature verification failure
-          console.error('Invalid signature');
-          break;
-        case 'TIMEOUT_ERROR':
-          // Handle timeout
-          console.error('Operation timed out');
-          break;
-        default:
-          // Handle other errors
-          console.error('Login failed:', error.message);
-      }
+    if (!response.ok) {
+      throw new Error('Authentication failed');
     }
+    
+    return await response.json();
+  } catch (error) {
+    if (error.name === 'UserRejectedError') {
+      console.error('User rejected the login request');
+    } else if (error.name === 'InvalidSignatureError') {
+      console.error('Invalid signature');
+    } else {
+      console.error('Login failed:', error.message);
+    }
+    throw error;
   }
 }
 ```
 
-### 2. Server-Side Verification
+## Advanced Integration
 
-Create a verification endpoint in your backend:
+### Custom Wallet Configuration
+
+You can customize the wallet configuration by providing your own configuration:
 
 ```typescript
-import express from 'express';
-import { VerificationService } from '@keypass/login-sdk';
+import { WalletConnectConfig } from '@keypass/login-sdk';
 
-const app = express();
-const verificationService = new VerificationService({
-  // Configure network settings
-  network: 'polkadot',
-  // Add any additional configuration
-  maxMessageAge: 5 * 60 * 1000, // 5 minutes
-  rateLimit: {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100 // limit each IP to 100 requests per windowMs
-  }
-});
-
-app.post('/api/verify', async (req, res) => {
-  try {
-    const { message, signature, address, nonce, issuedAt } = req.body;
-    
-    // Validate request
-    if (!message || !signature || !address || !nonce || !issuedAt) {
-      return res.status(400).json({ 
-        error: 'Missing required fields' 
-      });
-    }
-
-    // Verify the signature
-    const result = await verificationService.verifySignature({
-      message,
-      signature,
-      address,
-      nonce,
-      issuedAt
-    });
-
-    if (result.status === 'success') {
-      // Create session or JWT token
-      const token = createSessionToken(result.did);
-      res.json({ 
-        token,
-        did: result.did,
-        expiresIn: 24 * 60 * 60 // 24 hours in seconds
-      });
-    } else {
-      res.status(401).json({ 
-        error: result.message,
-        code: result.code
-      });
-    }
-  } catch (error) {
-    res.status(400).json({ 
-      error: error instanceof Error ? error.message : 'Verification failed',
-      code: error instanceof Error ? error.code : 'UNKNOWN_ERROR'
-    });
-  }
-});
+const customWalletConnectConfig: WalletConnectConfig = {
+  projectId: process.env.WALLETCONNECT_PROJECT_ID!,
+  metadata: {
+    name: 'Your App Name',
+    description: 'Your App Description',
+    url: 'https://your-app.com',
+    icons: ['https://your-app.com/icon.png']
+  },
+  relayUrl: 'wss://relay.walletconnect.com', // Optional custom relay
+  chainId: 'polkadot', // Optional chain ID
+  sessionTimeout: 24 * 60 * 60 * 1000 // 24 hours
+};
 ```
 
-## Advanced Features
+### Error Handling
 
-### 1. Custom Wallet Selection
+The SDK provides a comprehensive error handling system:
 
 ```typescript
-import { 
-  connectWallet,
-  PolkadotJsAdapter,
-  TalismanAdapter,
-  WalletAdapter
+import {
+  WalletNotFoundError,
+  UserRejectedError,
+  TimeoutError,
+  WalletConnectionError,
+  MessageValidationError,
+  InvalidSignatureError,
+  ConfigurationError
 } from '@keypass/login-sdk';
 
-class WalletManager {
-  private adapter: WalletAdapter | null = null;
-
-  async connectToWallet(provider: 'polkadot-js' | 'talisman'): Promise<void> {
-    try {
-      this.adapter = await connectWallet(provider);
-      await this.adapter.enable();
-    } catch (error) {
-      this.handleConnectionError(error);
-      throw error;
-    }
-  }
-
-  async getAccounts(): Promise<WalletAccount[]> {
-    if (!this.adapter) {
-      throw new Error('Wallet not connected');
-    }
-    return this.adapter.getAccounts();
-  }
-
-  async signMessage(message: string): Promise<string> {
-    if (!this.adapter) {
-      throw new Error('Wallet not connected');
-    }
-    return this.adapter.signMessage(message);
-  }
-
-  disconnect(): void {
-    if (this.adapter) {
-      this.adapter.disconnect();
-      this.adapter = null;
-    }
-  }
-
-  private handleConnectionError(error: unknown): void {
-    if (error instanceof Error) {
-      switch (error.code) {
-        case 'WALLET_NOT_FOUND':
-          console.error('Wallet extension not found');
-          break;
-        case 'USER_REJECTED':
-          console.error('User rejected wallet connection');
-          break;
-        case 'TIMEOUT_ERROR':
-          console.error('Wallet connection timed out');
-          break;
-        default:
-          console.error('Wallet connection failed:', error.message);
-      }
+async function handleWalletOperation() {
+  try {
+    // ... wallet operation
+  } catch (error) {
+    switch (error.constructor) {
+      case WalletNotFoundError:
+        // Handle missing wallet
+        break;
+      case UserRejectedError:
+        // Handle user rejection
+        break;
+      case TimeoutError:
+        // Handle timeout
+        break;
+      case WalletConnectionError:
+        // Handle connection failure
+        break;
+      case MessageValidationError:
+        // Handle invalid message
+        break;
+      case InvalidSignatureError:
+        // Handle invalid signature
+        break;
+      case ConfigurationError:
+        // Handle configuration error
+        break;
+      default:
+        // Handle unexpected errors
+        break;
     }
   }
 }
 ```
 
-### 2. DID Management
+### Session Management
+
+The SDK handles session management automatically, but you can implement custom session handling:
+
+```typescript
+import { connectWallet } from '@keypass/login-sdk';
+
+class WalletSessionManager {
+  private wallet: WalletAdapter | null = null;
+  private sessionTimeout: NodeJS.Timeout | null = null;
+  
+  async connect() {
+    this.wallet = await connectWallet();
+    
+    // Set up session timeout
+    this.wallet.on('sessionExpire', () => {
+      this.handleSessionExpire();
+    });
+    
+    // Set up disconnect handler
+    this.wallet.on('disconnect', () => {
+      this.handleDisconnect();
+    });
+    
+    return this.wallet;
+  }
+  
+  private handleSessionExpire() {
+    // Clear any existing timeout
+    if (this.sessionTimeout) {
+      clearTimeout(this.sessionTimeout);
+    }
+    
+    // Notify user
+    console.log('Session expired. Please reconnect.');
+    
+    // Clean up
+    this.wallet = null;
+  }
+  
+  private handleDisconnect() {
+    // Clear any existing timeout
+    if (this.sessionTimeout) {
+      clearTimeout(this.sessionTimeout);
+    }
+    
+    // Clean up
+    this.wallet = null;
+  }
+  
+  async disconnect() {
+    if (this.wallet) {
+      await this.wallet.disconnect();
+      this.wallet = null;
+    }
+  }
+}
+```
+
+### DID Management
+
+The SDK provides DID management through the `PolkadotDIDProvider`:
 
 ```typescript
 import { PolkadotDIDProvider } from '@keypass/login-sdk';
 
-class DIDManager {
-  private provider: PolkadotDIDProvider;
+const didProvider = new PolkadotDIDProvider();
 
-  constructor() {
-    this.provider = new PolkadotDIDProvider();
-  }
-
-  async createDID(address: string): Promise<string> {
-    try {
-      return await this.provider.createDid(address);
-    } catch (error) {
-      console.error('Failed to create DID:', error);
-      throw error;
-    }
-  }
-
-  async resolveDID(did: string): Promise<DIDDocument> {
-    try {
-      return await this.provider.resolve(did);
-    } catch (error) {
-      console.error('Failed to resolve DID:', error);
-      throw error;
-    }
-  }
-}
-```
-
-## Security Considerations
-
-1. **Message Validation**
-   - All messages are validated and sanitized before signing
-   - Messages include a nonce to prevent replay attacks
-   - Messages include a timestamp for expiration checking
-
-2. **Signature Verification**
-   - Always verify signatures server-side
-   - Implement rate limiting for verification requests
-   - Validate message age and format
-   - Check for replay attacks using nonce
-
-3. **Session Management**
-   - Use secure storage for session data
-   - Implement session expiration
-   - Clear sensitive data on logout
-   - Use HTTPS for all API calls
-
-4. **Error Handling**
-   - Implement proper error recovery
-   - Log security-related errors
-   - Handle network errors with retry mechanism
-   - Validate all user input
-
-## Error Types
-
-The SDK provides the following error types:
-
-```typescript
-import {
-  WalletNotFoundError,    // When no wallet is found
-  UserRejectedError,      // When user rejects an operation
-  WalletConnectionError,  // When wallet connection fails
-  MessageValidationError, // When message validation fails
-  InvalidSignatureError,  // When signature verification fails
-  TimeoutError,          // When an operation times out
-  AddressValidationError // When address validation fails
-} from '@keypass/login-sdk/errors';
-```
-
-Each error includes:
-- `code`: Error type identifier
-- `message`: Human-readable error message
-- `details`: Additional error information (if available)
-
-## API Reference
-
-### Main Functions
-
-```typescript
-// Login with automatic wallet selection
-loginWithPolkadot(retryCount?: number): Promise<LoginResult>
-
-// Connect to a specific wallet
-connectWallet(provider?: string): Promise<WalletAdapter>
-
-// Build a login message
-buildLoginMessage(params: MessageParams): Promise<string>
-```
-
-### Types
-
-```typescript
-interface LoginResult {
-  address: string;    // Polkadot address
-  signature: string;  // Message signature
-  message: string;    // Signed message
-  did: string;        // Generated DID
-  issuedAt: string;   // ISO timestamp
-  nonce: string;      // UUID nonce
-}
-
-interface WalletAccount {
-  address: string;
-  name?: string;
-  source: string;
-}
-
-interface MessageParams {
-  template: string;
-  address: string;
-  nonce: string;
-  issuedAt: string;
-  appName?: string;
-}
-```
-
-### WalletAdapter Interface
-
-```typescript
-interface WalletAdapter {
-  enable(): Promise<void>;
-  getAccounts(): Promise<WalletAccount[]>;
-  signMessage(message: string): Promise<string>;
-  getProvider(): string | null;
-  disconnect(): void;
+async function handleDID(address: string) {
+  // Create DID
+  const did = await didProvider.createDid(address);
+  
+  // Get DID document
+  const didDocument = await didProvider.createDIDDocument(address);
+  
+  // Resolve DID
+  const resolvedDocument = await didProvider.resolve(did);
+  
+  // Extract address from DID
+  const extractedAddress = await didProvider.extractAddress(did);
+  
+  return {
+    did,
+    didDocument,
+    resolvedDocument,
+    extractedAddress
+  };
 }
 ```
 
 ## Best Practices
 
 1. **Error Handling**
-   - Always implement proper error handling
-   - Use the provided error types
-   - Implement retry logic for network errors
+   - Always handle all possible error types
    - Provide user-friendly error messages
+   - Log errors for debugging
+   - Implement retry logic for network errors
 
 2. **Session Management**
-   - Implement secure session storage
+   - Implement proper session cleanup
    - Handle session expiration
-   - Clear sensitive data on logout
-   - Implement proper session refresh
+   - Provide clear feedback to users
+   - Implement reconnection logic
 
 3. **Security**
-   - Always verify signatures server-side
-   - Implement rate limiting
-   - Use HTTPS for all API calls
-   - Validate all user input
-   - Implement proper error logging
+   - Validate all inputs
+   - Verify signatures
+   - Use secure communication
+   - Implement proper session timeouts
+   - Handle wallet disconnection gracefully
 
 4. **User Experience**
-   - Provide clear wallet installation guidance
-   - Handle wallet connection states
-   - Implement proper loading states
-   - Provide clear error messages
+   - Show loading states
+   - Provide clear feedback
+   - Handle wallet installation
+   - Guide users through the process
+   - Support multiple wallet types
 
-## Migration Guide
+5. **Testing**
+   - Test all wallet types
+   - Test error scenarios
+   - Test session management
+   - Test network conditions
+   - Implement integration tests
 
-### From v0.x to v1.0
+## Troubleshooting
 
-1. Update error handling to use new error types
-2. Implement new session management
-3. Update verification service configuration
-4. Update wallet connection handling
+### Common Issues
 
-## Support
+1. **Wallet Not Found**
+   - Check if wallet extension is installed
+   - Verify wallet is enabled
+   - Check browser compatibility
 
-For issues and feature requests, please visit our [GitHub repository](https://github.com/uliana1one/keypass).
+2. **Connection Failures**
+   - Verify network connection
+   - Check wallet configuration
+   - Verify project ID for WalletConnect
 
-## License
+3. **Signature Errors**
+   - Verify message format
+   - Check address format
+   - Verify wallet permissions
 
-Apache License 2.0 - see [LICENSE](LICENSE) for details. 
+4. **Session Issues**
+   - Check session timeout
+   - Verify session cleanup
+   - Check reconnection logic
+
+### Debugging
+
+Enable debug logging:
+
+```typescript
+import { setLogLevel } from '@keypass/login-sdk';
+
+// Set log level to debug
+setLogLevel('debug');
+```
+
+## API Reference
+
+For detailed API documentation, see [API Reference](./api.md).
+
+## Security Considerations
+
+1. **Message Signing**
+   - Always validate messages
+   - Verify signatures
+   - Use nonces for replay protection
+
+2. **Session Security**
+   - Implement proper session timeouts
+   - Handle session expiration
+   - Secure session storage
+
+3. **WalletConnect Security**
+   - Keep project ID secure
+   - Validate chain ID
+   - Verify addresses
+   - Handle session encryption
+
+4. **General Security**
+   - Use HTTPS
+   - Implement CORS
+   - Validate all inputs
+   - Handle errors securely
+   - Implement rate limiting 

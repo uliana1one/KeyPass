@@ -20,6 +20,7 @@ The KeyPass Login SDK follows a 7-layer architecture designed for modularity, se
   - `WalletAdapter` interface
   - Polkadot.js implementation
   - Talisman implementation
+  - WalletConnect implementation
 - **Key Features**:
   - Wallet connection management
   - Account listing
@@ -146,4 +147,188 @@ graph TD
 4. **Testing**
    - Unit tests for each layer
    - Integration tests for layer interactions
-   - End-to-end tests for complete flows 
+   - End-to-end tests for complete flows
+
+## Core Components
+
+### Wallet Connection Layer
+
+```
+┌─────────────────┐
+│  connectWallet  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  WalletAdapter  │◄─────┐
+└────────┬────────┘      │
+         │               │
+    ┌────┴─────┐    ┌────┴─────┐    ┌───────────────┐
+    │PolkadotJs│    │ Talisman │    │WalletConnect  │
+    │ Adapter  │    │ Adapter  │    │   Adapter     │
+    └──────────┘    └──────────┘    └───────────────┘
+```
+
+The wallet connection layer provides a unified interface for connecting to different wallet types:
+
+1. **connectWallet**: Main entry point that attempts to connect to available wallets in priority order
+2. **WalletAdapter**: Common interface implemented by all wallet adapters
+3. **Specific Adapters**: Implementations for different wallet types:
+   - PolkadotJsAdapter: For the Polkadot.js extension
+   - TalismanAdapter: For the Talisman wallet
+   - WalletConnectAdapter: For any wallet supporting WalletConnect
+
+### Authentication Flow
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Connect    │     │   Sign      │     │  Verify     │
+│  Wallet     │────►│  Message    │────►│ Signature   │
+└─────────────┘     └─────────────┘     └─────────────┘
+                          │                   │
+                          ▼                   ▼
+                    ┌─────────────┐     ┌─────────────┐
+                    │  Create     │     │  Generate   │
+                    │    DID      │     │  Session    │
+                    └─────────────┘     └─────────────┘
+```
+
+The authentication flow is handled by the `loginWithPolkadot` function, which:
+1. Connects to a wallet using the adapter pattern
+2. Gets the user's accounts
+3. Generates and signs a login message
+4. Verifies the signature
+5. Creates a DID for the address
+6. Generates a session
+
+### DID Management
+
+```
+┌─────────────────┐
+│PolkadotDIDProvider│
+└────────┬────────┘
+         │
+    ┌────┴─────┐
+    │  Create  │
+    │    DID   │
+    └────┬─────┘
+         │
+    ┌────┴─────┐
+    │  DID     │
+    │Document  │
+    └──────────┘
+```
+
+The DID management layer:
+1. Creates DIDs for Polkadot addresses
+2. Generates DID documents
+3. Provides DID resolution
+4. Manages verification methods
+
+## Wallet Adapters
+
+### Common Interface
+
+All wallet adapters implement the `WalletAdapter` interface:
+
+```typescript
+interface WalletAdapter {
+  enable(): Promise<void>;
+  getAccounts(): Promise<WalletAccount[]>;
+  signMessage(message: string): Promise<string>;
+  getProvider(): string | null;
+  disconnect(): Promise<void>;
+  on(event: string, callback: EventHandler): void;
+  off(event: string, callback: EventHandler): void;
+}
+```
+
+### Adapter Types
+
+1. **PolkadotJsAdapter**
+   - Connects to the Polkadot.js browser extension
+   - Uses `@polkadot/extension-dapp`
+   - Priority: 1
+
+2. **TalismanAdapter**
+   - Connects to the Talisman wallet extension
+   - Uses Talisman's injected provider
+   - Priority: 2
+
+3. **WalletConnectAdapter**
+   - Connects to any wallet supporting WalletConnect
+   - Uses `@walletconnect/web3-provider`
+   - Requires WalletConnect project ID
+   - Priority: 3
+
+## Error Handling
+
+The SDK uses a hierarchical error system:
+
+```
+Error
+├── WalletError
+│   ├── WalletNotFoundError
+│   ├── UserRejectedError
+│   ├── TimeoutError
+│   └── WalletConnectionError
+├── ValidationError
+│   ├── MessageValidationError
+│   └── AddressValidationError
+└── AuthenticationError
+    ├── InvalidSignatureError
+    └── ConfigurationError
+```
+
+## Configuration
+
+The SDK can be configured through:
+
+1. Environment variables:
+   ```
+   WALLETCONNECT_PROJECT_ID=your_project_id_here
+   ```
+
+2. Wallet configuration (wallets.json):
+   ```json
+   {
+     "wallets": [
+       {
+         "id": "polkadot-js",
+         "name": "Polkadot.js",
+         "adapter": "PolkadotJsAdapter",
+         "priority": 1
+       },
+       {
+         "id": "talisman",
+         "name": "Talisman",
+         "adapter": "TalismanAdapter",
+         "priority": 2
+       },
+       {
+         "id": "walletconnect",
+         "name": "WalletConnect",
+         "adapter": "WalletConnectAdapter",
+         "priority": 3
+       }
+     ]
+   }
+   ```
+
+## Security Considerations
+
+1. **Message Signing**
+   - Messages are validated and sanitized
+   - Signatures are verified
+   - Nonces prevent replay attacks
+
+2. **Session Management**
+   - Sessions expire after a configurable timeout
+   - DIDs provide verifiable identity
+   - Secure headers protect against common web vulnerabilities
+
+3. **WalletConnect Security**
+   - Project ID required for WalletConnect
+   - Session encryption
+   - Chain ID validation
+   - Address validation 

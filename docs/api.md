@@ -4,6 +4,36 @@ This document provides a comprehensive reference for all public APIs in the KeyP
 
 ## Main Functions
 
+### `connectWallet`
+
+```typescript
+function connectWallet(): Promise<WalletAdapter>
+```
+
+Main entry point for wallet connection. This function attempts to connect to available wallets in priority order:
+1. Polkadot.js extension
+2. Talisman wallet
+3. WalletConnect
+
+#### Returns
+```typescript
+interface WalletAdapter {
+  enable(): Promise<void>;
+  getAccounts(): Promise<WalletAccount[]>;
+  signMessage(message: string): Promise<string>;
+  getProvider(): string | null;
+  disconnect(): Promise<void>;
+  on(event: string, callback: EventHandler): void;
+  off(event: string, callback: EventHandler): void;
+}
+```
+
+#### Throws
+- `WalletNotFoundError`: If no wallet is found
+- `UserRejectedError`: If the user rejects any wallet operation
+- `WalletConnectionError`: If wallet connection fails
+- `TimeoutError`: If connection request times out
+
 ### `loginWithPolkadot`
 
 ```typescript
@@ -11,7 +41,7 @@ function loginWithPolkadot(retryCount?: number): Promise<LoginResult>
 ```
 
 Main entry point for wallet authentication. This function orchestrates the entire login flow:
-1. Connects to the wallet (Polkadot.js or Talisman)
+1. Connects to the wallet using `connectWallet()`
 2. Gets the user's accounts
 3. Generates a login message with a nonce
 4. Signs the message
@@ -63,6 +93,9 @@ interface WalletAdapter {
   getAccounts(): Promise<WalletAccount[]>;
   signMessage(message: string): Promise<string>;
   getProvider(): string | null;
+  disconnect(): Promise<void>;
+  on(event: string, callback: EventHandler): void;
+  off(event: string, callback: EventHandler): void;
 }
 ```
 
@@ -92,7 +125,45 @@ class TalismanAdapter implements WalletAdapter {
 }
 ```
 
-The TalismanAdapter handles connection, account listing, and message signing for the Talisman wallet extension, with fallback to WalletConnect.
+The TalismanAdapter handles connection, account listing, and message signing for the Talisman wallet extension.
+
+### `WalletConnectAdapter`
+
+```typescript
+class WalletConnectAdapter implements WalletAdapter {
+  constructor(config: WalletConnectConfig);
+  enable(): Promise<void>;
+  getAccounts(): Promise<WalletAccount[]>;
+  signMessage(message: string): Promise<string>;
+  getProvider(): string | null;
+}
+
+interface WalletConnectConfig {
+  projectId: string;           // WalletConnect project ID
+  metadata: {
+    name: string;
+    description: string;
+    url: string;
+    icons: string[];
+  };
+  relayUrl?: string;          // Optional custom relay URL
+  chainId?: string;           // Default chain ID
+  sessionTimeout?: number;    // Session timeout in milliseconds
+}
+```
+
+The WalletConnectAdapter handles connection, account listing, and message signing through the WalletConnect protocol. It supports connecting to any wallet that implements the WalletConnect standard.
+
+#### Configuration
+
+The WalletConnect adapter requires a project ID from WalletConnect Cloud. Set this in your environment:
+
+```bash
+# .env
+WALLETCONNECT_PROJECT_ID=your_project_id_here
+```
+
+Get your project ID from https://cloud.walletconnect.com/
 
 ## DID Provider
 
@@ -184,10 +255,8 @@ interface VerificationResponse {
 
 interface WalletAccount {
   address: string;
-  meta?: {
-    name?: string;
-    source?: string;
-  };
+  name?: string;
+  source: string;    // 'polkadot-js' | 'talisman' | 'walletconnect'
 }
 
 interface DIDDocument {
