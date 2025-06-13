@@ -16,24 +16,37 @@ export function WalletConnect({ onConnect, onError }: WalletConnectProps) {
 
   // Reset wallet connection
   const resetWallet = useCallback(async () => {
-    if (!mountedRef.current) return; // Don't update state if component is unmounted
+    if (!mountedRef.current) return;
 
     if (walletInstance) {
       try {
         console.log('Disconnecting wallet...');
         await walletInstance.disconnect();
         console.log('Wallet disconnected successfully');
+        
+        // Only clear error state on successful disconnect
+        if (mountedRef.current) {
+          setWalletInstance(null);
+          setAccount(null);
+          setError(null);
+        }
       } catch (error) {
         console.error('Error during wallet disconnect:', error);
+        // Set error state but don't clear other states until disconnect succeeds
+        if (mountedRef.current) {
+          setError(error instanceof Error ? error.message : 'Disconnect failed');
+          onError?.(error instanceof Error ? error : new Error('Disconnect failed'));
+        }
+      }
+    } else {
+      // If no wallet instance, just clear the states
+      if (mountedRef.current) {
+        setWalletInstance(null);
+        setAccount(null);
+        setError(null);
       }
     }
-    
-    if (mountedRef.current) { // Only update state if still mounted
-      setWalletInstance(null);
-      setAccount(null);
-      setError(null);
-    }
-  }, [walletInstance]);
+  }, [walletInstance, onError]);
 
   // Check wallet connection status
   useEffect(() => {
