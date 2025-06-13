@@ -123,13 +123,13 @@ export class PolkadotJsAdapter implements WalletAdapter {
       }
       return accounts.map((acc) => {
         try {
-          this.validateAddress(acc.address);
+          validatePolkadotAddress(acc.address);
           return { address: acc.address, name: acc.meta?.name, source: 'polkadot-js' };
         } catch (error) {
           if (error instanceof AddressValidationError) {
             throw error;
           }
-          throw new WalletConnectionError('Invalid Polkadot address format');
+          throw new AddressValidationError('Invalid Polkadot address format');
         }
       });
     } catch (error) {

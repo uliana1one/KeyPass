@@ -68,7 +68,18 @@ jest.mock('../types', () => ({
     }
     return message.trim();
   }),
-  validatePolkadotAddress: jest.fn(),
+  validatePolkadotAddress: jest.fn((address) => {
+    if (!address || typeof address !== 'string') {
+      throw new AddressValidationError('Address must be a non-empty string');
+    }
+    if (address === 'invalid-address') {
+      throw new AddressValidationError('Invalid Polkadot address');
+    }
+    if (address === 'invalid-checksum-address') {
+      throw new AddressValidationError('Invalid address checksum or SS58 format');
+    }
+    return true;
+  }),
   validateSignature: jest.fn((signature) => {
     if (!signature || typeof signature !== 'string') {
       throw new InvalidSignatureError('Invalid signature format');
@@ -80,7 +91,6 @@ jest.mock('../types', () => ({
       throw new InvalidSignatureError('Invalid signature format: missing 0x prefix');
     }
     if (signature.length !== 130 && signature.length !== 66) {
-      // 0x + 128 or 64 hex chars
       throw new InvalidSignatureError(
         'Invalid signature length: must be 0x + 128 hex chars (sr25519) or 0x + 64 hex chars (ed25519)'
       );
