@@ -32,6 +32,11 @@ export class PolkadotJsAdapter implements WalletAdapter {
   private enabled = false;
   private provider: string | null = null;
   private connectionTimeout: NodeJS.Timeout | null = null;
+  private injectedWindow: Window & InjectedWindow;
+
+  constructor() {
+    this.injectedWindow = window as Window & InjectedWindow;
+  }
 
   /**
    * Attempts to enable the Polkadot.js wallet extension.
@@ -225,32 +230,45 @@ export class PolkadotJsAdapter implements WalletAdapter {
   }
 
   /**
-   * Disconnects the wallet adapter, resetting connection state and provider.
-   * Use this to clean up when switching wallets or logging out.
-   *
-   * @example
-   * adapter.disconnect();
+   * Disconnects from the wallet and cleans up resources.
+   * Due to limitations in the Polkadot.js extension API,
+   * this will only clear local state. The next connection attempt
+   * will require user approval.
    */
-  disconnect(): void {
+  public async disconnect(): Promise<void> {
+    // Clear local state
     this.enabled = false;
     this.provider = null;
     if (this.connectionTimeout) {
       clearTimeout(this.connectionTimeout);
       this.connectionTimeout = null;
     }
+
+    // Try to revoke permissions by re-enabling with a different app name
+    try {
+      // This will trigger the extension's permission dialog
+      await web3Enable('KeyPass Logout');
+      // Immediately disable again
+      this.enabled = false;
+    } catch (error) {
+      // Ignore errors during disconnect
+      console.debug('Error during wallet disconnect:', error);
+    }
   }
 
-  private validateAddress(address: string): void {
+  /**
+   * Validates a Polkadot address format.
+   * @param address - The address to validate
+   * @returns A promise that resolves to true if the address is valid, false otherwise
+   */
+  public async validateAddress(address: string): Promise<boolean> {
     try {
-      validatePolkadotAddress(address);
+      // Check if the address is a valid SS58 format
+      const isValid = isAddress(address);
+      return isValid;
     } catch (error) {
-      if (error instanceof AddressValidationError) {
-        // Create a new error with the correct code
-        const newError = new AddressValidationError(error.message);
-        newError.code = 'ADDRESS_VALIDATION_ERROR';
-        throw newError;
-      }
-      throw error;
+      console.error('Error validating address:', error);
+      return false;
     }
   }
 }
