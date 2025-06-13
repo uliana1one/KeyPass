@@ -114,7 +114,7 @@ export function WalletConnect({ onConnect, onError }: WalletConnectProps) {
       // Reset any existing wallet connection first
       await resetWallet();
 
-      if (!mountedRef.current) return; // Check again after async operation
+      if (!mountedRef.current) return;
 
       // Connect to wallet
       const wallet = await connectWallet();
@@ -142,9 +142,23 @@ export function WalletConnect({ onConnect, onError }: WalletConnectProps) {
 
       const error = err as Error;
       console.error('Wallet connection failed:', error.message);
+      
+      // Set error state first
       setError(error.message);
       onError?.(error);
-      await resetWallet();
+      
+      // Then reset wallet state without clearing error
+      if (walletInstance) {
+        try {
+          await walletInstance.disconnect();
+        } catch (disconnectError) {
+          console.error('Error during wallet disconnect:', disconnectError);
+        }
+        if (mountedRef.current) {
+          setWalletInstance(null);
+          setAccount(null);
+        }
+      }
     } finally {
       if (mountedRef.current) {
         setIsConnecting(false);
