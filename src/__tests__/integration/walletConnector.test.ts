@@ -81,6 +81,7 @@ class MockAdapter implements WalletAdapter {
     if (!this.shouldEnable) {
       throw new Error('Wallet not available');
     }
+    return ['0x123'];
   });
 
   public getAccounts = jest.fn().mockResolvedValue([

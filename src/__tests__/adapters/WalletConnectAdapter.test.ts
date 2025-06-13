@@ -34,11 +34,14 @@ jest.mock('@polkadot/util-crypto', () => ({
 jest.mock('@walletconnect/web3-provider', () => {
   return {
     WalletConnectProvider: jest.fn().mockImplementation(() => ({
-      enable: jest.fn(),
-      getAccounts: jest.fn(),
-      signMessage: jest.fn(),
-      getSession: jest.fn(),
-      disconnect: jest.fn(),
+      enable: jest.fn().mockImplementation(() => Promise.resolve<string[]>(['0x123'])),
+      getAccounts: jest.fn().mockResolvedValue([]),
+      signMessage: jest.fn().mockResolvedValue('0x1234'),
+      getSession: jest.fn().mockResolvedValue({
+        chainId: 'polkadot',
+        accounts: ['0x123'],
+      }),
+      disconnect: jest.fn().mockResolvedValue(undefined),
       on: jest.fn(),
       off: jest.fn(),
     })),
@@ -309,6 +312,42 @@ describe('WalletConnectAdapter', () => {
         disconnectHandler();
         expect(mockCallback).not.toHaveBeenCalled();
       }
+    });
+  });
+
+  describe('enable()', () => {
+    let resolveEnable: (value: string[]) => void;
+
+    beforeEach(() => {
+      // Update mock implementation to use string[]
+      mockProvider.enable.mockImplementation(
+        () =>
+          new Promise<string[]>((resolve) => {
+            resolveEnable = resolve;
+          })
+      );
+    });
+
+    test('should handle enable timeout', async () => {
+      mockProvider.enable.mockImplementation(() => new Promise<string[]>(() => {}));
+      await expect(adapter.enable()).rejects.toThrow(TimeoutError);
+    });
+
+    test('should handle enable rejection', async () => {
+      mockProvider.enable.mockRejectedValue(new Error('User rejected'));
+      await expect(adapter.enable()).rejects.toThrow(UserRejectedError);
+    });
+
+    test('should handle successful enable', async () => {
+      mockProvider.enable.mockResolvedValue(['0x123']);
+      await expect(adapter.enable()).resolves.not.toThrow();
+    });
+
+    test('should handle empty accounts', async () => {
+      mockProvider.enable.mockResolvedValue(['0x123']);
+      mockProvider.getAccounts.mockResolvedValue([]);
+      await adapter.enable();
+      await expect(adapter.getAccounts()).rejects.toThrow(WalletConnectionError);
     });
   });
 });

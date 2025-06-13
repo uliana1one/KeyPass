@@ -27,12 +27,21 @@ const TEST_ADDRESS = '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty';
 jest.mock('@walletconnect/web3-provider', () => {
   return {
     WalletConnectProvider: jest.fn().mockImplementation(() => ({
-      enable: jest.fn(),
-      getAccounts: jest.fn(),
-      signMessage: jest.fn(),
-      getSession: jest.fn(),
-      disconnect: jest.fn(),
+      enable: jest.fn().mockImplementation(() => Promise.resolve<string[]>(['0x123'])),
+      getAccounts: jest.fn().mockResolvedValue([{
+        address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+        chainId: 'polkadot',
+        walletId: 'test-wallet',
+        walletName: 'Test Wallet',
+      }]),
+      signMessage: jest.fn().mockResolvedValue('0x1234'),
+      getSession: jest.fn().mockResolvedValue({
+        chainId: 'polkadot',
+        accounts: ['0x123'],
+      }),
+      disconnect: jest.fn().mockResolvedValue(undefined),
       on: jest.fn(),
+      off: jest.fn(),
     })),
   };
 });
@@ -301,7 +310,7 @@ describe('WalletConnectAdapter', () => {
     test('should handle successful connection', async () => {
       mockProvider.getSession.mockResolvedValue({
         chainId: 'polkadot',
-        accounts: ['5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty'],
+        accounts: [TEST_ADDRESS],
       });
 
       await adapter.enable();
@@ -314,16 +323,15 @@ describe('WalletConnectAdapter', () => {
     });
 
     test('should handle timeout', async () => {
-      mockProvider.enable.mockImplementation(() => new Promise(() => {})); // Never resolves
+      mockProvider.enable.mockImplementation(() => new Promise<string[]>(() => {}));
       await expect(adapter.enable()).rejects.toThrow(TimeoutError);
-    }, 15000); // Set timeout for this specific test to 15 seconds
+    }, 15000);
 
     test('should cleanup timeout state on successful connection', async () => {
-      // Mock a delayed successful connection
-      let resolveEnable: (value: void | PromiseLike<void>) => void;
+      let resolveEnable: (value: string[]) => void;
       mockProvider.enable.mockImplementation(
         () =>
-          new Promise<void>((resolve) => {
+          new Promise<string[]>((resolve) => {
             resolveEnable = resolve;
           })
       );
@@ -336,7 +344,7 @@ describe('WalletConnectAdapter', () => {
       const enablePromise = adapter.enable();
 
       // Simulate successful connection after a delay
-      resolveEnable!();
+      resolveEnable!(['0x123']);
       await enablePromise;
 
       // Verify session is set and timeout is cleared
@@ -450,7 +458,7 @@ describe('WalletConnectAdapter', () => {
 
       if (disconnectHandler) {
         // Mock successful reconnection
-        mockProvider.enable.mockResolvedValueOnce(undefined);
+        mockProvider.enable.mockResolvedValue(['0x123']);
         await disconnectHandler();
         expect(mockProvider.enable).toHaveBeenCalled();
         expect(adapter.getSession()).not.toBeNull();
@@ -574,25 +582,23 @@ describe('WalletConnectAdapter', () => {
     });
 
     test('should handle enable timeout', async () => {
-      mockProvider.enable.mockImplementation(() => new Promise<string[]>((resolve) => {
-        // Never call resolve
-      }));
+      mockProvider.enable.mockImplementation(() => new Promise<string[]>(() => {}));
       await expect(adapter.enable()).rejects.toThrow(TimeoutError);
     });
 
     test('should handle enable rejection', async () => {
-      mockProvider.enable.mockImplementation(() => Promise.reject<string[]>(new Error('User rejected')));
+      mockProvider.enable.mockRejectedValue(new Error('User rejected'));
       await expect(adapter.enable()).rejects.toThrow(UserRejectedError);
     });
 
     test('should handle successful enable', async () => {
-      mockProvider.enable.mockImplementation(() => Promise.resolve<string[]>(['0x123']));
+      mockProvider.enable.mockResolvedValue(['0x123']);
       await expect(adapter.enable()).resolves.not.toThrow();
     });
 
     test('should handle empty accounts', async () => {
-      mockProvider.enable.mockImplementation(() => Promise.resolve<string[]>(['0x123']));
-      mockProvider.getAccounts.mockResolvedValueOnce([]);
+      mockProvider.enable.mockResolvedValue(['0x123']);
+      mockProvider.getAccounts.mockResolvedValue([]);
       await adapter.enable();
       await expect(adapter.getAccounts()).rejects.toThrow(WalletConnectionError);
     });
@@ -618,6 +624,9 @@ describe('WalletConnectAdapter', () => {
 
   describe('getAccounts()', () => {
     test('should throw when not enabled', async () => {
+      mockProvider.enable.mockImplementation(() => 
+        Promise.resolve<string[]>(['0x123'])
+      );
       await expect(adapter.getAccounts()).rejects.toThrow(WalletNotFoundError);
     });
 

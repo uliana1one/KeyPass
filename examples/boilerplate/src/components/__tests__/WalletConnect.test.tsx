@@ -16,15 +16,19 @@ interface MockWalletAdapter extends WalletAdapter {
 
 // Mock the wallet adapter
 const mockWalletAdapter = {
-  enable: jest.fn().mockResolvedValue(undefined),
-  getAccounts: jest.fn().mockResolvedValue([]),
-  signMessage: jest.fn().mockResolvedValue(''),
+  enable: jest.fn().mockResolvedValue(['0x123']),
+  getAccounts: jest.fn().mockResolvedValue([{
+    address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+    name: 'Test Account',
+    source: 'polkadot-js'
+  }]),
+  signMessage: jest.fn().mockResolvedValue('0x1234'),
   getProvider: jest.fn().mockReturnValue('polkadot-js'),
   validateAddress: jest.fn().mockResolvedValue(true),
   disconnect: jest.fn().mockResolvedValue(undefined),
   on: jest.fn(),
   off: jest.fn(),
-} as unknown as jest.Mocked<MockWalletAdapter>;
+} as unknown as jest.Mocked<WalletAdapter>;
 
 describe('WalletConnect', () => {
   const mockOnConnect = jest.fn();
