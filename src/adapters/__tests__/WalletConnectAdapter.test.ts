@@ -14,7 +14,7 @@ import {
   AddressValidationError,
   ConfigurationError,
 } from '../../errors/WalletErrors';
-import { WalletConnectProvider } from '@walletconnect/web3-provider';
+import WalletConnectProvider from '@walletconnect/web3-provider';
 import { Session } from '@walletconnect/types';
 
 // Define types for mock callbacks
