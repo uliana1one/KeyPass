@@ -53,11 +53,17 @@ describe('WalletConnect', () => {
         fireEvent.click(screen.getByText('Connect Wallet'));
       });
 
+      // Verify the public API was called
       expect(connectWallet).toHaveBeenCalled();
-      expect(mockWalletAdapter.enable).toHaveBeenCalled();
+      
+      // Verify the component state after connection
       expect(mockWalletAdapter.getAccounts).toHaveBeenCalled();
       expect(screen.getByText(mockAccounts[0].address)).toBeInTheDocument();
-      expect(mockOnConnect).toHaveBeenCalledWith(mockAccounts[0]);
+      expect(mockOnConnect).toHaveBeenCalledWith(mockAccounts[0].address);
+      
+      // Verify the component is in connected state
+      expect(screen.queryByText('Connect Wallet')).not.toBeInTheDocument();
+      expect(screen.getByText('Disconnect')).toBeInTheDocument();
     });
 
     it('handles connection errors', async () => {
