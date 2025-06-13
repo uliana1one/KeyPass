@@ -74,30 +74,33 @@ const TEST_ADDRESS = '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty';
 
 // Mock WalletConnect provider
 jest.mock('@walletconnect/web3-provider', () => {
+  const mockProvider = {
+    enable: jest.fn().mockImplementation(() => Promise.resolve<string[]>(['0x123'])),
+    getAccounts: jest.fn().mockResolvedValue([{
+      address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+      chainId: 'polkadot',
+      walletId: 'test-wallet',
+      walletName: 'Test Wallet',
+    }]),
+    signMessage: jest.fn().mockResolvedValue('0x1234'),
+    getSession: jest.fn().mockResolvedValue({
+      chainId: 'polkadot',
+      accounts: ['0x123'],
+    }),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+    on: jest.fn(),
+    off: jest.fn(),
+  };
+
   return {
-    WalletConnectProvider: jest.fn().mockImplementation(() => ({
-      enable: jest.fn().mockImplementation(() => Promise.resolve<string[]>(['0x123'])),
-      getAccounts: jest.fn().mockResolvedValue([{
-        address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-        chainId: 'polkadot',
-        walletId: 'test-wallet',
-        walletName: 'Test Wallet',
-      }]),
-      signMessage: jest.fn().mockResolvedValue('0x1234'),
-      getSession: jest.fn().mockResolvedValue({
-        chainId: 'polkadot',
-        accounts: ['0x123'],
-      }),
-      disconnect: jest.fn().mockResolvedValue(undefined),
-      on: jest.fn(),
-      off: jest.fn(),
-    })),
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => mockProvider),
   };
 });
 
 describe('WalletConnectAdapter', () => {
   let adapter: WalletConnectAdapter;
-  let mockProvider: jest.Mocked<WalletConnectProvider>;
+  let mockProvider: jest.Mocked<InstanceType<typeof WalletConnectProvider>>;
   const mockConfig: WalletConnectConfig = {
     infuraId: 'test-infura-id',
     rpc: {
