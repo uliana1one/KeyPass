@@ -22,6 +22,8 @@ const mockWalletAdapter = {
   getProvider: jest.fn().mockReturnValue('polkadot-js'),
   validateAddress: jest.fn().mockResolvedValue(true),
   disconnect: jest.fn().mockResolvedValue(undefined),
+  on: jest.fn(),
+  off: jest.fn(),
 } as unknown as jest.Mocked<MockWalletAdapter>;
 
 describe('WalletConnect', () => {

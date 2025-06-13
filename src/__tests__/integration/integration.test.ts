@@ -7,6 +7,7 @@ import { VerificationService, ERROR_CODES } from '../../server/verificationServi
 import { WalletAdapter } from '../../adapters/types';
 import { PolkadotDIDProvider } from '../../did/UUIDProvider';
 import { VerificationResponse } from '../../server/types';
+import { MockedWalletAdapter } from '../types';
 
 // Mock the walletConnector module
 jest.mock('../../walletConnector', () => ({
@@ -91,7 +92,7 @@ jest.mock('../../did/UUIDProvider', () => {
 });
 
 describe('Authentication Integration Tests', () => {
-  let mockAdapter: jest.Mocked<WalletAdapter>;
+  let mockAdapter: MockedWalletAdapter;
   let verificationService: jest.Mocked<VerificationService>;
   let mockCreateDid: jest.Mock;
   let mockCreateDIDDocument: jest.Mock;
@@ -110,15 +111,19 @@ describe('Authentication Integration Tests', () => {
     // Setup mock adapter
     mockAdapter = {
       enable: jest.fn().mockResolvedValue(undefined),
-      getAccounts: jest.fn().mockImplementation(async () => [
+      getAccounts: jest.fn().mockResolvedValue([
         {
-          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
           name: 'Test Account',
-          source: 'polkadot-js',
+          source: 'test',
         },
       ]),
-      signMessage: jest.fn().mockResolvedValue('0x' + '1'.repeat(128)),
-      getProvider: jest.fn().mockReturnValue('polkadot-js'),
+      signMessage: jest.fn().mockResolvedValue('0x1234'),
+      getProvider: jest.fn().mockReturnValue('test'),
+      disconnect: jest.fn().mockResolvedValue(undefined),
+      validateAddress: jest.fn().mockResolvedValue(true),
+      on: jest.fn(),
+      off: jest.fn(),
     };
 
     // Get the mock instance

@@ -71,45 +71,32 @@ import {
 
 // Create mock adapter implementations
 class MockAdapter implements WalletAdapter {
-  enabled = false;
-  provider: any = null;
-  connectionTimeout = 15000;
+  private shouldEnable: boolean;
 
-  constructor(private shouldEnable: boolean) {}
+  constructor(shouldEnable: boolean = true) {
+    this.shouldEnable = shouldEnable;
+  }
 
-  async enable(): Promise<void> {
+  public enable = jest.fn().mockImplementation(async () => {
     if (!this.shouldEnable) {
       throw new Error('Wallet not available');
     }
-    this.enabled = true;
-  }
+  });
 
-  async getAccounts(): Promise<WalletAccount[]> {
-    return [];
-  }
+  public getAccounts = jest.fn().mockResolvedValue([
+    {
+      address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+      name: 'Test Account',
+      source: 'test',
+    },
+  ]);
 
-  async signMessage(): Promise<string> {
-    throw new Error('Not implemented');
-  }
-
-  getProvider(): string | null {
-    return this.provider;
-  }
-
-  disconnect(): void {
-    this.enabled = false;
-    this.provider = null;
-  }
-
-  async validateAddress(address: string): Promise<boolean> {
-    return true;
-  }
-
-  async enableProvider(): Promise<void> {
-    if (!this.shouldEnable) {
-      throw new Error('Provider not available');
-    }
-  }
+  public signMessage = jest.fn().mockResolvedValue('0x1234');
+  public getProvider = jest.fn().mockReturnValue('test');
+  public disconnect = jest.fn().mockResolvedValue(undefined);
+  public validateAddress = jest.fn().mockResolvedValue(true);
+  public on = jest.fn();
+  public off = jest.fn();
 }
 
 // Mock process.env

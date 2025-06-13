@@ -23,18 +23,34 @@ import {
 
 // Add type declarations for WalletConnect
 declare module '@walletconnect/web3-provider' {
+  export interface IWalletConnectProviderOptions {
+    infuraId?: string;
+    rpc?: { [chainId: number]: string };
+    chainId: number;
+    qrcodeModal?: {
+      open(uri: string, cb: any, opts?: any): void;
+      close(): void;
+    };
+    bridge?: string;
+    qrcodeModalOptions?: {
+      mobileLinks?: string[];
+    };
+    storageId?: string;
+    storage?: {
+      getItem(key: string): string | null;
+      setItem(key: string, value: string): void;
+      removeItem(key: string): void;
+    };
+    clientMeta?: {
+      name: string;
+      description: string;
+      url: string;
+      icons: string[];
+    };
+  }
+
   export class WalletConnectProvider {
-    constructor(opts: {
-      projectId: string;
-      metadata: {
-        name: string;
-        description: string;
-        url: string;
-        icons: string[];
-      };
-      relayUrl?: string;
-      chainId?: string;
-    });
+    constructor(opts: IWalletConnectProviderOptions);
     enable(): Promise<void>;
     getAccounts(): Promise<WalletConnectAccount[]>;
     signMessage(params: { message: string; chainId: string }): Promise<string>;
@@ -64,17 +80,38 @@ interface WalletConnectAccount {
 // Define event handler type
 type EventHandler = (...args: any[]) => void;
 
+// Add chain ID mapping
+const CHAIN_ID_MAP: { [key: string]: number } = {
+  'polkadot': 0,  // Polkadot mainnet
+  'kusama': 2,    // Kusama
+  'westend': 7,   // Westend testnet
+  'rococo': 42,   // Rococo testnet
+};
+
+// Helper function to get chain ID
+function getChainId(chainName: string): number {
+  const chainId = CHAIN_ID_MAP[chainName.toLowerCase()];
+  if (chainId === undefined) {
+    throw new ConfigurationError(`Unsupported chain: ${chainName}`);
+  }
+  return chainId;
+}
+
 export interface WalletConnectConfig {
-  projectId: string; // WalletConnect project ID
+  infuraId?: string;  // Optional Infura project ID
+  rpc?: { [chainId: number]: string };  // Optional RPC endpoints
   metadata: {
     name: string;
     description: string;
     url: string;
     icons: string[];
   };
-  relayUrl?: string; // Optional custom relay URL
-  chainId?: string; // Default chain ID
-  sessionTimeout?: number; // Session timeout in milliseconds
+  relayUrl?: string;  // Optional custom relay URL (bridge)
+  chainId?: string;  // Chain name (e.g., 'polkadot', 'kusama')
+  sessionTimeout?: number;  // Session timeout in milliseconds
+  qrcodeModalOptions?: {
+    mobileLinks?: string[];
+  };
 }
 
 /**
@@ -93,8 +130,8 @@ export class WalletConnectAdapter implements WalletAdapter {
   private connectionTimeout: NodeJS.Timeout | null = null;
 
   constructor(config: WalletConnectConfig) {
-    if (!config.projectId) {
-      throw new ConfigurationError('WalletConnect project ID is required');
+    if (!config.infuraId && !config.rpc) {
+      throw new ConfigurationError('Either infuraId or rpc endpoints must be provided');
     }
 
     this.config = {
@@ -108,11 +145,15 @@ export class WalletConnectAdapter implements WalletAdapter {
 
   private initializeProvider(): void {
     try {
+      const chainId = this.config.chainId ? getChainId(this.config.chainId) : getChainId('polkadot');
+      
       this.provider = new WalletConnectProvider({
-        projectId: this.config.projectId,
-        metadata: this.config.metadata,
-        relayUrl: this.config.relayUrl,
-        chainId: this.config.chainId || 'polkadot',
+        chainId,
+        clientMeta: this.config.metadata,
+        bridge: this.config.relayUrl,
+        infuraId: this.config.infuraId,
+        rpc: this.config.rpc,
+        qrcodeModalOptions: this.config.qrcodeModalOptions,
       });
 
       this.setupEventListeners();
@@ -430,12 +471,13 @@ export class WalletConnectAdapter implements WalletAdapter {
    * Validates a Polkadot address format.
    *
    * @param address - The address to validate
+   * @returns Promise resolving to true if address is valid
    * @throws {AddressValidationError} If the address is invalid
-   * @private
    */
-  private validateAddress(address: string): void {
+  public async validateAddress(address: string): Promise<boolean> {
     try {
       validatePolkadotAddress(address);
+      return true;
     } catch (error) {
       throw new AddressValidationError('Invalid Polkadot address format');
     }

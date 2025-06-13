@@ -20,6 +20,7 @@ import {
   MessageValidationError,
   AddressValidationError,
 } from '../errors/WalletErrors';
+import { EventEmitter } from 'events';
 
 const POLKADOT_EXTENSION_NAME = 'polkadot-js';
 
@@ -33,9 +34,11 @@ export class PolkadotJsAdapter implements WalletAdapter {
   private provider: string | null = null;
   private connectionTimeout: NodeJS.Timeout | null = null;
   private injectedWindow: Window & InjectedWindow;
+  private eventEmitter: EventEmitter;
 
   constructor() {
     this.injectedWindow = window as Window & InjectedWindow;
+    this.eventEmitter = new EventEmitter();
   }
 
   /**
@@ -270,5 +273,23 @@ export class PolkadotJsAdapter implements WalletAdapter {
       console.error('Error validating address:', error);
       return false;
     }
+  }
+
+  /**
+   * Registers an event listener for wallet events.
+   * @param event - The event name to listen for
+   * @param callback - The callback function to handle the event
+   */
+  public on(event: string, callback: (data: any) => void): void {
+    this.eventEmitter.on(event, callback);
+  }
+
+  /**
+   * Removes an event listener for wallet events.
+   * @param event - The event name to remove listener from
+   * @param callback - The callback function to remove
+   */
+  public off(event: string, callback: (data: any) => void): void {
+    this.eventEmitter.off(event, callback);
   }
 }

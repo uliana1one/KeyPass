@@ -61,6 +61,20 @@ export interface WalletAdapter {
    * @throws {AddressValidationError} If the address is invalid
    */
   validateAddress(address: string): Promise<boolean>;
+
+  /**
+   * Registers an event listener for wallet events.
+   * @param event - The event name to listen for
+   * @param callback - The callback function to handle the event
+   */
+  on(event: string, callback: (data: any) => void): void;
+
+  /**
+   * Removes an event listener for wallet events.
+   * @param event - The event name to remove listener from
+   * @param callback - The callback function to remove
+   */
+  off(event: string, callback: (data: any) => void): void;
 }
 
 export interface WalletAdapterConstructor {

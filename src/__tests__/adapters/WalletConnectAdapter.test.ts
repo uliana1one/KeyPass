@@ -40,6 +40,7 @@ jest.mock('@walletconnect/web3-provider', () => {
       getSession: jest.fn(),
       disconnect: jest.fn(),
       on: jest.fn(),
+      off: jest.fn(),
     })),
   };
 });
@@ -48,7 +49,11 @@ describe('WalletConnectAdapter', () => {
   let adapter: WalletConnectAdapter;
   let mockProvider: jest.Mocked<WalletConnectProvider>;
   const mockConfig: WalletConnectConfig = {
-    projectId: 'test-project-id',
+    infuraId: 'test-infura-id',
+    rpc: {
+      0: 'wss://rpc.polkadot.io',
+      2: 'wss://kusama-rpc.polkadot.io',
+    },
     metadata: {
       name: 'Test App',
       description: 'Test Description',
@@ -67,26 +72,28 @@ describe('WalletConnectAdapter', () => {
     test('should initialize with valid config', () => {
       expect(adapter).toBeDefined();
       expect(WalletConnectProvider).toHaveBeenCalledWith({
-        projectId: mockConfig.projectId,
-        metadata: mockConfig.metadata,
-        chainId: 'polkadot',
+        infuraId: mockConfig.infuraId,
+        rpc: mockConfig.rpc,
+        chainId: 0, // Polkadot mainnet
+        clientMeta: mockConfig.metadata,
       });
     });
 
-    test('should throw with invalid project ID', () => {
+    test('should throw with invalid infura ID', () => {
       expect(
         () =>
           new WalletConnectAdapter({
             ...mockConfig,
-            projectId: '',
+            infuraId: '',
+            rpc: undefined,
           })
-      ).toThrow('WalletConnect project ID is required');
+      ).toThrow('Either infuraId or rpc endpoints must be provided');
     });
 
     test('should set default chain ID if not provided', () => {
       expect(WalletConnectProvider).toHaveBeenCalledWith(
         expect.objectContaining({
-          chainId: 'polkadot',
+          chainId: 0, // Polkadot mainnet
         })
       );
     });

@@ -20,6 +20,7 @@ import {
   MessageValidationError,
   AddressValidationError,
 } from '../errors/WalletErrors';
+import { EventEmitter } from 'events';
 
 const TALISMAN_EXTENSION_NAME = 'talisman';
 const WALLET_CONNECT_NAME = 'wallet-connect';
@@ -49,9 +50,11 @@ export class TalismanAdapter implements WalletAdapter {
   private provider: string | null = null;
   private connectionTimeout: NodeJS.Timeout | null = null;
   private injectedWindow: Window & InjectedWindow;
+  private eventEmitter: EventEmitter;
 
   constructor() {
     this.injectedWindow = window as Window & InjectedWindow;
+    this.eventEmitter = new EventEmitter();
   }
 
   /**
@@ -322,17 +325,33 @@ export class TalismanAdapter implements WalletAdapter {
    * Validates a Polkadot address format.
    *
    * @param address - The address to validate
+   * @returns Promise resolving to true if address is valid
    * @throws {AddressValidationError} If the address is invalid
-   * @private
    */
-  private validateAddress(address: string): void {
+  public async validateAddress(address: string): Promise<boolean> {
     try {
       validatePolkadotAddress(address);
+      return true;
     } catch (error) {
-      if (error instanceof AddressValidationError) {
-        throw new AddressValidationError('Invalid Polkadot address');
-      }
-      throw error;
+      throw new AddressValidationError('Invalid Polkadot address format');
     }
+  }
+
+  /**
+   * Registers an event listener for wallet events.
+   * @param event - The event name to listen for
+   * @param callback - The callback function to handle the event
+   */
+  public on(event: string, callback: (data: any) => void): void {
+    this.eventEmitter.on(event, callback);
+  }
+
+  /**
+   * Removes an event listener for wallet events.
+   * @param event - The event name to remove listener from
+   * @param callback - The callback function to remove
+   */
+  public off(event: string, callback: (data: any) => void): void {
+    this.eventEmitter.off(event, callback);
   }
 }

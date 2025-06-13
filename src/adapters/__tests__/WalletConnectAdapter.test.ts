@@ -41,7 +41,11 @@ describe('WalletConnectAdapter', () => {
   let adapter: WalletConnectAdapter;
   let mockProvider: jest.Mocked<WalletConnectProvider>;
   const mockConfig: WalletConnectConfig = {
-    projectId: 'test-project-id',
+    infuraId: 'test-infura-id',
+    rpc: {
+      0: 'wss://rpc.polkadot.io',
+      2: 'wss://kusama-rpc.polkadot.io',
+    },
     metadata: {
       name: 'Test App',
       description: 'Test Description',
@@ -60,26 +64,28 @@ describe('WalletConnectAdapter', () => {
     test('should initialize with valid config', () => {
       expect(adapter).toBeDefined();
       expect(WalletConnectProvider).toHaveBeenCalledWith({
-        projectId: mockConfig.projectId,
-        metadata: mockConfig.metadata,
-        chainId: 'polkadot',
+        infuraId: mockConfig.infuraId,
+        rpc: mockConfig.rpc,
+        chainId: 0, // Polkadot mainnet
+        clientMeta: mockConfig.metadata,
       });
     });
 
-    test('should throw with invalid project ID', () => {
+    test('should throw with invalid config', () => {
       expect(
         () =>
           new WalletConnectAdapter({
             ...mockConfig,
-            projectId: '',
+            infuraId: '',
+            rpc: undefined,
           })
-      ).toThrow('WalletConnect project ID is required');
+      ).toThrow('Either infuraId or rpc endpoints must be provided');
     });
 
     test('should set default chain ID if not provided', () => {
       expect(WalletConnectProvider).toHaveBeenCalledWith(
         expect.objectContaining({
-          chainId: 'polkadot',
+          chainId: 0, // Polkadot mainnet
         })
       );
     });
@@ -552,6 +558,90 @@ describe('WalletConnectAdapter', () => {
 
       await adapter.enable();
       await expect(adapter.getAccounts()).rejects.toThrow(AddressValidationError);
+    });
+  });
+
+  describe('enable()', () => {
+    let resolveEnable: (value: string[]) => void;
+
+    beforeEach(() => {
+      mockProvider.enable.mockImplementation(
+        () =>
+          new Promise<string[]>((resolve) => {
+            resolveEnable = resolve;
+          })
+      );
+    });
+
+    test('should handle enable timeout', async () => {
+      mockProvider.enable.mockImplementation(() => new Promise<string[]>((resolve) => {
+        // Never call resolve
+      }));
+      await expect(adapter.enable()).rejects.toThrow(TimeoutError);
+    });
+
+    test('should handle enable rejection', async () => {
+      mockProvider.enable.mockImplementation(() => Promise.reject<string[]>(new Error('User rejected')));
+      await expect(adapter.enable()).rejects.toThrow(UserRejectedError);
+    });
+
+    test('should handle successful enable', async () => {
+      mockProvider.enable.mockImplementation(() => Promise.resolve<string[]>(['0x123']));
+      await expect(adapter.enable()).resolves.not.toThrow();
+    });
+
+    test('should handle empty accounts', async () => {
+      mockProvider.enable.mockImplementation(() => Promise.resolve<string[]>(['0x123']));
+      mockProvider.getAccounts.mockResolvedValueOnce([]);
+      await adapter.enable();
+      await expect(adapter.getAccounts()).rejects.toThrow(WalletConnectionError);
+    });
+  });
+
+  describe('Error Handling', () => {
+    test('should handle enable rejection', async () => {
+      mockProvider.enable.mockRejectedValueOnce(new Error('User rejected'));
+      await expect(adapter.enable()).rejects.toThrow(UserRejectedError);
+    });
+
+    test('should handle enable timeout', async () => {
+      mockProvider.enable.mockImplementation(() => new Promise<string[]>(() => {})); // Never resolves
+      await expect(adapter.enable()).rejects.toThrow(TimeoutError);
+    });
+
+    test('should handle empty accounts', async () => {
+      mockProvider.enable.mockResolvedValueOnce([]);
+      await adapter.enable();
+      await expect(adapter.getAccounts()).rejects.toThrow(WalletConnectionError);
+    });
+  });
+
+  describe('getAccounts()', () => {
+    test('should throw when not enabled', async () => {
+      await expect(adapter.getAccounts()).rejects.toThrow(WalletNotFoundError);
+    });
+
+    test('should return accounts when enabled', async () => {
+      mockProvider.enable.mockResolvedValueOnce(['0x123']); // Enable succeeds
+      mockProvider.getAccounts.mockResolvedValueOnce([
+        {
+          address: TEST_ADDRESS,
+          chainId: 'polkadot',
+          walletId: 'test-wallet',
+          walletName: 'Test Wallet',
+        },
+      ]);
+      await adapter.enable();
+      const accounts = await adapter.getAccounts();
+      expect(accounts).toHaveLength(1);
+      expect(accounts[0].address).toBe(TEST_ADDRESS);
+    });
+
+    test('should throw on empty accounts', async () => {
+      mockProvider.enable.mockResolvedValueOnce(['0x123']); // Enable succeeds
+      mockProvider.getAccounts.mockResolvedValueOnce([]); // But no accounts
+      await adapter.enable();
+      await expect(adapter.getAccounts()).rejects.toThrow(WalletConnectionError);
     });
   });
 });
