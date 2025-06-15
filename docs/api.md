@@ -8,26 +8,29 @@ This document provides a comprehensive reference for all public APIs in the KeyP
 
 ```typescript
 type EventHandler = (...args: any[]) => void;
+type ChainType = 'polkadot' | 'ethereum';
 
 interface WalletAccount {
   address: string;
   name?: string;
-  source: 'polkadot-js' | 'talisman' | 'walletconnect';
+  source: 'polkadot-js' | 'talisman' | 'walletconnect' | 'metamask' | 'ethereum';
 }
 
 interface LoginResult {
-  address: string;    // Polkadot address
+  address: string;    // Wallet address (Polkadot SS58 or Ethereum hex)
   signature: string;  // Message signature
   message: string;    // Signed message
   did: string;        // Generated DID
   issuedAt: string;   // ISO timestamp
   nonce: string;      // UUID nonce
+  chainType: ChainType; // Chain type for this login
 }
 
 interface VerificationRequest {
   message: string;    // The message that was signed
   signature: string;  // The signature in hex format (0x-prefixed)
-  address: string;    // The Polkadot address that signed the message
+  address: string;    // The wallet address that signed the message
+  chainType?: ChainType; // Optional explicit chain type
 }
 
 interface VerificationResponse {
@@ -35,6 +38,9 @@ interface VerificationResponse {
   message: string;    // Success or error message
   did?: string;       // The DID associated with the address (if valid)
   code: string;       // Error code for client handling
+  data?: {            // Additional response data
+    chainType: ChainType; // Detected or specified chain type
+  };
 }
 
 interface DIDDocument {
@@ -73,6 +79,14 @@ interface DIDResolver {
   extractAddress(did: string): Promise<string>;
 }
 
+interface EthereumDIDProvider extends DIDProvider, DIDResolver {
+  // Ethereum-specific DID operations using did:ethr method
+}
+
+interface PolkadotDIDProvider extends DIDProvider, DIDResolver {
+  // Polkadot-specific DID operations using did:key method
+}
+
 interface WalletAdapter {
   enable(): Promise<void>;
   getAccounts(): Promise<WalletAccount[]>;
@@ -102,13 +116,26 @@ interface WalletConnectConfig {
 ### `connectWallet`
 
 ```typescript
-function connectWallet(): Promise<WalletAdapter>
+function connectWallet(chainType?: ChainType): Promise<WalletAdapter>
 ```
 
-Main entry point for wallet connection. This function attempts to connect to available wallets in priority order:
+Main entry point for wallet connection. This function attempts to connect to available wallets based on the specified chain type or in priority order:
+
+**For Polkadot (`chainType: 'polkadot'`):**
 1. Polkadot.js extension
 2. Talisman wallet
 3. WalletConnect
+
+**For Ethereum (`chainType: 'ethereum'`):**
+1. MetaMask
+2. WalletConnect
+3. Other injected Ethereum providers
+
+**Auto-detection (no chainType specified):**
+Attempts connection in order of priority across all supported wallets.
+
+#### Parameters
+- `chainType` (optional): Specify 'polkadot' or 'ethereum' to connect to chain-specific wallets
 
 #### Returns
 Returns a `WalletAdapter` instance that implements the wallet connection interface.
@@ -125,13 +152,13 @@ Returns a `WalletAdapter` instance that implements the wallet connection interfa
 function loginWithPolkadot(retryCount?: number): Promise<LoginResult>
 ```
 
-Main entry point for wallet authentication. This function orchestrates the entire login flow:
-1. Connects to the wallet using `connectWallet()`
+Entry point for Polkadot wallet authentication. This function orchestrates the Polkadot login flow:
+1. Connects to a Polkadot wallet using `connectWallet('polkadot')`
 2. Gets the user's accounts
 3. Generates a login message with a nonce
-4. Signs the message
+4. Signs the message using SR25519
 5. Verifies the signature
-6. Creates a DID for the address
+6. Creates a Polkadot DID for the address
 
 #### Parameters
 - `retryCount` (optional): Number of retry attempts for network errors (default: 1)
@@ -139,31 +166,56 @@ Main entry point for wallet authentication. This function orchestrates the entir
 #### Returns
 ```typescript
 interface LoginResult {
-  address: string;    // Polkadot address
-  signature: string;  // Message signature
-  message: string;    // Signed message
-  did: string;        // Generated DID
-  issuedAt: string;   // ISO timestamp
-  nonce: string;      // UUID nonce
+  address: string;      // Polkadot SS58 address
+  signature: string;    // SR25519 signature
+  message: string;      // Signed message
+  did: string;          // Polkadot DID (did:key format)
+  issuedAt: string;     // ISO timestamp
+  nonce: string;        // UUID nonce
+  chainType: 'polkadot'; // Chain type
 }
 ```
 
-#### Throws
-- `WalletNotFoundError`: If no wallet is found
-- `UserRejectedError`: If the user rejects any wallet operation
-- `WalletConnectionError`: If wallet connection fails
-- `MessageValidationError`: If message validation fails
-- `InvalidSignatureError`: If signature verification fails
+### `loginWithEthereum`
+
+```typescript
+function loginWithEthereum(retryCount?: number): Promise<LoginResult>
+```
+
+Entry point for Ethereum wallet authentication. This function orchestrates the Ethereum login flow:
+1. Connects to an Ethereum wallet using `connectWallet('ethereum')`
+2. Gets the user's accounts
+3. Generates a login message with a nonce
+4. Signs the message using ECDSA (secp256k1)
+5. Verifies the signature
+6. Creates an Ethereum DID for the address
+
+#### Parameters
+- `retryCount` (optional): Number of retry attempts for network errors (default: 1)
+
+#### Returns
+```typescript
+interface LoginResult {
+  address: string;      // Ethereum hex address
+  signature: string;    // ECDSA signature
+  message: string;      // Signed message
+  did: string;          // Ethereum DID (did:ethr format)
+  issuedAt: string;     // ISO timestamp
+  nonce: string;        // UUID nonce
+  chainType: 'ethereum'; // Chain type
+}
+```
 
 #### Example
 ```typescript
 try {
-  const result = await loginWithPolkadot();
+  const result = await loginWithEthereum();
   console.log('Logged in as:', result.address);
   console.log('DID:', result.did);
+  console.log('Chain:', result.chainType); // 'ethereum'
 } catch (error) {
   if (error instanceof WalletNotFoundError) {
-    console.error('Please install a Polkadot wallet');
+    console.error('Please install MetaMask or another Ethereum wallet');
   }
 }
 ```
@@ -275,18 +327,19 @@ extractAddress(did: string): Promise<string>
 ```
 Extracts the Polkadot address from a DID. Throws an error if the address cannot be extracted.
 
-## Verification Service
+## Verification Services
 
-### `VerificationService`
+### `UnifiedVerificationService`
 
 ```typescript
-class VerificationService {
+class UnifiedVerificationService {
   constructor();
   
   verifySignature(request: VerificationRequest): Promise<VerificationResponse>;
-  rebuildMessage(address: string, nonce: string, issuedAt: string): Promise<string>;
 }
 ```
+
+The unified verification service that automatically detects chain type and routes to the appropriate verification method.
 
 #### Methods
 
@@ -294,13 +347,70 @@ class VerificationService {
 ```typescript
 verifySignature(request: VerificationRequest): Promise<VerificationResponse>
 ```
-Verifies a signature against a message and address. Returns a response with status and optional DID.
 
-##### `rebuildMessage`
+Verifies a signature against a message and address with automatic chain detection:
+
+- **Auto-detection**: Determines chain type from address format
+  - SS58 addresses (47-48 chars, base58): Routes to Polkadot verification
+  - Hex addresses (42 chars, 0x prefix): Routes to Ethereum verification
+- **Explicit chain type**: Use `chainType` parameter to override detection
+- **Unified response**: Returns consistent response format with chain metadata
+
+**Example:**
 ```typescript
-rebuildMessage(address: string, nonce: string, issuedAt: string): Promise<string>
+const service = new UnifiedVerificationService();
+
+// Auto-detection based on address format
+const result = await service.verifySignature({
+  message: "KeyPass Login\nIssued At: 2024-01-01T00:00:00.000Z\nNonce: abc123\nAddress: 0x742d35...",
+  signature: "0x1234...",
+  address: "0x742d35Cc6634C0532925a3b8D0e9C56A56b1c45b"
+});
+
+console.log(result.data.chainType); // 'ethereum'
 ```
-Rebuilds a login message using the template system.
+
+### `EthereumVerificationService`
+
+```typescript
+class EthereumVerificationService {
+  constructor();
+  
+  verifySignature(request: VerificationRequest): Promise<VerificationResponse>;
+  private verifyEthereumSignature(message: string, signature: string, address: string): boolean;
+  private validateEthereumAddress(address: string): boolean;
+  private validateSignatureFormat(signature: string): boolean;
+}
+```
+
+Specialized service for Ethereum signature verification using ECDSA.
+
+#### Methods
+
+##### `verifySignature`
+```typescript
+verifySignature(request: VerificationRequest): Promise<VerificationResponse>
+```
+
+Verifies Ethereum signatures with comprehensive validation:
+- **ECDSA Verification**: Uses ethers.js for cryptographic verification
+- **Address Validation**: Validates Ethereum address format (0x + 40 hex chars)
+- **Signature Validation**: Validates signature format (65 bytes/130 hex chars)
+- **Message Security**: 5-minute expiration, 256-character limit
+- **DID Creation**: Automatic Ethereum DID generation for verified addresses
+
+### `PolkadotVerificationService` (Legacy)
+
+```typescript
+class PolkadotVerificationService {
+  constructor();
+  
+  verifySignature(request: VerificationRequest): Promise<VerificationResponse>;
+  rebuildMessage(address: string, nonce: string, issuedAt: string): Promise<string>;
+}
+```
+
+Legacy Polkadot-specific verification service. **Recommended to use `UnifiedVerificationService` instead.**
 
 ## Error Types
 
@@ -371,14 +481,15 @@ const MAX_REQUEST_SIZE = '10kb'; // Maximum request body size
 
 ### POST /api/verify
 
-Verifies a Polkadot wallet signature and returns the associated DID.
+**Unified multi-chain signature verification endpoint** that automatically detects chain type and verifies signatures for both Polkadot and Ethereum.
 
 #### Request Body
 ```typescript
 {
-  message: string;    // The message that was signed
-  signature: string;  // The signature in hex format (0x-prefixed)
-  address: string;    // The Polkadot address that signed the message
+  message: string;      // The message that was signed
+  signature: string;    // The signature in hex format (0x-prefixed)
+  address: string;      // The wallet address that signed the message
+  chainType?: string;   // Optional: 'polkadot' | 'ethereum' (auto-detected if not provided)
 }
 ```
 
@@ -386,15 +497,67 @@ Verifies a Polkadot wallet signature and returns the associated DID.
 ```typescript
 {
   status: 'success' | 'error';
-  message: string;    // Success or error message
-  code: string;       // Error code if applicable
-  did?: string;       // The DID associated with the address (if valid)
+  message: string;      // Success or error message
+  code: string;         // Error code if applicable
+  did?: string;         // The DID associated with the address (if valid)
+  data?: {              // Additional response metadata
+    chainType: 'polkadot' | 'ethereum'; // Detected or specified chain type
+  };
 }
 ```
+
+#### Chain Detection
+
+The endpoint automatically detects the chain type based on address format:
+
+- **Polkadot**: SS58 addresses (47-48 characters, base58 encoded)
+  - Example: `5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY`
+  - Uses SR25519 signature verification
+  - Creates `did:key` format DIDs
+
+- **Ethereum**: Hex addresses (42 characters, 0x prefix)
+  - Example: `0x742d35Cc6634C0532925a3b8D0e9C56A56b1c45b`
+  - Uses ECDSA signature verification
+  - Creates `did:ethr` format DIDs
+
+#### Example Requests
+
+**Polkadot Verification:**
+```bash
+curl -X POST /api/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "KeyPass Login\nIssued At: 2024-01-01T00:00:00.000Z\nNonce: abc123\nAddress: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+    "signature": "0x1234...",
+    "address": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+  }'
+```
+
+**Ethereum Verification:**
+```bash
+curl -X POST /api/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "KeyPass Login\nIssued At: 2024-01-01T00:00:00.000Z\nNonce: abc123\nAddress: 0x742d35Cc6634C0532925a3b8D0e9C56A56b1c45b",
+    "signature": "0x5678...",
+    "address": "0x742d35Cc6634C0532925a3b8D0e9C56A56b1c45b"
+  }'
+```
+
+#### Security Features
+- **CORS Support**: Configurable cross-origin resource sharing
+- **Request Size Limits**: 10KB maximum request body size
+- **Rate Limiting Ready**: Built-in support for rate limiting middleware
+- **Security Headers**: Comprehensive security header implementation
+- **Input Validation**: Strict message and signature format validation
+- **Time-based Expiration**: 5-minute message expiration window
 
 #### Security Headers
 The server includes the following security headers:
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options: DENY`
 - `X-XSS-Protection: 1; mode=block`
-- `Strict-Transport-Security: max-age=31536000; includeSubDomains` 
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+- `Access-Control-Allow-Origin: *` (configurable)
+- `Access-Control-Allow-Methods: GET, POST, OPTIONS`
+- `Access-Control-Allow-Headers: Content-Type, Authorization` 

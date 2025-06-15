@@ -1,37 +1,36 @@
 /**
- * Request body for the verification endpoint.
+ * Request structure for signature verification
  */
 export interface VerificationRequest {
   /** The message that was signed */
   message: string;
-  /** The signature in hex format (0x-prefixed) */
+  /** The signature to verify */
   signature: string;
-  /** The Polkadot address that signed the message */
+  /** The address that allegedly signed the message */
   address: string;
+  /** Optional chain type for multi-chain support */
+  chainType?: 'polkadot' | 'ethereum';
 }
 
 /**
- * Response from the verification endpoint.
+ * Response structure for signature verification
  */
 export interface VerificationResponse {
-  /** Response status ('success' or 'error') */
+  /** Status of the verification */
   status: 'success' | 'error';
-  /** The message describing the result or error */
+  /** Human-readable message */
   message: string;
-  /** The DID associated with the address, if verification was successful */
-  did?: string;
-  /** Error code for client handling */
+  /** Error or success code */
   code: string;
+  /** DID created for successful verifications */
+  did?: string;
+  /** Additional data for successful verifications */
+  data?: Record<string, unknown>;
 }
 
 /**
- * Error response from the verification endpoint.
+ * Chain-specific verification service interface
  */
-export interface VerificationError {
-  /** Response status ('error') */
-  status: 'error';
-  /** Error message */
-  message: string;
-  /** Error code for client handling */
-  code: string;
+export interface VerificationService {
+  verifySignature(request: VerificationRequest): Promise<VerificationResponse>;
 }

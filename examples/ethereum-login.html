@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KeyPass Ethereum Login Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .wallet-button {
+            background: #f6851b;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            min-width: 200px;
+        }
+        .wallet-button:hover {
+            background: #e2761b;
+        }
+        .wallet-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .error {
+            background: #fee;
+            border-color: #fcc;
+            color: #c00;
+        }
+        .success {
+            background: #efe;
+            border-color: #cfc;
+            color: #060;
+        }
+    </style>
+</head>
+<body>
+    <h1>KeyPass Authentication Demo</h1>
+    <p>Choose your wallet to authenticate:</p>
+    
+    <div>
+        <button id="polkadot-btn" class="wallet-button">
+            🟣 Login with Polkadot
+        </button>
+        <button id="ethereum-btn" class="wallet-button">
+            🦊 Login with MetaMask
+        </button>
+    </div>
+
+    <div id="result" class="result" style="display: none;"></div>
+
+    <script type="module">
+        import { loginWithPolkadot, loginWithEthereum } from '../dist/index.js';
+
+        const polkadotBtn = document.getElementById('polkadot-btn');
+        const ethereumBtn = document.getElementById('ethereum-btn');
+        const resultDiv = document.getElementById('result');
+
+        function showResult(data, isError = false) {
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.textContent = isError ? data : JSON.stringify(data, null, 2);
+        }
+
+        function hideResult() {
+            resultDiv.style.display = 'none';
+        }
+
+        async function handlePolkadotLogin() {
+            hideResult();
+            polkadotBtn.disabled = true;
+            polkadotBtn.textContent = '🟣 Connecting...';
+
+            try {
+                const result = await loginWithPolkadot();
+                showResult(result);
+                console.log('Polkadot login successful:', result);
+            } catch (error) {
+                showResult(`Polkadot login failed: ${error.message}`, true);
+                console.error('Polkadot login error:', error);
+            } finally {
+                polkadotBtn.disabled = false;
+                polkadotBtn.textContent = '🟣 Login with Polkadot';
+            }
+        }
+
+        async function handleEthereumLogin() {
+            hideResult();
+            ethereumBtn.disabled = true;
+            ethereumBtn.textContent = '🦊 Connecting...';
+
+            try {
+                const result = await loginWithEthereum();
+                showResult(result);
+                console.log('Ethereum login successful:', result);
+            } catch (error) {
+                showResult(`Ethereum login failed: ${error.message}`, true);
+                console.error('Ethereum login error:', error);
+            } finally {
+                ethereumBtn.disabled = false;
+                ethereumBtn.textContent = '🦊 Login with MetaMask';
+            }
+        }
+
+        polkadotBtn.addEventListener('click', handlePolkadotLogin);
+        ethereumBtn.addEventListener('click', handleEthereumLogin);
+
+        // Check wallet availability
+        window.addEventListener('load', () => {
+            if (!window.ethereum) {
+                ethereumBtn.disabled = true;
+                ethereumBtn.textContent = '🦊 MetaMask Not Found';
+            }
+            
+            if (!window.injectedWeb3) {
+                polkadotBtn.disabled = true;
+                polkadotBtn.textContent = '🟣 Polkadot Wallet Not Found';
+            }
+        });
+    </script>
+</body>
+</html> 

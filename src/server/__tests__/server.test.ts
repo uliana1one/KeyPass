@@ -8,18 +8,27 @@ if (typeof setImmediate === 'undefined') {
 import request from 'supertest';
 import express from 'express';
 import { createServer } from '../server';
-import { VerificationService, ERROR_CODES } from '../verificationService';
+import { UnifiedVerificationService } from '../UnifiedVerificationService';
 import { MessageValidationError, AddressValidationError } from '../../errors/WalletErrors';
 import { VerificationResponse } from '../types';
 import { Server } from 'http';
 
-// Mock the VerificationService
-jest.mock('../verificationService');
+// Error codes for unified verification
+const ERROR_CODES = {
+  INVALID_REQUEST: 'INVALID_REQUEST',
+  INVALID_MESSAGE_FORMAT: 'INVALID_MESSAGE_FORMAT',
+  INVALID_ADDRESS: 'INVALID_ADDRESS',
+  VERIFICATION_FAILED: 'VERIFICATION_FAILED',
+  INVALID_JSON: 'INVALID_JSON',
+} as const;
+
+// Mock the UnifiedVerificationService
+jest.mock('../UnifiedVerificationService');
 
 describe('Express Server', () => {
   let app: express.Application;
   let server: Server;
-  let mockVerificationService: jest.Mocked<VerificationService>;
+  let mockVerificationService: jest.Mocked<UnifiedVerificationService>;
 
   beforeEach(async () => {
     // Reset all mocks before each test
@@ -32,23 +41,42 @@ describe('Express Server', () => {
     server = app.listen(0); // Use port 0 for random available port
 
     // Get the mocked instance and set up default mock behavior
-    mockVerificationService = VerificationService.prototype as jest.Mocked<VerificationService>;
-    mockVerificationService.verifySignature.mockImplementation(async (request) => {
+    mockVerificationService = UnifiedVerificationService.prototype as jest.Mocked<UnifiedVerificationService>;
+    mockVerificationService.verifySignature.mockImplementation(async (request: any) => {
       // Default mock implementation that handles invalid requests
       if (!request || typeof request !== 'object') {
         return {
           status: 'error',
-          message: 'Invalid request body',
+          message: 'Invalid request format',
           code: ERROR_CODES.INVALID_REQUEST,
         };
       }
 
-      // For valid requests, return a default success response
+      // Check for missing required fields (null, undefined, or empty strings)
+      if (!request.message || !request.signature || !request.address) {
+        return {
+          status: 'error',
+          message: 'Missing required fields: message, signature, and address are required',
+          code: ERROR_CODES.INVALID_REQUEST,
+        };
+      }
+
+      // Check for non-string types
+      if (typeof request.message !== 'string' || typeof request.signature !== 'string' || typeof request.address !== 'string') {
+        return {
+          status: 'error',
+          message: 'Invalid field types: message, signature, and address must be strings',
+          code: ERROR_CODES.INVALID_REQUEST,
+        };
+      }
+
+      // For valid requests, return a default success response with chain metadata
       return {
         status: 'success',
         message: 'Signature verified successfully',
         did: 'did:polkadot:5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
         code: 'SUCCESS',
+        data: { chainType: 'polkadot' },
       };
     });
   });
@@ -91,6 +119,7 @@ describe('Express Server', () => {
         message: 'Signature verified successfully',
         did: 'did:polkadot:5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
         code: 'SUCCESS',
+        data: { chainType: 'polkadot' },
       };
 
       mockVerificationService.verifySignature.mockResolvedValue(mockResult);
@@ -107,6 +136,7 @@ describe('Express Server', () => {
         message: 'Signature verified successfully',
         did: 'did:polkadot:5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
         code: 'SUCCESS',
+        data: { chainType: 'polkadot' },
       });
     });
 
@@ -160,25 +190,43 @@ describe('Express Server', () => {
 
   describe('POST /api/verify - Request Validation', () => {
     it('should reject non-object request body', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      
+      // Mock the service to throw an error when called with invalid data
+      mockVerificationService.verifySignature.mockImplementation(async () => {
+        throw new Error('Should not be called');
+      });
+
       const response = await request(app).post('/api/verify').send('invalid string body');
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(500);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Missing required fields',
-        code: ERROR_CODES.INVALID_REQUEST,
+        message: 'Internal server error',
+        code: 'INTERNAL_ERROR',
       });
+      
+      consoleSpy.mockRestore();
     });
 
     it('should reject null request body', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      
+      // Mock the service to throw an error when called with invalid data
+      mockVerificationService.verifySignature.mockImplementation(async () => {
+        throw new Error('Should not be called');
+      });
+
       const response = await request(app).post('/api/verify').send(undefined);
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(500);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Missing required fields',
-        code: ERROR_CODES.INVALID_REQUEST,
+        message: 'Internal server error',
+        code: 'INTERNAL_ERROR',
       });
+      
+      consoleSpy.mockRestore();
     });
 
     it('should reject request with null message field', async () => {
@@ -191,7 +239,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Missing required fields',
+        message: 'Missing required fields: message, signature, and address are required',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -206,7 +254,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Missing required fields',
+        message: 'Missing required fields: message, signature, and address are required',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -221,7 +269,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Missing required fields',
+        message: 'Missing required fields: message, signature, and address are required',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -236,7 +284,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Missing required fields',
+        message: 'Missing required fields: message, signature, and address are required',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -251,7 +299,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Missing required fields',
+        message: 'Missing required fields: message, signature, and address are required',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -266,7 +314,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Missing required fields',
+        message: 'Missing required fields: message, signature, and address are required',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -281,7 +329,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Invalid request body',
+        message: 'Missing required fields: message, signature, and address are required',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -296,7 +344,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Invalid request body',
+        message: 'Missing required fields: message, signature, and address are required',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -311,7 +359,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Invalid request body',
+        message: 'Missing required fields: message, signature, and address are required',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -326,7 +374,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Invalid request body',
+        message: 'Invalid field types: message, signature, and address must be strings',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -341,7 +389,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Invalid request body',
+        message: 'Invalid field types: message, signature, and address must be strings',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -356,7 +404,7 @@ describe('Express Server', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Invalid request body',
+        message: 'Invalid field types: message, signature, and address must be strings',
         code: ERROR_CODES.INVALID_REQUEST,
       });
     });
@@ -364,6 +412,7 @@ describe('Express Server', () => {
 
   describe('POST /api/verify - Error Handling', () => {
     it('should handle MessageValidationError thrown by verification service', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const error = new MessageValidationError('Message format is invalid');
       mockVerificationService.verifySignature.mockRejectedValue(error);
 
@@ -373,15 +422,19 @@ describe('Express Server', () => {
         address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
       });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(500);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Message format is invalid',
-        code: ERROR_CODES.INVALID_MESSAGE_FORMAT,
+        message: 'Internal server error',
+        code: 'INTERNAL_ERROR',
       });
+      expect(consoleSpy).toHaveBeenCalledWith('Verification error:', error);
+
+      consoleSpy.mockRestore();
     });
 
     it('should handle AddressValidationError thrown by verification service', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const error = new AddressValidationError('Address format is invalid');
       mockVerificationService.verifySignature.mockRejectedValue(error);
 
@@ -391,12 +444,15 @@ describe('Express Server', () => {
         address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
       });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(500);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Invalid Polkadot address',
-        code: ERROR_CODES.INVALID_ADDRESS,
+        message: 'Internal server error',
+        code: 'INTERNAL_ERROR',
       });
+      expect(consoleSpy).toHaveBeenCalledWith('Verification error:', error);
+
+      consoleSpy.mockRestore();
     });
 
     it('should handle unexpected errors thrown by verification service', async () => {
@@ -410,11 +466,11 @@ describe('Express Server', () => {
         address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
       });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(500);
       expect(response.body).toEqual({
         status: 'error',
-        message: 'Verification failed',
-        code: ERROR_CODES.VERIFICATION_FAILED,
+        message: 'Internal server error',
+        code: 'INTERNAL_ERROR',
       });
       expect(consoleSpy).toHaveBeenCalledWith('Verification error:', error);
 

@@ -7,6 +7,11 @@ import { WalletConnectionError } from './errors/WalletErrors';
 import { PolkadotDIDProvider } from './did/UUIDProvider';
 import { WalletAccount } from './adapters/types';
 import { VerificationService } from './server/verificationService';
+import { PolkadotJsAdapter } from './adapters/PolkadotJsAdapter';
+import { TalismanAdapter } from './adapters/TalismanAdapter';
+import { WalletConnectAdapter } from './adapters/WalletConnectAdapter';
+import { EthereumAdapter } from './adapters/EthereumAdapter';
+import { EthereumDIDProvider } from './did/EthereumDIDProvider';
 
 // Re-export connectWallet
 export { connectWallet };
@@ -123,4 +128,58 @@ export async function loginWithPolkadot(retryCount = 1): Promise<LoginResult> {
 
   // This should never happen due to the throw in the loop, but TypeScript needs it
   throw lastError || new Error('Login failed');
+}
+
+/**
+ * Authenticates a user with their Ethereum wallet (MetaMask, etc.)
+ * @returns Promise resolving to authentication data including address, signature, and DID
+ */
+export async function loginWithEthereum(): Promise<LoginResult> {
+  const adapter = new EthereumAdapter();
+  const didProvider = new EthereumDIDProvider();
+
+  try {
+    // Enable wallet connection
+    await adapter.enable();
+
+    // Get accounts
+    const accounts = await adapter.getAccounts();
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No accounts found');
+    }
+
+    const account = accounts[0];
+    
+    // Set the current address for signing
+    adapter.setCurrentAddress(account.address);
+
+    // Generate login message data
+    const issuedAt = new Date().toISOString();
+    const nonce = uuidv4();
+
+    // Build the message
+    const message = await buildLoginMessage({
+      template: messageFormat.template,
+      issuedAt,
+      nonce,
+      address: account.address,
+    });
+
+    // Sign the message
+    const signature = await adapter.signMessage(message);
+
+    // Create DID
+    const did = await didProvider.createDid(account.address);
+
+    return {
+      address: account.address,
+      signature,
+      message,
+      did,
+      issuedAt,
+      nonce,
+    };
+  } finally {
+    await adapter.disconnect();
+  }
 }

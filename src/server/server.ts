@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { VerificationService, ERROR_CODES } from './verificationService';
+import { UnifiedVerificationService } from './UnifiedVerificationService';
 import { VerificationRequest } from './types';
 import { MessageValidationError, AddressValidationError } from '../errors/WalletErrors';
 
@@ -7,17 +7,39 @@ import { MessageValidationError, AddressValidationError } from '../errors/Wallet
 const MAX_REQUEST_SIZE = '10kb'; // Maximum request body size
 const MAX_MESSAGE_LENGTH = 256; // Maximum message length
 
+// Error codes for unified verification
+const ERROR_CODES = {
+  INVALID_REQUEST: 'INVALID_REQUEST',
+  INVALID_MESSAGE_FORMAT: 'INVALID_MESSAGE_FORMAT',
+  INVALID_ADDRESS: 'INVALID_ADDRESS',
+  VERIFICATION_FAILED: 'VERIFICATION_FAILED',
+  INVALID_JSON: 'INVALID_JSON',
+} as const;
+
 /**
  * Creates and configures an Express server with the verification endpoint.
  * @returns The configured Express application
  */
 export function createServer(): express.Application {
   const app = express();
-  const verificationService = new VerificationService();
+  const verificationService = new UnifiedVerificationService();
 
   // Add root endpoint for health checks
   app.get('/', (_req: Request, res: Response) => {
     res.status(200).send('OK');
+  });
+
+  // CORS middleware
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+    
+    next();
   });
 
   // Security middleware
@@ -56,46 +78,8 @@ export function createServer(): express.Application {
     try {
       const request = req.body as VerificationRequest;
 
-      // First check if request is a valid object
+      // Basic validation - let UnifiedVerificationService handle detailed validation
       if (!request || typeof request !== 'object') {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid request body',
-          code: ERROR_CODES.INVALID_REQUEST,
-        });
-      }
-
-      // Check for null/undefined values
-      if (
-        request.message === null ||
-        request.signature === null ||
-        request.address === null ||
-        request.message === undefined ||
-        request.signature === undefined ||
-        request.address === undefined
-      ) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Missing required fields',
-          code: ERROR_CODES.INVALID_REQUEST,
-        });
-      }
-
-      // Check for empty strings in required fields
-      if (request.message === '' || request.signature === '' || request.address === '') {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid request body',
-          code: ERROR_CODES.INVALID_REQUEST,
-        });
-      }
-
-      // Check field types
-      if (
-        typeof request.message !== 'string' ||
-        typeof request.signature !== 'string' ||
-        typeof request.address !== 'string'
-      ) {
         return res.status(400).json({
           status: 'error',
           message: 'Invalid request body',
@@ -106,41 +90,25 @@ export function createServer(): express.Application {
       // Verify signature
       const result = await verificationService.verifySignature(request);
 
-      // Transform the response to match expected format with correct field order
-      const responseBody = {
-        status: result.status,
-        message: result.message,
-        ...(result.did && { did: result.did }),
-        code: result.code,
-      };
+      // Handle case where result is undefined
+      if (!result) {
+        return res.status(500).json({
+          status: 'error',
+          message: 'Internal server error',
+          code: 'INTERNAL_ERROR',
+        });
+      }
 
       // Use appropriate HTTP status code based on the verification result
       const httpStatus = result.status === 'success' ? 200 : 400;
-      return res.status(httpStatus).json(responseBody);
+      return res.status(httpStatus).json(result);
     } catch (error) {
-      // Handle specific error types with appropriate status codes and messages
-      if (error instanceof MessageValidationError) {
-        return res.status(400).json({
-          status: 'error',
-          message: error.message,
-          code: ERROR_CODES.INVALID_MESSAGE_FORMAT,
-        });
-      }
-
-      if (error instanceof AddressValidationError) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid Polkadot address',
-          code: ERROR_CODES.INVALID_ADDRESS,
-        });
-      }
-
       // Log unexpected errors
       console.error('Verification error:', error);
-      return res.status(400).json({
+      return res.status(500).json({
         status: 'error',
-        message: 'Verification failed',
-        code: ERROR_CODES.VERIFICATION_FAILED,
+        message: 'Internal server error',
+        code: 'INTERNAL_ERROR',
       });
     }
   });
