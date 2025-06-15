@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KeyPass Multi-Chain Auth - Vanilla Demo</title>
+    
+    <!-- Polkadot.js Extension API -->
+    <script>
+        // Wait for Polkadot extension to load
+        window.addEventListener('load', async () => {
+            // Give extensions time to inject
+            await new Promise(resolve => setTimeout(resolve, 100));
+        });
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 40px;
+            color: #f9fafb;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #3b82f6;
+            font-weight: 700;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+
+        .login-section {
+            margin-bottom: 30px;
+        }
+
+        .login-section h2 {
+            font-size: 2rem;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .login-button {
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .login-button.polkadot,
+        .login-button.ethereum {
+            background: rgba(255, 255, 255, 0.05);
+            color: #3b82f6;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .login-button.polkadot:hover:not(:disabled),
+        .login-button.ethereum:hover:not(:disabled) {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 15px 30px rgba(59, 130, 246, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #ef4444;
+            font-weight: 500;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .info-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
+            text-align: left;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-section h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+
+        .info-section ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .info-section li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .info-section a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .info-section a:hover {
+            text-decoration: underline;
+        }
+
+        .profile-section {
+            display: none;
+        }
+
+        .profile-section.show {
+            display: block;
+        }
+
+        .profile-section h2 {
+            font-size: 2rem;
+            margin-bottom: 30px;
+            color: #3b82f6;
+        }
+
+        .profile-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .chain-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #3b82f6;
+        }
+
+        .profile-info {
+            text-align: left;
+            margin-bottom: 25px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .info-row strong {
+            color: #3b82f6;
+            min-width: 80px;
+            font-weight: 600;
+        }
+
+        .info-row code {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+            flex: 1;
+            text-align: right;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-row span {
+            flex: 1;
+            text-align: right;
+        }
+
+        .logout-button {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-button:hover {
+            transform: translateY(-2px);
+            background: rgba(239, 68, 68, 0.2);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .footer a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .login-button {
+                min-width: 250px;
+            }
+            
+            .info-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .info-row code,
+            .info-row span {
+                text-align: left;
+                margin-top: 5px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .login-button {
+                min-width: 200px;
+                padding: 12px 20px;
+                font-size: 1rem;
+            }
+        }
+
+        .wallet-selection {
+            display: none;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .wallet-selection.show {
+            display: block;
+        }
+
+        .wallet-selection h3 {
+            margin-bottom: 20px;
+            color: #fff;
+            font-size: 1.3rem;
+        }
+
+        .wallet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .wallet-option {
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .wallet-option:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .wallet-option.selected {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .wallet-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .wallet-option.disabled:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .wallet-name {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 5px;
+        }
+
+        .wallet-status {
+            font-size: 0.9rem;
+            color: #9ca3af;
+        }
+
+        .account-selection {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .account-selection.show {
+            display: block;
+        }
+
+        .account-selection h4 {
+            margin-bottom: 15px;
+            color: #fff;
+            font-size: 1.1rem;
+        }
+
+        .account-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .account-option {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .account-option:last-child {
+            border-bottom: none;
+        }
+
+        .account-option:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .account-option.selected {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .account-address {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            color: #3b82f6;
+            margin-bottom: 3px;
+        }
+
+        .account-name {
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+
+        .selection-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .selection-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .selection-button.primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .selection-button.primary:hover:not(:disabled) {
+            background: #2563eb;
+        }
+
+        .selection-button.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .selection-button.secondary:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .selection-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .back-button {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>KeyPass Multi-Chain Auth</h1>
+        <p class="subtitle">Secure authentication for Polkadot and Ethereum</p>
+        
+        <!-- Login Section -->
+        <div class="login-section" id="loginSection">
+            <h2>Choose Your Chain</h2>
+            <div class="button-group">
+                <button class="login-button polkadot" id="polkadotBtn">
+                    Login with Polkadot
+                </button>
+                
+                <button class="login-button ethereum" id="ethereumBtn">
+                    Login with Ethereum
+                </button>
+            </div>
+            
+            <div class="error" id="errorDiv">
+                <span id="errorMessage"></span>
+            </div>
+            
+            <div class="info-section">
+                <h3>Prerequisites</h3>
+                <ul>
+                    <li><strong>For Polkadot:</strong> Install <a href="https://polkadot.js.org/extension/" target="_blank" rel="noopener noreferrer">Polkadot.js</a> or <a href="https://talisman.xyz/" target="_blank" rel="noopener noreferrer">Talisman</a></li>
+                    <li><strong>For Ethereum:</strong> Install <a href="https://metamask.io/" target="_blank" rel="noopener noreferrer">MetaMask</a> or another Ethereum wallet</li>
+                    <li><strong>HTTPS:</strong> This demo requires HTTPS in production</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Wallet Selection Section -->
+        <div class="wallet-selection" id="walletSelection">
+            <button class="back-button" id="backToChainBtn">← Back to Chain Selection</button>
+            <h3 id="walletSelectionTitle">Choose Your Wallet</h3>
+            <div class="wallet-grid" id="walletGrid">
+                <!-- Wallet options will be populated dynamically -->
+            </div>
+            <div class="account-selection" id="accountSelection">
+                <h4>Select Account</h4>
+                <div class="account-list" id="accountList">
+                    <!-- Account options will be populated dynamically -->
+                </div>
+            </div>
+            <div class="selection-buttons">
+                <button class="selection-button primary" id="connectWalletBtn" disabled>Connect Wallet</button>
+                <button class="selection-button secondary" id="cancelSelectionBtn">Cancel</button>
+            </div>
+        </div>
+        
+        <!-- Profile Section -->
+        <div class="profile-section" id="profileSection">
+            <h2>Authentication Successful!</h2>
+            <div class="profile-card">
+                <div class="chain-badge" id="chainBadge">
+                    Polkadot
+                </div>
+                
+                <div class="profile-info">
+                    <div class="info-row">
+                        <strong>Address:</strong>
+                        <code id="userAddress">Loading...</code>
+                    </div>
+                    
+                    <div class="info-row">
+                        <strong>DID:</strong>
+                        <code id="userDid">Loading...</code>
+                    </div>
+                    
+                    <div class="info-row">
+                        <strong>Chain:</strong>
+                        <span id="userChain">Loading...</span>
+                    </div>
+                    
+                    <div class="info-row">
+                        <strong>Logged in at:</strong>
+                        <span id="loginTime">Loading...</span>
+                    </div>
+                </div>
+                
+                <button class="logout-button" id="logoutBtn">
+                    Logout
+                </button>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>
+                <a href="https://github.com/uliana1one/keypass" target="_blank" rel="noopener noreferrer">
+                    View on GitHub
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Wallet and Account Selection System
+        
+        // State management
+        let currentChainType = null;
+        let selectedWallet = null;
+        let selectedAccount = null;
+        let availableWallets = [];
+        let availableAccounts = [];
+        let currentUser = null;
+        let isLoading = false;
+
+        // DOM elements
+        const loginSection = document.getElementById('loginSection');
+        const walletSelection = document.getElementById('walletSelection');
+        const profileSection = document.getElementById('profileSection');
+        const polkadotBtn = document.getElementById('polkadotBtn');
+        const ethereumBtn = document.getElementById('ethereumBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const errorDiv = document.getElementById('errorDiv');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // Wallet selection elements
+        const walletSelectionTitle = document.getElementById('walletSelectionTitle');
+        const walletGrid = document.getElementById('walletGrid');
+        const accountSelection = document.getElementById('accountSelection');
+        const accountList = document.getElementById('accountList');
+        const connectWalletBtn = document.getElementById('connectWalletBtn');
+        const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
+        const backToChainBtn = document.getElementById('backToChainBtn');
+        
+        // Profile elements
+        const chainBadge = document.getElementById('chainBadge');
+        const userAddress = document.getElementById('userAddress');
+        const userDid = document.getElementById('userDid');
+        const userChain = document.getElementById('userChain');
+        const loginTime = document.getElementById('loginTime');
+
+        // Wallet detection functions
+        async function detectPolkadotWallets() {
+            const wallets = [];
+            
+            // Wait for extensions to load
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            if (window.injectedWeb3) {
+                const extensions = Object.keys(window.injectedWeb3);
+                
+                for (const extensionName of extensions) {
+                    const extension = window.injectedWeb3[extensionName];
+                    let displayName = extensionName;
+                    let status = 'Available';
+                    
+                    // Map extension names to display names
+                    if (extensionName === 'polkadot-js') {
+                        displayName = 'Polkadot.js Extension';
+                    } else if (extensionName === 'talisman') {
+                        displayName = 'Talisman';
+                    } else if (extensionName === 'subwallet-js') {
+                        displayName = 'SubWallet';
+                    }
+                    
+                    // Check if extension is available
+                    if (!extension.enable) {
+                        status = 'Not Compatible';
+                    }
+                    
+                    wallets.push({
+                        id: extensionName,
+                        name: displayName,
+                        status: status,
+                        available: extension.enable !== undefined,
+                        extension: extension
+                    });
+                }
+            }
+            
+            if (wallets.length === 0) {
+                wallets.push({
+                    id: 'none',
+                    name: 'No Polkadot wallets detected',
+                    status: 'Install Polkadot.js or Talisman',
+                    available: false,
+                    extension: null
+                });
+            }
+            
+            return wallets;
+        }
+
+        async function detectEthereumWallets() {
+            const wallets = [];
+            
+            // Check for MetaMask
+            if (window.ethereum) {
+                let walletName = 'Ethereum Wallet';
+                
+                // Try to detect specific wallet
+                if (window.ethereum.isMetaMask) {
+                    walletName = 'MetaMask';
+                } else if (window.ethereum.isTrust) {
+                    walletName = 'Trust Wallet';
+                } else if (window.ethereum.isCoinbaseWallet) {
+                    walletName = 'Coinbase Wallet';
+                }
+                
+                wallets.push({
+                    id: 'ethereum',
+                    name: walletName,
+                    status: 'Available',
+                    available: true,
+                    provider: window.ethereum
+                });
+            }
+            
+            if (wallets.length === 0) {
+                wallets.push({
+                    id: 'none',
+                    name: 'No Ethereum wallets detected',
+                    status: 'Install MetaMask or another Ethereum wallet',
+                    available: false,
+                    provider: null
+                });
+            }
+            
+            return wallets;
+        }
+
+        // Account fetching functions
+        async function getPolkadotAccounts(wallet) {
+            try {
+                const injectedExtension = await wallet.extension.enable('KeyPass Demo');
+                if (!injectedExtension) {
+                    throw new Error('Failed to enable extension');
+                }
+                
+                const accounts = await injectedExtension.accounts.get();
+                return accounts.map(account => ({
+                    address: account.address,
+                    name: account.name || 'Unnamed Account',
+                    meta: account.meta,
+                    injectedExtension: injectedExtension
+                }));
+            } catch (error) {
+                throw new Error(`Failed to get accounts: ${error.message}`);
+            }
+        }
+
+        async function getEthereumAccounts(wallet) {
+            try {
+                const accounts = await wallet.provider.request({
+                    method: 'eth_requestAccounts'
+                });
+                
+                return accounts.map((address, index) => ({
+                    address: address,
+                    name: `Account ${index + 1}`,
+                    provider: wallet.provider
+                }));
+            } catch (error) {
+                if (error.code === 4001) {
+                    throw new Error('User rejected the connection request');
+                }
+                throw new Error(`Failed to get accounts: ${error.message}`);
+            }
+        }
+
+        // Authentication functions
+        async function authenticateWithPolkadot(account) {
+            try {
+                // Create message to sign
+                const message = `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: ${Math.random().toString(36).substring(7)}\nAddress: ${account.address}`;
+                
+                // Sign the message
+                const signature = await account.injectedExtension.signer.signRaw({
+                    address: account.address,
+                    data: message,
+                    type: 'bytes'
+                });
+
+                return {
+                    address: account.address,
+                    did: `did:key:${account.address}`,
+                    chainType: 'polkadot',
+                    signature: signature.signature,
+                    message: message,
+                    issuedAt: new Date().toISOString(),
+                    nonce: Math.random().toString(36).substring(7),
+                    accountName: account.name
+                };
+            } catch (error) {
+                throw new Error(`Signing failed: ${error.message}`);
+            }
+        }
+
+        async function authenticateWithEthereum(account) {
+            try {
+                // Create message to sign
+                const message = `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: ${Math.random().toString(36).substring(7)}\nAddress: ${account.address}`;
+                
+                // Sign the message
+                const signature = await account.provider.request({
+                    method: 'personal_sign',
+                    params: [message, account.address]
+                });
+
+                return {
+                    address: account.address,
+                    did: `did:ethr:${account.address}`,
+                    chainType: 'ethereum',
+                    signature: signature,
+                    message: message,
+                    issuedAt: new Date().toISOString(),
+                    nonce: Math.random().toString(36).substring(7),
+                    accountName: account.name
+                };
+            } catch (error) {
+                if (error.code === 4001) {
+                    throw new Error('User rejected the signing request');
+                }
+                throw new Error(`Signing failed: ${error.message}`);
+            }
+        }
+
+        // UI Management Functions
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function hideError() {
+            errorDiv.classList.remove('show');
+        }
+
+        function showLogin() {
+            loginSection.style.display = 'block';
+            walletSelection.classList.remove('show');
+            profileSection.classList.remove('show');
+            hideError();
+            resetSelection();
+        }
+
+        function showWalletSelection(chainType) {
+            currentChainType = chainType;
+            loginSection.style.display = 'none';
+            walletSelection.classList.add('show');
+            profileSection.classList.remove('show');
+            
+            walletSelectionTitle.textContent = `Choose Your ${chainType === 'polkadot' ? 'Polkadot' : 'Ethereum'} Wallet`;
+            
+            loadWallets();
+        }
+
+        function showProfile(userData) {
+            currentUser = userData;
+            
+            // Update profile information
+            userAddress.textContent = userData.address;
+            userDid.textContent = userData.did;
+            userChain.textContent = userData.chainType;
+            loginTime.textContent = new Date(userData.issuedAt).toLocaleString();
+            
+            // Update chain badge
+            chainBadge.textContent = userData.chainType === 'polkadot' ? 'Polkadot' : 'Ethereum';
+            
+            // Show profile section
+            loginSection.style.display = 'none';
+            walletSelection.classList.remove('show');
+            profileSection.classList.add('show');
+        }
+
+        function resetSelection() {
+            currentChainType = null;
+            selectedWallet = null;
+            selectedAccount = null;
+            availableWallets = [];
+            availableAccounts = [];
+            accountSelection.classList.remove('show');
+            connectWalletBtn.disabled = true;
+        }
+
+        async function loadWallets() {
+            try {
+                walletGrid.innerHTML = '<div style="text-align: center; color: #9ca3af;">Loading wallets...</div>';
+                
+                if (currentChainType === 'polkadot') {
+                    availableWallets = await detectPolkadotWallets();
+                } else {
+                    availableWallets = await detectEthereumWallets();
+                }
+                
+                renderWallets();
+            } catch (error) {
+                showError(`Failed to load wallets: ${error.message}`);
+            }
+        }
+
+        function renderWallets() {
+            walletGrid.innerHTML = '';
+            
+            availableWallets.forEach(wallet => {
+                const walletElement = document.createElement('div');
+                walletElement.className = `wallet-option ${!wallet.available ? 'disabled' : ''}`;
+                walletElement.innerHTML = `
+                    <div class="wallet-name">${wallet.name}</div>
+                    <div class="wallet-status">${wallet.status}</div>
+                `;
+                
+                if (wallet.available) {
+                    walletElement.addEventListener('click', () => selectWallet(wallet));
+                }
+                
+                walletGrid.appendChild(walletElement);
+            });
+        }
+
+        async function selectWallet(wallet) {
+            try {
+                // Clear previous selection
+                document.querySelectorAll('.wallet-option').forEach(el => el.classList.remove('selected'));
+                event.target.closest('.wallet-option').classList.add('selected');
+                
+                selectedWallet = wallet;
+                accountSelection.classList.remove('show');
+                connectWalletBtn.disabled = true;
+                
+                // Load accounts
+                accountList.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 20px;">Loading accounts...</div>';
+                
+                if (currentChainType === 'polkadot') {
+                    availableAccounts = await getPolkadotAccounts(wallet);
+                } else {
+                    availableAccounts = await getEthereumAccounts(wallet);
+                }
+                
+                renderAccounts();
+                accountSelection.classList.add('show');
+                
+            } catch (error) {
+                showError(error.message);
+                accountSelection.classList.remove('show');
+            }
+        }
+
+        function renderAccounts() {
+            accountList.innerHTML = '';
+            
+            if (availableAccounts.length === 0) {
+                accountList.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 20px;">No accounts found</div>';
+                return;
+            }
+            
+            availableAccounts.forEach(account => {
+                const accountElement = document.createElement('div');
+                accountElement.className = 'account-option';
+                accountElement.innerHTML = `
+                    <div class="account-address">${account.address}</div>
+                    <div class="account-name">${account.name}</div>
+                `;
+                
+                accountElement.addEventListener('click', () => selectAccount(account));
+                accountList.appendChild(accountElement);
+            });
+        }
+
+        function selectAccount(account) {
+            // Clear previous selection
+            document.querySelectorAll('.account-option').forEach(el => el.classList.remove('selected'));
+            event.target.closest('.account-option').classList.add('selected');
+            
+            selectedAccount = account;
+            connectWalletBtn.disabled = false;
+        }
+
+        async function connectWallet() {
+            if (!selectedWallet || !selectedAccount) {
+                showError('Please select a wallet and account');
+                return;
+            }
+            
+            try {
+                connectWalletBtn.disabled = true;
+                connectWalletBtn.textContent = 'Connecting...';
+                hideError();
+                
+                let result;
+                if (currentChainType === 'polkadot') {
+                    result = await authenticateWithPolkadot(selectedAccount);
+                } else {
+                    result = await authenticateWithEthereum(selectedAccount);
+                }
+                
+                showProfile(result);
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                connectWalletBtn.disabled = false;
+                connectWalletBtn.textContent = 'Connect Wallet';
+            }
+        }
+
+        // Event Handlers
+        function handlePolkadotLogin() {
+            hideError();
+            showWalletSelection('polkadot');
+        }
+
+        function handleEthereumLogin() {
+            hideError();
+            showWalletSelection('ethereum');
+        }
+
+        function handleLogout() {
+            showLogin();
+        }
+
+        function handleBackToChain() {
+            showLogin();
+        }
+
+        function handleCancelSelection() {
+            showLogin();
+        }
+
+        // Event listeners
+        polkadotBtn.addEventListener('click', handlePolkadotLogin);
+        ethereumBtn.addEventListener('click', handleEthereumLogin);
+        logoutBtn.addEventListener('click', handleLogout);
+        backToChainBtn.addEventListener('click', handleBackToChain);
+        cancelSelectionBtn.addEventListener('click', handleCancelSelection);
+        connectWalletBtn.addEventListener('click', connectWallet);
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            showLogin();
+        });
+
+        // For debugging - expose functions to global scope
+        window.KeyPassDemo = {
+            showProfile,
+            showLogin,
+            currentUser: () => currentUser,
+            selectedWallet: () => selectedWallet,
+            selectedAccount: () => selectedAccount
+        };
+    </script>
+</body>
+</html> 
