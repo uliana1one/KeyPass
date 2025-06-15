@@ -3,6 +3,7 @@ import { WalletConnect } from './components/WalletConnect';
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);
+  const [connectedAccounts, setConnectedAccounts] = useState<string[]>([]);
 
   useEffect(() => {
     // Check if user has a dark mode preference
@@ -20,8 +21,9 @@ function App() {
     }
   }, [darkMode]);
 
-  const handleConnect = (address: string) => {
-    console.log('Connected to wallet:', address);
+  const handleConnect = (accounts: string[]) => {
+    console.log('Connected accounts:', accounts);
+    setConnectedAccounts(accounts);
   };
 
   const handleError = (error: Error) => {
@@ -45,7 +47,9 @@ function App() {
             KeyPass Demo
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-300">
-            Connect your wallet to get started
+            {connectedAccounts.length === 0 
+              ? 'Connect your wallet to get started'
+              : `${connectedAccounts.length} wallet${connectedAccounts.length > 1 ? 's' : ''} connected`}
           </p>
         </div>
 
