@@ -339,7 +339,7 @@ export class TalismanAdapter implements WalletAdapter {
       validatePolkadotAddress(address);
       return true;
     } catch (error) {
-      throw new AddressValidationError('Invalid Polkadot address format');
+      throw new AddressValidationError('Invalid Polkadot address');
     }
   }
 
