@@ -174,29 +174,29 @@ export function WalletConnect({ onConnect, onError }: WalletConnectProps) {
   };
 
   return (
-    <div className="p-4 rounded-lg bg-white shadow-md" role="region" aria-label="Wallet Connection">
-      <h2 className="text-xl font-semibold mb-4">Connect Your Wallet</h2>
+    <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow-md transition-colors duration-200" role="region" aria-label="Wallet Connection">
+      <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Connect Your Wallet</h2>
       
       {!account ? (
         <button
           onClick={handleConnect}
           disabled={isConnecting}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-blue-800 transition-colors duration-200"
           aria-busy={isConnecting}
         >
           {isConnecting ? 'Connecting...' : 'Connect Wallet'}
         </button>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
             Connected Account:
-            <span className="ml-2 font-mono text-gray-800" aria-label="Account address">
+            <span className="ml-2 font-mono text-gray-800 dark:text-gray-200" aria-label="Account address">
               {account}
             </span>
           </p>
           <button
             onClick={handleDisconnect}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors duration-200"
             aria-label="Disconnect wallet"
           >
             Disconnect
@@ -205,7 +205,7 @@ export function WalletConnect({ onConnect, onError }: WalletConnectProps) {
       )}
 
       {error && (
-        <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md" role="alert">
+        <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-md" role="alert">
           {error}
         </div>
       )}
