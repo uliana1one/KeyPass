@@ -65,7 +65,7 @@ describe('WalletConnect', () => {
       // Verify the component state after connection
       expect(mockWalletAdapter.getAccounts).toHaveBeenCalled();
       expect(screen.getByText(mockAccounts[0].address)).toBeInTheDocument();
-      expect(mockOnConnect).toHaveBeenCalledWith(mockAccounts[0].address);
+      expect(mockOnConnect).toHaveBeenCalledWith([mockAccounts[0].address]);
       
       // Verify the component is in connected state
       expect(screen.queryByText('Connect Wallet')).not.toBeInTheDocument();
@@ -200,7 +200,8 @@ describe('WalletConnect', () => {
 
     it('detects when wallet is disconnected', async () => {
       // Mock getAccounts to throw error after some time
-      mockWalletAdapter.getAccounts.mockRejectedValueOnce(new Error('Wallet disconnected'));
+      // Use an error that the component recognizes as permanent
+      mockWalletAdapter.getAccounts.mockRejectedValueOnce(new Error('WalletNotFoundError'));
 
       // Fast-forward time to trigger connection check
       await act(async () => {

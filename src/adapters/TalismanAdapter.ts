@@ -339,7 +339,12 @@ export class TalismanAdapter implements WalletAdapter {
       validatePolkadotAddress(address);
       return true;
     } catch (error) {
-      throw new AddressValidationError('Invalid Polkadot address');
+      // Only throw AddressValidationError if the original error was a validation error
+      if (error instanceof Error && error.message.includes('Invalid address')) {
+        throw new AddressValidationError('Invalid Polkadot address');
+      }
+      // Re-throw other errors as is
+      throw error;
     }
   }
 
