@@ -521,12 +521,18 @@
             </div>
             
             <div class="info-section">
-                <h3>Prerequisites</h3>
+                <h3>Prerequisites & Troubleshooting</h3>
                 <ul>
-                    <li><strong>For Polkadot:</strong> Install <a href="https://polkadot.js.org/extension/" target="_blank" rel="noopener noreferrer">Polkadot.js</a> or <a href="https://talisman.xyz/" target="_blank" rel="noopener noreferrer">Talisman</a></li>
+                    <li><strong>For Polkadot:</strong> Install <a href="https://polkadot.js.org/extension/" target="_blank" rel="noopener noreferrer">Polkadot.js Extension</a> or <a href="https://talisman.xyz/" target="_blank" rel="noopener noreferrer">Talisman</a></li>
                     <li><strong>For Ethereum:</strong> Install <a href="https://metamask.io/" target="_blank" rel="noopener noreferrer">MetaMask</a> or another Ethereum wallet</li>
                     <li><strong>HTTPS:</strong> This demo requires HTTPS in production</li>
+                    <li><strong>Troubleshooting:</strong> If no wallets detected, try refreshing the page or check browser console</li>
+                    <li><strong>Demo Mode:</strong> Demo wallets are available for testing without real extensions</li>
                 </ul>
+                
+                <div style="margin-top: 15px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                    <strong>Debug Tools:</strong> Open browser console and run <code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px;">KeyPassDemo.debugWalletStatus()</code> to check wallet detection
+                </div>
             </div>
         </div>
 

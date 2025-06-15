@@ -90,10 +90,44 @@ Pick the example that best matches your experience level and project needs.
   - [Polkadot.js Extension](https://polkadot.js.org/extension/) or [Talisman](https://talisman.xyz/)
   - [MetaMask](https://metamask.io/) or another Ethereum wallet
 
-### 3. **Run the Example**
-Follow the specific instructions in each example's README.
+### 3. **Start the KeyPass Server**
+The examples require the KeyPass backend server to be running for authentication:
 
-### 4. **Customize for Your Needs**
+```bash
+# From the root KeyPass directory
+cd /Users/jane/KeyPass
+npm start
+```
+
+The server will start on port 3000 and show:
+```
+Server running on port 3000
+Verification endpoint available at http://0.0.0.0:3000/api/verify
+```
+
+### 4. **Run the Example**
+
+#### For React Boilerplate:
+```bash
+cd examples/react-boilerplate
+npm install
+npm start
+```
+
+#### For Vanilla JavaScript Boilerplate:
+```bash
+# Navigate to the vanilla boilerplate directory
+cd /Users/jane/KeyPass/examples/vanilla-boilerplate
+
+# Start a local HTTP server (choose an available port)
+python3 -m http.server 8006
+```
+
+Then open `http://localhost:8006` in your browser.
+
+**Note**: If port 8006 is busy, try other ports like 8001, 8002, 8003, etc.
+
+### 5. **Customize for Your Needs**
 Each example includes detailed customization guides.
 
 ## 🔐 Security Considerations
@@ -126,6 +160,43 @@ Each example includes detailed customization guides.
 - **Traditional hosting**: Separate frontend and backend deployment
 
 ## 🐛 Common Issues & Solutions
+
+### Server Setup Issues
+
+#### KeyPass Server Already Running
+If you see "Something is already running on port 3000", you can:
+```bash
+# Kill the existing process
+lsof -ti:3000 | xargs kill -9
+
+# Or start on a different port
+PORT=3001 npm start
+```
+
+#### Vanilla Boilerplate Directory Not Found
+Make sure you're using the full path:
+```bash
+# ❌ Wrong (from KeyPass root)
+cd vanilla-boilerplate
+
+# ✅ Correct (full path)
+cd /Users/jane/KeyPass/examples/vanilla-boilerplate
+```
+
+#### Port Already in Use
+If your chosen port is busy, try different ports:
+```bash
+# Try different ports until one works
+python3 -m http.server 8001
+python3 -m http.server 8002
+python3 -m http.server 8006
+```
+
+#### Server Shows Directory Listing Instead of HTML
+This is normal! Click on `index.html` in the directory listing, or navigate directly to:
+```
+http://localhost:8006/index.html
+```
 
 ### Wallet Connection Issues
 ```javascript
