@@ -1,6 +1,7 @@
 # Integration Guide
 
-This guide provides detailed technical information for integrating the KeyPass Login SDK into your application.
+This guide provides detailed technical information for integrating the KeyPass Login SDK into your **multi-chain** application with support for both Polkadot and Ethereum ecosystems.
+
 ## Installation
 
 ```bash
@@ -44,44 +45,50 @@ This will allow you to use the latest development version of the SDK in your pro
 Create a `.env` file in your project root:
 
 ```bash
-# Required for WalletConnect
+# Required for WalletConnect (both Polkadot and Ethereum)
 WALLETCONNECT_PROJECT_ID=your_project_id_here
 
 # Optional: Override default timeouts (in milliseconds)
 WALLET_TIMEOUT=30000
 MAX_MESSAGE_AGE_MS=300000
+
+# Optional: Specify preferred chain type
+DEFAULT_CHAIN_TYPE=polkadot  # or 'ethereum'
 ```
 
 ### Quick Start
 
-The basic integration is very simple:
+The basic integration supports both Polkadot and Ethereum:
 
 ```typescript
-import { connectWallet } from '@keypass/login-sdk';
+import { connectWallet, loginWithPolkadot, loginWithEthereum } from '@keypass/login-sdk';
 
-// Connect to wallet
+// Connect to any available wallet (auto-detection)
 const wallet = await connectWallet();
 
-// Get accounts
-const accounts = await wallet.getAccounts();
-console.log('Available accounts:', accounts);
+// Or connect to chain-specific wallets
+const polkadotWallet = await connectWallet('polkadot');
+const ethereumWallet = await connectWallet('ethereum');
+
+// Chain-specific authentication
+const polkadotResult = await loginWithPolkadot();
+const ethereumResult = await loginWithEthereum();
 ```
 
 That's all you need to get started! The SDK handles:
-- Wallet detection and connection
-- Session management
-- Error handling
-- Security considerations
+- **Multi-chain wallet detection** and connection
+- **Automatic chain type detection** from addresses
+- **Unified server-side verification** for both chains
+- **Session management** across different chains
+- **Error handling** with chain-specific error types
+- **Security considerations** for both ecosystems
 
 The rest of this guide provides detailed information about:
-- Configuration options
-- Advanced features
-- Error handling
+- Multi-chain configuration options
+- Advanced features for each chain
+- Unified error handling
 - Security considerations
-- Best practices
-
-But for basic usage, the two lines above are sufficient.
-
+- Best practices for multi-chain applications
 
 ### Wallet Configuration
 
@@ -124,13 +131,67 @@ To use a custom configuration, create a `wallets.json` file in your project root
 
 ### Important: Backend Requirements
 
-Before implementing the authentication flow, you must set up a backend endpoint to handle authentication. The SDK expects this endpoint to be available at `/api/auth/login` by default, but you can configure a different endpoint using the `AUTH_ENDPOINT` environment variable.
+Before implementing the authentication flow, you must set up a backend endpoint to handle **multi-chain authentication**. The SDK provides a unified verification service that handles both Polkadot and Ethereum signatures automatically.
 
 Your backend must implement:
-1. Signature verification
-2. Message validation
-3. Session management
-4. Token generation
+1. **Unified signature verification** (using `UnifiedVerificationService`)
+2. **Multi-chain message validation**
+3. **Session management** across different chains
+4. **Token generation** with chain metadata
+
+#### Quick Backend Setup
+
+```typescript
+// server.js
+import express from 'express';
+import { UnifiedVerificationService } from '@keypass/login-sdk/server';
+
+const app = express();
+const verificationService = new UnifiedVerificationService();
+
+app.use(express.json());
+
+app.post('/api/verify', async (req, res) => {
+  try {
+    const { message, signature, address, chainType } = req.body;
+    
+    // Automatically detects chain type from address if not provided
+    const result = await verificationService.verifySignature({
+      message,
+      signature,
+      address,
+      chainType // optional - auto-detected if not provided
+    });
+    
+    if (result.status === 'success') {
+      // Handle successful verification
+      console.log('Verified DID:', result.did);
+      console.log('Chain type:', result.data.chainType);
+      
+      // Create session, generate JWT, etc.
+      const token = generateJWT({
+        address,
+        did: result.did,
+        chainType: result.data.chainType
+      });
+      
+      res.json({ ...result, token });
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+app.listen(3000, () => {
+  console.log('Multi-chain verification server running on port 3000');
+});
+```
 
 See the [Backend Requirements](#backend-requirements) section for a detailed implementation guide.
 

@@ -1,110 +1,137 @@
-# Architecture Overview
+# Multi-Chain Architecture Overview
 
-The KeyPass Login SDK follows a 7-layer architecture designed for modularity, security, and maintainability. Each layer has a specific responsibility and interacts with other layers through well-defined interfaces.
+The KeyPass Login SDK follows a **multi-chain 7-layer architecture** designed for modularity, security, and maintainability across both Polkadot and Ethereum ecosystems. Each layer has a specific responsibility and interacts with other layers through well-defined interfaces.
+
+## Supported Chains
+
+### Polkadot Ecosystem
+- **Signature Algorithm**: SR25519/Ed25519
+- **Address Format**: SS58 (base58 encoded)
+- **DID Method**: `did:key` with multibase encoding
+- **Wallets**: Polkadot.js, Talisman, WalletConnect
+
+### Ethereum Ecosystem
+- **Signature Algorithm**: ECDSA (secp256k1)
+- **Address Format**: Hex (0x-prefixed)
+- **DID Method**: `did:ethr` with Ethereum addresses
+- **Wallets**: MetaMask, WalletConnect, injected providers
 
 ## Layer System
 
 ### 1. Config Layer (`src/config/`)
-- **Purpose**: Configuration management and validation
+- **Purpose**: Multi-chain configuration management and validation
 - **Components**:
-  - Wallet adapter configurations
-  - Message format templates
-  - Validation rules
+  - Chain-specific wallet adapter configurations
+  - Multi-chain message format templates
+  - Chain-specific validation rules
 - **Key Files**:
-  - `config/validator.ts`: Configuration validation
-  - `config/messageFormat.json`: Message templates
+  - `config/validator.ts`: Multi-chain configuration validation
+  - `config/messageFormat.json`: Chain-agnostic message templates
 
 ### 2. Wallet Adapter Layer (`src/adapters/`)
-- **Purpose**: Wallet interaction abstraction
+- **Purpose**: Multi-chain wallet interaction abstraction
 - **Components**:
-  - `WalletAdapter` interface
-  - Polkadot.js implementation
-  - Talisman implementation
-  - WalletConnect implementation
+  - `WalletAdapter` interface (chain-agnostic)
+  - **Polkadot**: PolkadotJsAdapter, TalismanAdapter
+  - **Ethereum**: EthereumAdapter, MetaMaskAdapter
+  - **Universal**: WalletConnectAdapter (supports both chains)
 - **Key Features**:
-  - Wallet connection management
-  - Account listing
-  - Message signing
-  - Error handling
+  - Chain-specific wallet connection management
+  - Multi-chain account listing
+  - Chain-appropriate message signing
+  - Unified error handling across chains
 
 ### 3. Account Layer (`src/accounts/`)
-- **Purpose**: Account management and selection
+- **Purpose**: Multi-chain account management and selection
 - **Components**:
-  - Account selection logic
-  - Address validation
-  - Account metadata
+  - Chain-agnostic account selection logic
+  - Multi-format address validation (SS58 + Hex)
+  - Chain-specific account metadata
 - **Key Features**:
-  - Single/multi-account handling
-  - Address format verification
-  - Account filtering
+  - Cross-chain account handling
+  - Address format detection and validation
+  - Chain-specific account filtering
 
 ### 4. Message Layer (`src/message/`)
-- **Purpose**: Message handling and validation
+- **Purpose**: Chain-agnostic message handling and validation
 - **Components**:
-  - Message builder
-  - Template management
-  - Validation rules
+  - Universal message builder
+  - Chain-agnostic template management
+  - Multi-chain validation rules
 - **Key Features**:
-  - Message construction
-  - Timestamp handling
-  - Nonce generation
-  - Format validation
+  - Unified message construction across chains
+  - Chain-agnostic timestamp handling
+  - Universal nonce generation
+  - Multi-format validation
 
-### 5. Signature Layer (`src/server/verificationService.ts`)
-- **Purpose**: Cryptographic operations
+### 5. Signature Layer (`src/server/`)
+- **Purpose**: Multi-chain cryptographic operations
 - **Components**:
-  - Signature verification
-  - Message validation
-  - Tampering detection
+  - **UnifiedVerificationService**: Auto-routing verification service
+  - **EthereumVerificationService**: ECDSA signature verification
+  - **PolkadotVerificationService**: SR25519/Ed25519 verification
 - **Key Features**:
-  - sr25519 support
-  - ed25519 support
-  - Message integrity checks
+  - **Automatic chain detection** from address format
+  - **ECDSA support** for Ethereum (using ethers.js)
+  - **SR25519/Ed25519 support** for Polkadot
+  - **Unified response format** across chains
+  - **Chain-specific message integrity** checks
 
 ### 6. DID Layer (`src/did/`)
-- **Purpose**: Decentralized identifier management
+- **Purpose**: Multi-chain decentralized identifier management
 - **Components**:
-  - DID creation
-  - DID document generation
-  - Address resolution
+  - **EthereumDIDProvider**: `did:ethr` method implementation
+  - **PolkadotDIDProvider**: `did:key` method implementation
+  - **Unified DID resolution** across chains
 - **Key Features**:
-  - did:key method implementation
-  - DID document creation
-  - Address to DID conversion
+  - **Chain-specific DID creation**
+  - **Multi-chain DID document generation**
+  - **Cross-chain address resolution**
+  - **Unified DID interface**
 
 ### 7. Server Layer (`src/server/`)
-- **Purpose**: API and middleware
+- **Purpose**: Unified multi-chain API and middleware
 - **Components**:
-  - Express middleware
-  - Request validation
-  - Error handling
+  - **Unified verification endpoint** (`/api/verify`)
+  - **Chain-agnostic Express middleware**
+  - **Multi-chain request validation**
+  - **Unified error handling**
 - **Key Features**:
-  - REST API endpoints
-  - Security headers
-  - Rate limiting
-  - Request validation
+  - **Single endpoint** for all chains
+  - **Automatic chain detection**
+  - **CORS support** for web3 applications
+  - **Chain-specific security headers**
+  - **Unified rate limiting**
 
-## Data Flow
+## Multi-Chain Data Flow
 
-1. **Authentication Initiation**
+### 1. **Chain Detection & Authentication Initiation**
    ```
-   Client -> Config Layer -> Wallet Adapter Layer
+   Client -> Config Layer -> Chain Detection -> Wallet Adapter Layer
    ```
 
-2. **Wallet Connection**
+### 2. **Chain-Specific Wallet Connection**
    ```
    Wallet Adapter Layer -> Account Layer -> Message Layer
    ```
+   - **Polkadot**: PolkadotJsAdapter/TalismanAdapter
+   - **Ethereum**: EthereumAdapter/MetaMaskAdapter
+   - **Universal**: WalletConnectAdapter
 
-3. **Message Signing**
+### 3. **Chain-Appropriate Message Signing**
    ```
    Message Layer -> Wallet Adapter Layer -> Signature Layer
    ```
+   - **Polkadot**: SR25519/Ed25519 signing
+   - **Ethereum**: ECDSA (secp256k1) signing
 
-4. **Verification**
+### 4. **Unified Verification & DID Creation**
    ```
-   Signature Layer -> DID Layer -> Server Layer -> Client
+   Signature Layer -> UnifiedVerificationService -> Chain-Specific Verification -> DID Layer -> Server Layer -> Client
    ```
+   - **Auto-detection**: Address format determines chain type
+   - **Polkadot**: SR25519 verification → `did:key` creation
+   - **Ethereum**: ECDSA verification → `did:ethr` creation
 
 ## Component Interactions
 
