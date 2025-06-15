@@ -7,7 +7,7 @@ import { VerificationService, ERROR_CODES } from '../../server/verificationServi
 import { WalletAdapter } from '../../adapters/types';
 import { PolkadotDIDProvider } from '../../did/UUIDProvider';
 import { VerificationResponse } from '../../server/types';
-import { MockedWalletAdapter } from '../types';
+import { MockedWalletAdapter } from '../../test-utils/types';
 
 // Mock the walletConnector module
 jest.mock('../../walletConnector', () => ({
