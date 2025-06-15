@@ -109,6 +109,9 @@ export class TalismanAdapter implements WalletAdapter {
         if (error.message.includes('timeout')) {
           throw new TimeoutError('wallet_connection');
         }
+        if (error.message.includes('Extension not found') || error.message.includes('No extension')) {
+          throw new WalletNotFoundError('talisman');
+        }
       }
       throw new WalletConnectionError('Failed to enable Talisman wallet');
     }
@@ -339,12 +342,8 @@ export class TalismanAdapter implements WalletAdapter {
       validatePolkadotAddress(address);
       return true;
     } catch (error) {
-      // Only throw AddressValidationError if the original error was a validation error
-      if (error instanceof Error && error.message.includes('Invalid address')) {
-        throw new AddressValidationError('Invalid Polkadot address');
-      }
-      // Re-throw other errors as is
-      throw error;
+      // Always throw AddressValidationError with the expected message for any validation error
+      throw new AddressValidationError('Invalid Polkadot address');
     }
   }
 

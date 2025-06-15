@@ -8,7 +8,18 @@ import { VerificationService, ERROR_CODES } from '../../server/verificationServi
 import { WalletAdapter } from '../../adapters/types';
 import { PolkadotDIDProvider } from '../../did/UUIDProvider';
 import { DIDDocument } from '../../did/types';
-import { MockedWalletAdapter } from '../types';
+
+// Define MockedWalletAdapter type directly
+type MockedWalletAdapter = {
+  enable: jest.Mock;
+  getAccounts: jest.Mock;
+  signMessage: jest.Mock;
+  getProvider: jest.Mock;
+  disconnect: jest.Mock;
+  validateAddress: jest.Mock;
+  on: jest.Mock;
+  off: jest.Mock;
+};
 
 // Mock the walletConnector module
 jest.mock('@/walletConnector', () => ({
@@ -126,7 +137,7 @@ describe('Authentication E2E Tests', () => {
           source: 'test',
         },
       ]),
-      signMessage: jest.fn().mockResolvedValue('0x1234'),
+      signMessage: jest.fn().mockResolvedValue('0x' + '1'.repeat(128)),
       getProvider: jest.fn().mockReturnValue('test'),
       disconnect: jest.fn().mockResolvedValue(undefined),
       validateAddress: jest.fn().mockResolvedValue(true),
