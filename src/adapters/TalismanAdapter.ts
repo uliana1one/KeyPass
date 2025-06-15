@@ -165,17 +165,23 @@ export class TalismanAdapter implements WalletAdapter {
       if (!accounts || accounts.length === 0) {
         throw new WalletConnectionError('No accounts found');
       }
-      return accounts.map((acc) => {
-        try {
-          this.validateAddress(acc.address);
-          return { address: acc.address, name: acc.meta?.name, source: 'talisman' };
-        } catch (error) {
-          if (error instanceof AddressValidationError) {
-            throw error;
+      
+      // Convert the map operation to use Promise.all to properly handle async errors
+      const validatedAccounts = await Promise.all(
+        accounts.map(async (acc) => {
+          try {
+            await this.validateAddress(acc.address);
+            return { address: acc.address, name: acc.meta?.name, source: 'talisman' };
+          } catch (error) {
+            if (error instanceof AddressValidationError) {
+              throw error;
+            }
+            throw new WalletConnectionError('Invalid Polkadot address format');
           }
-          throw new WalletConnectionError('Invalid Polkadot address format');
-        }
-      });
+        })
+      );
+      
+      return validatedAccounts;
     } catch (error) {
       if (error instanceof AddressValidationError || error instanceof WalletConnectionError) {
         throw error;

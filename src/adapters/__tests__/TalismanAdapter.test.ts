@@ -279,6 +279,27 @@ describe('TalismanAdapter', () => {
       expect(error.message).toBe('User rejected account access');
       expect(error.code).toBe('USER_REJECTED');
     });
+
+    it('should throw AddressValidationError when an invalid address is returned', async () => {
+      // First enable the adapter
+      (web3Enable as jest.Mock).mockResolvedValue(true);
+      await adapter.enable();
+      
+      // Mock web3Accounts to return an invalid address
+      (web3Accounts as jest.Mock).mockResolvedValue([{ address: 'invalid-address' }]);
+      
+      // Mock validatePolkadotAddress to throw
+      const { validatePolkadotAddress } = require('../types');
+      (validatePolkadotAddress as jest.Mock).mockImplementation(() => {
+        throw new AddressValidationError('Invalid Polkadot address format');
+      });
+
+      await expect(adapter.getAccounts()).rejects.toMatchObject({
+        name: 'AddressValidationError',
+        message: 'Invalid Polkadot address format',
+        code: 'INVALID_ADDRESS'
+      });
+    });
   });
 
   describe('signMessage()', () => {
