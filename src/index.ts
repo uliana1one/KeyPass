@@ -8,6 +8,9 @@ import { PolkadotDIDProvider } from './did/UUIDProvider';
 import { WalletAccount } from './adapters/types';
 import { VerificationService } from './server/verificationService';
 
+// Re-export connectWallet
+export { connectWallet };
+
 /**
  * Result of a successful login operation with Polkadot.
  * Contains all necessary information for authentication and verification.

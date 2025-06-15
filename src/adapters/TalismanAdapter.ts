@@ -20,6 +20,7 @@ import {
   MessageValidationError,
   AddressValidationError,
 } from '../errors/WalletErrors';
+import { EventEmitter } from 'events';
 
 const TALISMAN_EXTENSION_NAME = 'talisman';
 const WALLET_CONNECT_NAME = 'wallet-connect';
@@ -48,6 +49,13 @@ export class TalismanAdapter implements WalletAdapter {
   private enabled = false;
   private provider: string | null = null;
   private connectionTimeout: NodeJS.Timeout | null = null;
+  private injectedWindow: Window & InjectedWindow;
+  private eventEmitter: EventEmitter;
+
+  constructor() {
+    this.injectedWindow = window as Window & InjectedWindow;
+    this.eventEmitter = new EventEmitter();
+  }
 
   /**
    * Attempts to enable the Talisman wallet extension.
@@ -100,6 +108,9 @@ export class TalismanAdapter implements WalletAdapter {
         }
         if (error.message.includes('timeout')) {
           throw new TimeoutError('wallet_connection');
+        }
+        if (error.message.includes('Extension not found') || error.message.includes('No extension')) {
+          throw new WalletNotFoundError('talisman');
         }
       }
       throw new WalletConnectionError('Failed to enable Talisman wallet');
@@ -157,17 +168,23 @@ export class TalismanAdapter implements WalletAdapter {
       if (!accounts || accounts.length === 0) {
         throw new WalletConnectionError('No accounts found');
       }
-      return accounts.map((acc) => {
-        try {
-          this.validateAddress(acc.address);
-          return { address: acc.address, name: acc.meta?.name, source: 'talisman' };
-        } catch (error) {
-          if (error instanceof AddressValidationError) {
-            throw error;
+      
+      // Convert the map operation to use Promise.all to properly handle async errors
+      const validatedAccounts = await Promise.all(
+        accounts.map(async (acc) => {
+          try {
+            await this.validateAddress(acc.address);
+            return { address: acc.address, name: acc.meta?.name, source: 'talisman' };
+          } catch (error) {
+            if (error instanceof AddressValidationError) {
+              throw error;
+            }
+            throw new WalletConnectionError('Invalid Polkadot address format');
           }
-          throw new WalletConnectionError('Invalid Polkadot address format');
-        }
-      });
+        })
+      );
+      
+      return validatedAccounts;
     } catch (error) {
       if (error instanceof AddressValidationError || error instanceof WalletConnectionError) {
         throw error;
@@ -287,21 +304,29 @@ export class TalismanAdapter implements WalletAdapter {
   }
 
   /**
-   * Disconnects the wallet adapter and cleans up resources.
-   * Resets the connection state and clears any pending timeouts.
-   * Should be called when switching wallets or logging out.
-   *
-   * @example
-   * ```typescript
-   * adapter.disconnect();
-   * ```
+   * Disconnects from the wallet and cleans up resources.
+   * Due to limitations in the Polkadot.js extension API,
+   * this will only clear local state. The next connection attempt
+   * will require user approval.
    */
-  public disconnect(): void {
+  public async disconnect(): Promise<void> {
+    // Clear local state
     this.enabled = false;
     this.provider = null;
     if (this.connectionTimeout) {
       clearTimeout(this.connectionTimeout);
       this.connectionTimeout = null;
+    }
+
+    // Try to revoke permissions by re-enabling with a different app name
+    try {
+      // This will trigger the extension's permission dialog
+      await web3Enable('KeyPass Logout');
+      // Immediately disable again
+      this.enabled = false;
+    } catch (error) {
+      // Ignore errors during disconnect
+      console.debug('Error during wallet disconnect:', error);
     }
   }
 
@@ -309,17 +334,34 @@ export class TalismanAdapter implements WalletAdapter {
    * Validates a Polkadot address format.
    *
    * @param address - The address to validate
+   * @returns Promise resolving to true if address is valid
    * @throws {AddressValidationError} If the address is invalid
-   * @private
    */
-  private validateAddress(address: string): void {
+  public async validateAddress(address: string): Promise<boolean> {
     try {
       validatePolkadotAddress(address);
+      return true;
     } catch (error) {
-      if (error instanceof AddressValidationError) {
-        throw new AddressValidationError('Invalid Polkadot address');
-      }
-      throw error;
+      // Always throw AddressValidationError with the expected message for any validation error
+      throw new AddressValidationError('Invalid Polkadot address');
     }
+  }
+
+  /**
+   * Registers an event listener for wallet events.
+   * @param event - The event name to listen for
+   * @param callback - The callback function to handle the event
+   */
+  public on(event: string, callback: (data: any) => void): void {
+    this.eventEmitter.on(event, callback);
+  }
+
+  /**
+   * Removes an event listener for wallet events.
+   * @param event - The event name to remove listener from
+   * @param callback - The callback function to remove
+   */
+  public off(event: string, callback: (data: any) => void): void {
+    this.eventEmitter.off(event, callback);
   }
 }

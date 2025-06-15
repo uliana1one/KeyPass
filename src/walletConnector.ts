@@ -18,7 +18,13 @@ try {
 
 // Default WalletConnect configuration
 const defaultWalletConnectConfig: WalletConnectConfig = {
-  projectId: process.env.WALLETCONNECT_PROJECT_ID || '',
+  infuraId: process.env.INFURA_PROJECT_ID || '',
+  rpc: {
+    0: 'wss://rpc.polkadot.io',  // Polkadot mainnet
+    2: 'wss://kusama-rpc.polkadot.io',  // Kusama
+    7: 'wss://westend-rpc.polkadot.io',  // Westend testnet
+    42: 'wss://rococo-rpc.polkadot.io',  // Rococo testnet
+  },
   metadata: {
     name: 'KeyPass Login SDK',
     description: 'KeyPass Login SDK for Polkadot wallets',
@@ -36,8 +42,11 @@ export async function connectWallet(): Promise<WalletAdapter> {
   // Sort adapters by priority
   const sortedWallets = [...walletsConfig.wallets].sort((a, b) => a.priority - b.priority);
 
-  console.debug('WalletConnect project ID:', process.env.WALLETCONNECT_PROJECT_ID);
-  console.debug('Default config project ID:', defaultWalletConnectConfig.projectId);
+  console.debug('Infura Project ID:', process.env.INFURA_PROJECT_ID ? '***' : 'not set');
+  console.debug('Default config:', {
+    infuraId: defaultWalletConnectConfig.infuraId ? '***' : undefined,
+    rpc: defaultWalletConnectConfig.rpc ? Object.keys(defaultWalletConnectConfig.rpc) : undefined,
+  });
   console.debug(
     'Available wallets:',
     sortedWallets.map((w) => w.adapter)
@@ -56,13 +65,16 @@ export async function connectWallet(): Promise<WalletAdapter> {
           break;
         case 'WalletConnectAdapter':
           console.debug('Attempting WalletConnect adapter...');
-          if (!defaultWalletConnectConfig.projectId) {
-            console.warn('WalletConnect project ID not configured, skipping WalletConnect adapter');
+          if (!defaultWalletConnectConfig.infuraId && !defaultWalletConnectConfig.rpc) {
+            console.warn('Neither Infura ID nor RPC endpoints configured, skipping WalletConnect adapter');
             continue;
           }
           console.debug(
-            'Creating WalletConnect adapter with project ID:',
-            defaultWalletConnectConfig.projectId
+            'Creating WalletConnect adapter with config:',
+            {
+              infuraId: defaultWalletConnectConfig.infuraId ? '***' : undefined,
+              rpc: defaultWalletConnectConfig.rpc ? Object.keys(defaultWalletConnectConfig.rpc) : undefined,
+            }
           );
           adapter = new WalletConnectAdapter(defaultWalletConnectConfig);
           break;

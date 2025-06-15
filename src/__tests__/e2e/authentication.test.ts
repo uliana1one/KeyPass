@@ -9,6 +9,18 @@ import { WalletAdapter } from '../../adapters/types';
 import { PolkadotDIDProvider } from '../../did/UUIDProvider';
 import { DIDDocument } from '../../did/types';
 
+// Define MockedWalletAdapter type directly
+type MockedWalletAdapter = {
+  enable: jest.Mock;
+  getAccounts: jest.Mock;
+  signMessage: jest.Mock;
+  getProvider: jest.Mock;
+  disconnect: jest.Mock;
+  validateAddress: jest.Mock;
+  on: jest.Mock;
+  off: jest.Mock;
+};
+
 // Mock the walletConnector module
 jest.mock('@/walletConnector', () => ({
   connectWallet: jest.fn(),
@@ -99,7 +111,7 @@ declare global {
 }
 
 describe('Authentication E2E Tests', () => {
-  let mockAdapter: jest.Mocked<WalletAdapter>;
+  let mockAdapter: MockedWalletAdapter;
   let verificationService: jest.Mocked<VerificationService>;
   let mockCreateDid: jest.Mock;
   let mockCreateDIDDocument: jest.Mock;
@@ -118,15 +130,19 @@ describe('Authentication E2E Tests', () => {
     // Setup mock adapter
     mockAdapter = {
       enable: jest.fn().mockResolvedValue(undefined),
-      getAccounts: jest.fn().mockImplementation(async () => [
+      getAccounts: jest.fn().mockResolvedValue([
         {
-          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
           name: 'Test Account',
-          source: 'polkadot-js',
+          source: 'test',
         },
       ]),
       signMessage: jest.fn().mockResolvedValue('0x' + '1'.repeat(128)),
-      getProvider: jest.fn().mockReturnValue('polkadot-js'),
+      getProvider: jest.fn().mockReturnValue('test'),
+      disconnect: jest.fn().mockResolvedValue(undefined),
+      validateAddress: jest.fn().mockResolvedValue(true),
+      on: jest.fn(),
+      off: jest.fn(),
     };
 
     // Get the mock instance
@@ -178,7 +194,7 @@ describe('Authentication E2E Tests', () => {
 
       // 2. Verify login result
       expect(loginResult.did).toBeDefined();
-      expect(loginResult.address).toBe('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
+      expect(loginResult.address).toBe('5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty');
 
       // 3. Create DID document
       const didProvider = new PolkadotDIDProvider();
@@ -239,7 +255,7 @@ describe('Authentication E2E Tests', () => {
 
     it('should handle concurrent DID operations', async () => {
       const didProvider = new PolkadotDIDProvider();
-      const address = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
+      const address = '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty';
 
       // Perform concurrent DID operations
       const [doc1, doc2, doc3] = await Promise.all([

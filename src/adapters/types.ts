@@ -9,10 +9,72 @@ export interface WalletAccount {
 }
 
 export interface WalletAdapter {
+  /**
+   * Enables the wallet connection.
+   * This should be called before any other wallet operations.
+   * @throws {WalletNotFoundError} If no wallet is found
+   * @throws {UserRejectedError} If the user rejects the connection
+   * @throws {TimeoutError} If the connection times out
+   * @throws {WalletConnectionError} For other connection failures
+   */
   enable(): Promise<void>;
+
+  /**
+   * Gets a list of accounts from the wallet.
+   * @returns Promise resolving to an array of account objects
+   * @throws {WalletNotFoundError} If the wallet is not enabled
+   * @throws {WalletConnectionError} If no accounts are found
+   * @throws {UserRejectedError} If the user rejects the account access
+   */
   getAccounts(): Promise<WalletAccount[]>;
+
+  /**
+   * Signs a message using the wallet.
+   * @param message - The message to sign
+   * @returns Promise resolving to the signature
+   * @throws {WalletNotFoundError} If the wallet is not enabled
+   * @throws {MessageValidationError} If the message is invalid
+   * @throws {UserRejectedError} If the user rejects the signing
+   * @throws {TimeoutError} If the signing times out
+   */
   signMessage(message: string): Promise<string>;
+
+  /**
+   * Gets the name of the wallet provider being used.
+   * @returns The provider name or null if not connected
+   */
   getProvider(): string | null;
+
+  /**
+   * Disconnects from the wallet and cleans up resources.
+   * This should be called when switching wallets or logging out.
+   * Note: Due to limitations in the Polkadot.js extension API,
+   * this will only clear local state. The next connection attempt
+   * will require user approval.
+   */
+  disconnect(): Promise<void>;
+
+  /**
+   * Validates a Polkadot address.
+   * @param address - The address to validate
+   * @returns Promise resolving to true if valid
+   * @throws {AddressValidationError} If the address is invalid
+   */
+  validateAddress(address: string): Promise<boolean>;
+
+  /**
+   * Registers an event listener for wallet events.
+   * @param event - The event name to listen for
+   * @param callback - The callback function to handle the event
+   */
+  on(event: string, callback: (data: any) => void): void;
+
+  /**
+   * Removes an event listener for wallet events.
+   * @param event - The event name to remove listener from
+   * @param callback - The callback function to remove
+   */
+  off(event: string, callback: (data: any) => void): void;
 }
 
 export interface WalletAdapterConstructor {

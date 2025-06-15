@@ -1,5 +1,5 @@
 // Mock TextEncoder/TextDecoder which are not available in jsdom
-const { TextEncoder, TextDecoder } = require('util');
+import { TextEncoder, TextDecoder } from 'util';
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
 
