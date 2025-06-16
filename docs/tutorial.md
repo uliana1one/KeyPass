@@ -6,7 +6,7 @@ This comprehensive tutorial will guide you through integrating the KeyPass Login
 
 KeyPass is a powerful SDK that provides **interactive wallet and account selection** for blockchain applications. It supports multiple wallets across Polkadot and Ethereum ecosystems, offering users a seamless way to connect their preferred wallet and choose specific accounts for authentication.
 
-### 🆕 **New Wallet Selection Features**
+### **New Wallet Selection Features**
 - **Multi-wallet support**: Polkadot.js Extension, Talisman, SubWallet, MetaMask, Trust Wallet, Coinbase Wallet
 - **Interactive selection flow**: Chain → Wallet → Account → Authentication
 - **Professional UI**: Dark theme with glassmorphism design and smooth animations
@@ -23,7 +23,7 @@ Before you begin, make sure you have:
    - **Polkadot**: [Polkadot.js Extension](https://polkadot.js.org/extension/) or [Talisman](https://talisman.xyz/)
    - **Ethereum**: [MetaMask](https://metamask.io/) or [Trust Wallet](https://trustwallet.com/)
 
-## 🛠️ Server Setup (Required)
+## Server Setup (Required)
 
 The wallet selection functionality requires the KeyPass server to be running:
 
@@ -44,7 +44,7 @@ Verification endpoint available at http://0.0.0.0:3000/api/verify
 lsof -ti:3000 | xargs kill -9
 ```
 
-## 🚀 Quick Start with Interactive Examples
+## Quick Start with Interactive Examples
 
 The fastest way to get started is using our enhanced boilerplate projects with wallet selection:
 

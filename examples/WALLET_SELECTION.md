@@ -4,7 +4,7 @@
 
 This guide explains **how the wallet selection functionality is implemented** in the KeyPass examples. The wallet selection features are **frontend implementations** built on top of the KeyPass Core SDK, not core SDK functionality itself.
 
-## 🏗️ Architecture Understanding
+## Architecture Understanding
 
 ### **What's Implemented Where**
 
@@ -32,38 +32,38 @@ This guide explains **how the wallet selection functionality is implemented** in
 - **Core SDK**: Provides authentication functions that auto-connect to first available wallet
 - **Examples**: Implement UI layers that let users choose wallets and accounts before calling Core SDK functions
 
-## ✨ Features Implemented in Examples
+## Features Implemented in Examples
 
-### 🔗 Multi-Wallet Detection
+### Multi-Wallet Detection
 
 **Polkadot Ecosystem Detection:**
-- ✅ Polkadot.js Extension detection
-- ✅ Talisman Wallet detection
-- ✅ Generic Polkadot extension detection (`window.injectedWeb3`)
-- ✅ Installation status checking
+- Polkadot.js Extension detection
+- Talisman Wallet detection
+- Generic Polkadot extension detection (`window.injectedWeb3`)
+- Installation status checking
 
 **Ethereum Ecosystem Detection:**
-- ✅ MetaMask detection (`window.ethereum.isMetaMask`)
-- ✅ Trust Wallet detection (`window.ethereum.isTrust`)
-- ✅ Coinbase Wallet detection (`window.ethereum.isCoinbaseWallet`)
-- ✅ Generic Ethereum provider detection (`window.ethereum`)
+- MetaMask detection (`window.ethereum.isMetaMask`)
+- Trust Wallet detection (`window.ethereum.isTrust`)
+- Coinbase Wallet detection (`window.ethereum.isCoinbaseWallet`)
+- Generic Ethereum provider detection (`window.ethereum`)
 
-### 👤 Account Selection Implementation
+### Account Selection Implementation
 
-- ✅ **Account enumeration**: List all accounts from connected wallet
-- ✅ **Account metadata display**: Show names and addresses clearly
-- ✅ **Interactive selection**: Click to choose specific account
-- ✅ **Account validation**: Ensure selected account exists and is accessible
+- **Account enumeration**: List all accounts from connected wallet
+- **Account metadata display**: Show names and addresses clearly
+- **Interactive selection**: Click to choose specific account
+- **Account validation**: Ensure selected account exists and is accessible
 
-### 🎨 User Experience Patterns
+### User Experience Patterns
 
-- ✅ **Step-by-step flow**: Chain → Wallet → Account → Authentication
-- ✅ **Visual feedback**: Highlighted selections and loading states
-- ✅ **Error handling**: User-friendly error messages and retry logic
-- ✅ **Responsive design**: Mobile-friendly wallet selection interfaces
-- ✅ **Back navigation**: Easy navigation between selection steps
+- **Step-by-step flow**: Chain → Wallet → Account → Authentication
+- **Visual feedback**: Highlighted selections and loading states
+- **Error handling**: User-friendly error messages and retry logic
+- **Responsive design**: Mobile-friendly wallet selection interfaces
+- **Back navigation**: Easy navigation between selection steps
 
-## 🔧 Implementation Details
+## Implementation Details
 
 ### 1. Chain Selection (Example Implementation)
 
@@ -218,7 +218,7 @@ import { loginWithPolkadot } from '@keypass/login-sdk';
 const result = await loginWithPolkadot(); // Auto-selects first available wallet/account
 ```
 
-## 🎨 UI Implementation Patterns
+## UI Implementation Patterns
 
 ### React Implementation Structure
 
@@ -278,7 +278,7 @@ function renderWalletOptions(wallets) {
 }
 ```
 
-## 🔧 Styling Implementation
+## Styling Implementation
 
 ### CSS for Wallet Selection UI
 
@@ -341,7 +341,7 @@ function renderWalletOptions(wallets) {
 }
 ```
 
-## 🛡️ Error Handling Patterns
+## Error Handling Patterns
 
 ### Common Error Scenarios
 
@@ -396,7 +396,7 @@ const errorMessages = {
 };
 ```
 
-## 🧪 Testing the Implementation
+## Testing the Implementation
 
 ### Manual Testing Checklist
 
@@ -437,7 +437,7 @@ describe('Wallet Selection Integration', () => {
 });
 ```
 
-## 🔄 Migration and Customization
+## Migration and Customization
 
 ### From Core SDK Only to Wallet Selection
 
@@ -478,7 +478,7 @@ const detectPolkadotWallets = async () => {
 };
 ```
 
-## 📚 Implementation Resources
+## Implementation Resources
 
 ### **Copy-Paste Ready Code**
 - **React Implementation**: `examples/react-boilerplate/src/App.tsx`

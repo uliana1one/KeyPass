@@ -1,10 +1,10 @@
-# 🔐 KeyPass Vanilla JavaScript Boilerplate
+# KeyPass Vanilla JavaScript Boilerplate
 
 A **zero-dependency**, single-file HTML demo showcasing **multi-chain authentication** with KeyPass SDK for both Polkadot and Ethereum ecosystems.
 
 Perfect for beginners or when you need a simple, lightweight implementation without any build tools or frameworks.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -16,7 +16,7 @@ Perfect for beginners or when you need a simple, lightweight implementation with
 
 **Option 1: Direct File Opening**
 1. Simply open `index.html` in your web browser
-2. That's it! No installation required 🎉
+2. That's it! No installation required
 
 **Option 2: Local Server (Recommended for development)**
 ```bash
@@ -32,7 +32,7 @@ php -S localhost:8000
 
 Then navigate to [http://localhost:8000](http://localhost:8000)
 
-## 📱 What You'll See
+## What You'll See
 
 ### Beautiful Interface
 - **Animated gradient background** with glassmorphism design
@@ -41,7 +41,7 @@ Then navigate to [http://localhost:8000](http://localhost:8000)
 - **Real-time loading states** and error handling
 
 ### Login Flow
-1. **Chain Selection**: Choose between Polkadot (🟣) or Ethereum (🔷)
+1. **Chain Selection**: Choose between Polkadot or Ethereum
 2. **Wallet Connection**: Simulated connection to wallet extensions
 3. **Authentication Success**: Display user profile with wallet information
 4. **Session Management**: Logout functionality to clear session
@@ -53,7 +53,7 @@ Then navigate to [http://localhost:8000](http://localhost:8000)
 - **Login Timestamp**: When the authentication occurred
 - **Logout Button**: Clear session and return to login screen
 
-## 🔧 Customization Guide
+## Customization Guide
 
 ### Adding Real KeyPass Integration
 
@@ -118,7 +118,7 @@ To support additional blockchains:
 1. **Add new button** in the HTML:
    ```html
    <button class="login-button new-chain" id="newChainBtn">
-       🔗 Login with NewChain
+       Login with NewChain
    </button>
    ```
 
@@ -138,7 +138,7 @@ To support additional blockchains:
    document.getElementById('newChainBtn').addEventListener('click', handleNewChainLogin);
    ```
 
-## 🏗️ File Structure
+## File Structure
 
 ```
 vanilla-boilerplate/
@@ -146,13 +146,13 @@ vanilla-boilerplate/
 └── README.md          # This file
 ```
 
-**Everything is in one file!** 📄
+**Everything is in one file!**
 - HTML structure
 - CSS styling with animations
 - JavaScript functionality
 - Mock data for demonstration
 
-## 🔐 Security Features Demonstrated
+## Security Features Demonstrated
 
 - **Wallet Connection Security**: Proper error handling for connection failures
 - **Chain-Specific Authentication**: Different flows for different blockchains
@@ -161,7 +161,7 @@ vanilla-boilerplate/
 - **Input Validation**: Proper validation of wallet responses
 - **HTTPS Considerations**: Production-ready security notes
 
-## 🌐 Production Deployment
+## Production Deployment
 
 ### Environment Requirements
 
@@ -184,7 +184,7 @@ npm install -g netlify-cli
 netlify deploy --prod --dir .
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -210,10 +210,10 @@ netlify deploy --prod --dir .
 ### Browser Compatibility
 
 **Supported Browsers:**
-- ✅ Chrome 80+
-- ✅ Firefox 75+
-- ✅ Safari 13+
-- ✅ Edge 80+
+- Chrome 80+
+- Firefox 75+
+- Safari 13+
+- Edge 80+
 
 **Required Features:**
 - CSS Custom Properties
@@ -232,7 +232,7 @@ KeyPassDemo.showProfile(userData)   // Manually show profile
 KeyPassDemo.showLogin()             // Return to login screen
 ```
 
-## 📚 Learning Resources
+## Learning Resources
 
 ### Understanding the Code
 
@@ -261,10 +261,10 @@ KeyPassDemo.showLogin()             // Return to login screen
 2. **Explore KeyPass**: Read the [main documentation](../../docs/) for full API reference
 3. **Build Your App**: Use this as a starting point for your own project
 
-## 📄 License
+## License
 
 This boilerplate is part of the KeyPass project and is licensed under the Apache License 2.0.
 
 ---
 
-**Perfect for beginners!** 🌟 This single-file demo gives you everything you need to understand multi-chain authentication without any complexity. 
+**Perfect for beginners!** This single-file demo gives you everything you need to understand multi-chain authentication without any complexity. 

@@ -2,7 +2,7 @@
 
 This guide provides comprehensive documentation for error handling in the KeyPass Login SDK, including **wallet and account selection** error scenarios and best practices for creating robust user experiences.
 
-## 🆕 New Wallet Selection Error Types
+##  New Wallet Selection Error Types
 
 ### **Enhanced WalletError Interface**
 

@@ -2,7 +2,7 @@
 
 This document provides a comprehensive reference for all APIs in the KeyPass Login SDK. **Important**: This documentation distinguishes between **Core SDK APIs** (available when you install the library) and **Example Implementation APIs** (available in the boilerplate examples).
 
-## 🏗️ Architecture Clarification
+## Architecture Clarification
 
 ### **Core SDK APIs** (`@keypass/login-sdk`)
 These functions are available when you install the library via npm. They provide the authentication logic and wallet connection functionality.
@@ -12,283 +12,261 @@ These functions and interfaces are implemented in the React and Vanilla JavaScri
 
 ---
 
-## 🔧 Core SDK APIs
+## Core SDK APIs
 
 ### `loginWithPolkadot`
 
 ```typescript
-function loginWithPolkadot(retryCount?: number): Promise<LoginResult>
+function loginWithPolkadot(options?: LoginOptions): Promise<AuthenticationResult>
 ```
 
-Complete Polkadot authentication flow with automatic wallet detection and connection.
+Authenticates a user with a Polkadot wallet. Auto-selects the first available wallet and account if no specific selection is provided.
 
-#### Parameters
-- `retryCount` (optional): Number of retry attempts for network errors (default: 1)
+**Parameters:**
+- `options` (optional): Configuration options for the login process
 
-#### Returns
+**Returns:** Promise that resolves to an `AuthenticationResult`
+
+**Example:**
 ```typescript
-interface LoginResult {
-  address: string;         // The Polkadot address of the logged-in account
-  signature: string;       // The signature of the login message
-  message: string;         // The message that was signed
-  did: string;            // The DID associated with the address
-  issuedAt: string;       // ISO timestamp when the login was issued
-  nonce: string;          // Unique nonce used to prevent replay attacks
+import { loginWithPolkadot } from '@keypass/login-sdk';
+
+try {
+  const result = await loginWithPolkadot();
+  console.log('Authenticated:', result.did);
+} catch (error) {
+  console.error('Authentication failed:', error);
 }
 ```
 
 ### `loginWithEthereum`
 
 ```typescript
-function loginWithEthereum(): Promise<LoginResult>
+function loginWithEthereum(options?: LoginOptions): Promise<AuthenticationResult>
 ```
 
-Complete Ethereum authentication flow with MetaMask or other Ethereum wallet detection.
+Authenticates a user with an Ethereum wallet. Auto-selects the first available wallet and account if no specific selection is provided.
 
-#### Returns
-Same `LoginResult` interface as `loginWithPolkadot`.
+**Parameters:**
+- `options` (optional): Configuration options for the login process
+
+**Returns:** Promise that resolves to an `AuthenticationResult`
+
+**Example:**
+```typescript
+import { loginWithEthereum } from '@keypass/login-sdk';
+
+try {
+  const result = await loginWithEthereum();
+  console.log('Authenticated:', result.did);
+} catch (error) {
+  console.error('Authentication failed:', error);
+}
+```
 
 ### `connectWallet`
 
 ```typescript
-function connectWallet(): Promise<WalletAdapter>
+function connectWallet(chainType: ChainType, walletId?: string): Promise<WalletAdapter>
 ```
 
-Connects to the first available wallet (Polkadot.js, Talisman, or WalletConnect) in priority order.
+Connects to a specific wallet or auto-detects available wallets.
 
-#### Returns
-```typescript
-interface WalletAdapter {
-  enable(): Promise<void>;
-  getAccounts(): Promise<WalletAccount[]>;
-  signMessage(message: string): Promise<string>;
-  getProvider(): string | null;
-  disconnect(): Promise<void>;
-  validateAddress(address: string): Promise<boolean>;
-  on(event: string, callback: (data: any) => void): void;
-  off(event: string, callback: (data: any) => void): void;
-}
-```
+**Parameters:**
+- `chainType`: Either 'polkadot' or 'ethereum'
+- `walletId` (optional): Specific wallet identifier
 
-### Core SDK Types
-
-```typescript
-interface WalletAccount {
-  address: string;         // Wallet address
-  name?: string;          // Account name/label  
-  source: string;         // Wallet source identifier
-}
-
-// Error classes available in the core SDK
-class WalletNotFoundError extends Error
-class UserRejectedError extends Error  
-class WalletConnectionError extends Error
-class MessageValidationError extends Error
-class AddressValidationError extends Error
-```
+**Returns:** Promise that resolves to a `WalletAdapter`
 
 ---
 
-## 🎨 Example Implementation APIs
+## Example Implementation APIs
 
-**Note**: These APIs are implemented in the boilerplate examples (`examples/react-boilerplate` and `examples/vanilla-boilerplate`). Copy these implementations to your project if you want similar functionality.
+These APIs are implemented in the boilerplate examples and show how to build wallet selection UI around the Core SDK.
 
-### Wallet Detection Functions (Example Implementation)
-
-```typescript
-// Available in examples/react-boilerplate/src/App.tsx
-function detectPolkadotWallets(): Promise<Wallet[]>
-function detectEthereumWallets(): Promise<Wallet[]>
-```
-
-### Account Management (Example Implementation)
+### `detectPolkadotWallets` (Example Implementation)
 
 ```typescript
-// Available in examples/react-boilerplate/src/App.tsx  
-function getPolkadotAccounts(wallet: Wallet): Promise<Account[]>
-function getEthereumAccounts(wallet: Wallet): Promise<Account[]>
+// Available in: examples/react-boilerplate/src/utils/walletDetection.ts
+// Available in: examples/vanilla-boilerplate/index.html
+
+async function detectPolkadotWallets(): Promise<Wallet[]>
 ```
 
-### Authentication Functions (Example Implementation)
+Detects all available Polkadot wallet extensions in the browser.
+
+**Returns:** Array of detected wallets with their availability status
+
+**Example Usage:**
+```typescript
+// This is example code - copy from the boilerplates
+const wallets = await detectPolkadotWallets();
+wallets.forEach(wallet => {
+  console.log(`${wallet.name}: ${wallet.available ? 'Available' : 'Not Available'}`);
+});
+```
+
+### `detectEthereumWallets` (Example Implementation)
 
 ```typescript
-// Available in examples/react-boilerplate/src/App.tsx
-function authenticateWithPolkadot(account: Account): Promise<LoginResult>
-function authenticateWithEthereum(account: Account): Promise<LoginResult>
+// Available in: examples/react-boilerplate/src/utils/walletDetection.ts
+// Available in: examples/vanilla-boilerplate/index.html
+
+async function detectEthereumWallets(): Promise<Wallet[]>
 ```
 
-### Example Implementation Types
+Detects all available Ethereum wallet providers in the browser.
+
+**Returns:** Array of detected wallets with their availability status
+
+### `getPolkadotAccounts` (Example Implementation)
 
 ```typescript
-// These interfaces are defined in the example boilerplates
-interface Wallet {
-  id: string;
-  name: string;
-  status: string;
-  available: boolean;
-  extension?: any;
-  provider?: any;
-}
+// Available in: examples/react-boilerplate/src/utils/accountSelection.ts
+// Available in: examples/vanilla-boilerplate/index.html
 
-interface Account {
-  address: string;
-  name: string;
-  meta?: any;
-  injectedExtension?: any;
-  provider?: any;
-}
-
-interface LoginResult {
-  address: string;
-  did: string;
-  chainType: string;
-  signature: string;
-  message: string;
-  issuedAt: string;
-  nonce: string;
-  accountName: string;
-}
+async function getPolkadotAccounts(wallet: Wallet): Promise<Account[]>
 ```
+
+Retrieves all accounts from a connected Polkadot wallet.
+
+**Parameters:**
+- `wallet`: The wallet object from `detectPolkadotWallets()`
+
+**Returns:** Array of accounts with addresses and metadata
+
+### `getEthereumAccounts` (Example Implementation)
+
+```typescript
+// Available in: examples/react-boilerplate/src/utils/accountSelection.ts
+// Available in: examples/vanilla-boilerplate/index.html
+
+async function getEthereumAccounts(wallet: Wallet): Promise<Account[]>
+```
+
+Retrieves all accounts from a connected Ethereum wallet.
+
+**Parameters:**
+- `wallet`: The wallet object from `detectEthereumWallets()`
+
+**Returns:** Array of accounts with addresses and metadata
 
 ---
 
-## 🔌 Server API
+## Usage Examples
 
-### Verification Endpoint
-
-**POST** `/api/verify`
-
-Verifies wallet signatures and returns associated DIDs.
-
-#### Request Body
-```typescript
-interface VerificationRequest {
-  message: string;    // The message that was signed
-  signature: string;  // The signature in hex format (0x-prefixed)  
-  address: string;    // The wallet address that signed the message
-}
-```
-
-#### Response
-```typescript
-interface VerificationResponse {
-  status: 'success' | 'error';
-  message: string;
-  code?: string;      // Error code if applicable
-  did?: string;       // The DID associated with the address (if valid)
-}
-```
-
----
-
-## 🚀 Usage Examples
-
-### Using Core SDK Only (No UI)
+### Core SDK Only (Minimal Integration)
 
 ```typescript
 import { loginWithPolkadot, loginWithEthereum } from '@keypass/login-sdk';
 
-// Basic Polkadot authentication
-try {
-  const result = await loginWithPolkadot();
-  console.log('Logged in:', result.address);
-  console.log('DID:', result.did);
-} catch (error) {
-  console.error('Login failed:', error);
-}
-
-// Basic Ethereum authentication  
-try {
-  const result = await loginWithEthereum();
-  console.log('Logged in:', result.address);
-  console.log('DID:', result.did);
-} catch (error) {
-  console.error('Login failed:', error);
-}
-```
-
-### Using Core SDK with Custom Wallet Selection
-
-```typescript
-import { connectWallet } from '@keypass/login-sdk';
-
-// Connect to wallet and get accounts
-const adapter = await connectWallet();
-const accounts = await adapter.getAccounts();
-
-// Let user choose account (implement your own UI)
-const selectedAccount = await showAccountSelector(accounts);
-
-// Sign message with selected account
-const message = "Login to my app";
-const signature = await adapter.signMessage(message);
-```
-
-### Using Example Implementation (With UI)
-
-```typescript
-// Copy the code from examples/react-boilerplate/src/App.tsx
-// This includes full wallet selection UI:
-
-// 1. Chain selection (Polkadot vs Ethereum)
-// 2. Wallet detection and selection  
-// 3. Account selection from wallet
-// 4. Authentication with selected account
-// 5. Error handling and loading states
-```
-
----
-
-## 🔄 Migration Guide
-
-### If you want the documented "selectWallet" functionality:
-
-The wallet selection features mentioned in earlier documentation are implemented in the examples. To use them:
-
-1. **Copy from Examples**: Take the wallet detection and selection code from `examples/react-boilerplate/src/App.tsx`
-2. **Customize**: Modify the UI to match your application's design
-3. **Integrate**: Use the core SDK functions (`connectWallet`, `loginWithPolkadot`, etc.) for the actual authentication
-
-### Creating your own selectWallet function:
-
-```typescript
-// Example implementation based on the boilerplate code
-async function selectWallet(chainType: 'polkadot' | 'ethereum') {
-  let wallets;
-  
-  if (chainType === 'polkadot') {
-    wallets = await detectPolkadotWallets(); // Copy from examples
-  } else {
-    wallets = await detectEthereumWallets(); // Copy from examples  
-  }
-  
-  // Show wallet selection UI (implement your own)
-  const selectedWallet = await showWalletSelectionUI(wallets);
-  
-  // Get accounts from selected wallet
-  const accounts = chainType === 'polkadot' 
-    ? await getPolkadotAccounts(selectedWallet)
-    : await getEthereumAccounts(selectedWallet);
+// Simple authentication - auto-selects first available wallet/account
+async function authenticateUser(chainType: 'polkadot' | 'ethereum') {
+  try {
+    const result = chainType === 'polkadot' 
+      ? await loginWithPolkadot()
+      : await loginWithEthereum();
     
-  // Show account selection UI (implement your own)
-  const selectedAccount = await showAccountSelectionUI(accounts);
-  
-  return { wallet: selectedWallet, account: selectedAccount };
+    console.log('User authenticated:', result.did);
+    return result;
+  } catch (error) {
+    console.error('Authentication failed:', error);
+    throw error;
+  }
 }
 ```
 
+### Example Implementation Pattern (Full UI)
+
+```typescript
+// This pattern is implemented in the boilerplates
+// Copy the relevant functions from examples/
+
+import { loginWithPolkadot } from '@keypass/login-sdk';
+// Import detection functions from examples
+import { detectPolkadotWallets, getPolkadotAccounts } from './walletDetection';
+
+async function authenticateWithWalletSelection() {
+  try {
+    // 1. Detect available wallets (from examples)
+    const wallets = await detectPolkadotWallets();
+    
+    // 2. Let user select wallet (implement UI)
+    const selectedWallet = await showWalletSelectionUI(wallets);
+    
+    // 3. Get accounts from selected wallet (from examples)
+    const accounts = await getPolkadotAccounts(selectedWallet);
+    
+    // 4. Let user select account (implement UI)
+    const selectedAccount = await showAccountSelectionUI(accounts);
+    
+    // 5. Authenticate with Core SDK
+    const result = await loginWithPolkadot({
+      wallet: selectedWallet,
+      account: selectedAccount
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Authentication failed:', error);
+    throw error;
+  }
+}
+```
+
+### Server Verification
+
+```typescript
+// Server-side verification (Node.js)
+import { verifySignature } from '@keypass/login-sdk/server';
+
+app.post('/api/verify', async (req, res) => {
+  try {
+    const { signature, message, address, chainType } = req.body;
+    
+    const isValid = await verifySignature({
+      signature,
+      message,
+      address,
+      chainType
+    });
+    
+    if (isValid) {
+      // Create session, store user data, etc.
+      res.json({ success: true, verified: true });
+    } else {
+      res.status(401).json({ success: false, error: 'Invalid signature' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+```
+
+## Migration Guide
+
+### From Basic to Wallet Selection
+
+If you're currently using the Core SDK directly and want to add wallet selection:
+
+```typescript
+// Before: Direct Core SDK usage
+const result = await loginWithPolkadot();
+
+// After: Add wallet selection (copy functions from examples)
+const wallets = await detectPolkadotWallets(); // From examples
+const selectedWallet = await showWalletPicker(wallets); // Your UI
+const accounts = await getPolkadotAccounts(selectedWallet); // From examples
+const selectedAccount = await showAccountPicker(accounts); // Your UI
+const result = await loginWithPolkadot({ wallet: selectedWallet, account: selectedAccount });
+```
+
+### Integration Approaches
+
+1. **Copy Complete Examples**: Use React or Vanilla boilerplates as starting point
+2. **Extract Functions**: Copy specific functions from examples into your project
+3. **Core SDK Only**: Use authentication functions directly without wallet selection UI
+
 ---
 
-## ❓ FAQ
-
-**Q: Where is the `selectWallet()` function?**
-A: It's implemented in the example boilerplates. Copy the implementation from `examples/react-boilerplate/src/App.tsx` or `examples/vanilla-boilerplate/index.html`.
-
-**Q: Why aren't the UI functions in the core SDK?**
-A: The core SDK focuses on authentication logic, while UI implementations are provided as examples. This allows maximum flexibility for different frontend frameworks and design systems.
-
-**Q: Can I use the core SDK with my own UI?**
-A: Yes! Use functions like `connectWallet()`, `loginWithPolkadot()`, and `loginWithEthereum()` and build your own wallet selection interface.
-
-**Q: How do I implement wallet selection like in the examples?**
-A: Copy the relevant functions from the boilerplate code and customize the UI components to match your application's design. 
+**Note**: The wallet detection and account selection functions are implemented in the example boilerplates. Copy the relevant code from `examples/react-boilerplate/` or `examples/vanilla-boilerplate/` to use these features in your application. 

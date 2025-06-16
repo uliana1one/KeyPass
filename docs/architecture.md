@@ -2,7 +2,7 @@
 
 The KeyPass Login SDK follows a **two-layer architecture** that separates core authentication logic from user interface implementations, providing flexibility for developers to choose their integration approach.
 
-## 🏗️ Architectural Layers
+##  Architectural Layers
 
 ### **Layer 1: Core SDK** (`src/`)
 **Purpose**: Provides the fundamental authentication and wallet connection logic
@@ -106,7 +106,7 @@ The core SDK implements a clean 7-layer architecture focused on authentication l
   - **Chain-specific security headers**
   - **Unified rate limiting**
 
-## 🎨 Example Implementation Architecture
+## Example Implementation Architecture
 
 The examples demonstrate how to build complete user experiences on top of the core SDK:
 
@@ -158,7 +158,7 @@ The examples demonstrate how to build complete user experiences on top of the co
 └─────────────────────────────────────┘
 ```
 
-## 🔄 Data Flow Patterns
+##  Data Flow Patterns
 
 ### **Core SDK Flow** (Basic Authentication)
 ```
@@ -200,7 +200,7 @@ Core SDK Authentication Flow
 Authentication Success UI
 ```
 
-## 🏆 Architecture Benefits
+##  Architecture Benefits
 
 ### **Separation of Concerns**
 - **Core SDK**: Focuses purely on authentication logic
@@ -217,7 +217,7 @@ Authentication Success UI
 - **Framework agnostic**: Core SDK works with any frontend framework
 - **Clear dependencies**: Examples depend on core SDK, not vice versa
 
-## 🔍 Component Interactions
+##  Component Interactions
 
 ### **Within Core SDK**
 The layers interact in a strict hierarchy:
@@ -232,7 +232,7 @@ Examples use core SDK functions as building blocks:
 - **Add UI layer**: Implement wallet detection, selection interfaces
 - **Handle user interaction**: Convert UI events to core SDK function calls
 
-## 🛡️ Security Considerations
+##  Security Considerations
 
 ### **Core SDK Security**
 - Each layer implements its own security measures
@@ -247,7 +247,7 @@ Examples use core SDK functions as building blocks:
 - Proper error display without exposing internals
 - Safe wallet extension interaction
 
-## 🧪 Testing Strategy
+##  Testing Strategy
 
 ### **Core SDK Testing**
 - **Unit tests**: Each layer tested independently
@@ -259,7 +259,7 @@ Examples use core SDK functions as building blocks:
 - **Integration tests**: Core SDK integration verification
 - **User experience tests**: Complete workflow validation
 
-## 🚀 Deployment Patterns
+## Deployment Patterns
 
 ### **Core SDK Only** (Minimal)
 ```

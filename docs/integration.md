@@ -2,7 +2,7 @@
 
 This guide covers two main integration approaches: **using the Core SDK** for custom implementations and **using the Examples** for complete UI experiences.
 
-## 🏗️ Integration Overview
+##  Integration Overview
 
 ### **Option A: Core SDK Integration** 
 Use the authentication functions directly with your own UI
@@ -23,7 +23,7 @@ Mix core SDK functions with example UI components
 
 ---
 
-## 🔧 Option A: Core SDK Integration
+##  Option A: Core SDK Integration
 
 ### Prerequisites
 
@@ -248,7 +248,7 @@ async function robustAuthentication() {
 
 ---
 
-## 🎨 Option B: Example-Based Integration
+## Option B: Example-Based Integration
 
 ### Using the React Boilerplate
 
@@ -390,7 +390,7 @@ python3 -m http.server 8000
 
 ---
 
-## 🔧 Option C: Hybrid Integration
+## Option C: Hybrid Integration
 
 ### Use Core SDK + Selected Example Components
 
@@ -452,7 +452,7 @@ async function hybridAuth() {
 
 ---
 
-## 🔌 Server Setup
+## Server Setup
 
 ### Development Setup
 
@@ -498,7 +498,7 @@ CORS_ORIGIN=https://your-app.com
 
 ---
 
-## 🧪 Testing Your Integration
+## Testing Your Integration
 
 ### Test Wallet Connections
 
@@ -554,7 +554,7 @@ async function testAuth() {
 
 ---
 
-## 🚀 Deployment Checklist
+## Deployment Checklist
 
 ### Before Deployment
 

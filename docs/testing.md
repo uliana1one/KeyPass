@@ -4,7 +4,7 @@
 
 KeyPass implements a comprehensive testing strategy to ensure reliability and maintainability of the codebase, including **wallet and account selection** functionality. The testing suite combines unit tests, integration tests, and end-to-end tests, utilizing Jest as the primary testing framework. The test suite validates both core functionality and the new interactive wallet selection features.
 
-## 🆕 New Wallet Selection Testing
+## New Wallet Selection Testing
 
 ### **Mock Wallet Implementations**
 
