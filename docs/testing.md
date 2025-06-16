@@ -2,7 +2,105 @@
 
 ## Overview
 
-KeyPass implements a comprehensive testing strategy to ensure reliability and maintainability of the codebase. The testing suite combines unit tests, integration tests, and end-to-end tests, utilizing Jest as the primary testing framework. The test suite is designed to validate both the core functionality and the integration points of the wallet authentication system.
+KeyPass implements a comprehensive testing strategy to ensure reliability and maintainability of the codebase, including **wallet and account selection** functionality. The testing suite combines unit tests, integration tests, and end-to-end tests, utilizing Jest as the primary testing framework. The test suite validates both core functionality and the new interactive wallet selection features.
+
+## 🆕 New Wallet Selection Testing
+
+### **Mock Wallet Implementations**
+
+For testing wallet selection without requiring actual wallet extensions:
+
+```typescript
+// Mock wallet for testing
+class MockWalletAdapter implements WalletAdapter {
+  private accounts: WalletAccount[] = [
+    {
+      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+      name: 'Test Account 1',
+      source: 'polkadot-js',
+      chainType: 'polkadot',
+      balance: '10.5'
+    },
+    {
+      address: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+      name: 'Test Account 2', 
+      source: 'polkadot-js',
+      chainType: 'polkadot',
+      balance: '25.0'
+    }
+  ];
+
+  async enable(): Promise<void> {
+    // Mock enable
+  }
+
+  async getAccounts(): Promise<WalletAccount[]> {
+    return this.accounts;
+  }
+
+  async signMessage(message: string): Promise<string> {
+    return '0x' + 'mock_signature'.repeat(8);
+  }
+
+  getWalletInfo() {
+    return {
+      id: 'mock-wallet' as WalletId,
+      name: 'Mock Wallet',
+      version: '1.0.0'
+    };
+  }
+
+  // ... other required methods
+}
+```
+
+### **Testing Wallet Selection Flow**
+
+```typescript
+import { selectWallet, selectAccount } from '@keypass/login-sdk';
+
+describe('Wallet Selection', () => {
+  beforeEach(() => {
+    // Setup mock wallets
+    global.window.injectedWeb3 = {
+      'polkadot-js': {
+        enable: jest.fn(),
+        accounts: {
+          get: jest.fn().mockResolvedValue(mockAccounts)
+        }
+      }
+    };
+  });
+
+  test('should display available wallets', async () => {
+    const wallets = await getAvailableWallets('polkadot');
+    
+    expect(wallets).toHaveLength(3);
+    expect(wallets[0].name).toBe('Polkadot.js Extension');
+    expect(wallets[0].isInstalled).toBe(true);
+  });
+
+  test('should handle wallet selection', async () => {
+    const result = await selectWallet({
+      chainType: 'polkadot',
+      showAccountSelection: false
+    });
+
+    expect(result.walletInfo.name).toBe('Polkadot.js Extension');
+    expect(result.chainType).toBe('polkadot');
+  });
+
+  test('should handle account selection', async () => {
+    const mockWallet = new MockWalletAdapter();
+    const selectedAccount = await selectAccount(mockWallet, {
+      showBalance: true
+    });
+
+    expect(selectedAccount.address).toBeDefined();
+    expect(selectedAccount.balance).toBeDefined();
+  });
+});
+```
 
 ## Test Structure
 

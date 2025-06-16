@@ -1,37 +1,83 @@
 # KeyPass Login SDK Tutorial
 
-This tutorial will guide you through integrating the KeyPass Login SDK into your React application, from basic setup to advanced features. We'll start with a working example and build from there.
+This comprehensive tutorial will guide you through integrating the KeyPass Login SDK with **wallet and account selection** functionality into your applications. We'll cover both React and vanilla JavaScript implementations with step-by-step examples.
 
 ## What is KeyPass?
 
-KeyPass is a simple SDK that allows users to connect their blockchain wallets (like Polkadot.js, Talisman, etc.) to your web application. Think of it as a "Connect Wallet" button that works with multiple wallet types.
+KeyPass is a powerful SDK that provides **interactive wallet and account selection** for blockchain applications. It supports multiple wallets across Polkadot and Ethereum ecosystems, offering users a seamless way to connect their preferred wallet and choose specific accounts for authentication.
+
+### 🆕 **New Wallet Selection Features**
+- **Multi-wallet support**: Polkadot.js Extension, Talisman, SubWallet, MetaMask, Trust Wallet, Coinbase Wallet
+- **Interactive selection flow**: Chain → Wallet → Account → Authentication
+- **Professional UI**: Dark theme with glassmorphism design and smooth animations
+- **Mobile-responsive**: Works perfectly on all devices
 
 ## Prerequisites
 
 Before you begin, make sure you have:
 
-1. **Node.js** (v14 or later) - [Download here](https://nodejs.org/)
+1. **Node.js** (v16 or later) - [Download here](https://nodejs.org/)
 2. **A code editor** (VS Code recommended)
-3. **Basic knowledge of React and TypeScript** (don't worry, we'll explain as we go!)
-4. **A wallet extension installed** (like Polkadot.js extension for testing)
+3. **Basic knowledge of JavaScript/TypeScript** (we'll explain as we go!)
+4. **Wallet extensions installed** for testing:
+   - **Polkadot**: [Polkadot.js Extension](https://polkadot.js.org/extension/) or [Talisman](https://talisman.xyz/)
+   - **Ethereum**: [MetaMask](https://metamask.io/) or [Trust Wallet](https://trustwallet.com/)
 
-## Quick Start with Boilerplate
+## 🛠️ Server Setup (Required)
 
-The fastest way to get started is using our boilerplate project:
-
-### Step 1: Get the Boilerplate
-
-If you have access to the KeyPass repository:
+The wallet selection functionality requires the KeyPass server to be running:
 
 ```bash
-# Navigate to the boilerplate
-cd examples/boilerplate
+# From the root KeyPass directory
+cd /path/to/KeyPass
+npm start
+```
+
+You should see:
+```
+Server running on port 3000
+Verification endpoint available at http://0.0.0.0:3000/api/verify
+```
+
+**Troubleshooting**: If port 3000 is busy, kill the existing process:
+```bash
+lsof -ti:3000 | xargs kill -9
+```
+
+## 🚀 Quick Start with Interactive Examples
+
+The fastest way to get started is using our enhanced boilerplate projects with wallet selection:
+
+### Option 1: React Boilerplate (Recommended for Production)
+
+```bash
+# Navigate to the React boilerplate
+cd examples/react-boilerplate
 
 # Install dependencies
 npm install
+
+# Start the development server
+npm start
 ```
 
-If you're starting from scratch, you can create a new Vite + React project and follow the setup below.
+### Option 2: Vanilla JavaScript Boilerplate (Great for Learning)
+
+```bash
+# Navigate to the vanilla boilerplate directory
+cd examples/vanilla-boilerplate
+
+# Start a local HTTP server
+python3 -m http.server 8006
+
+# Open http://localhost:8006 in your browser
+```
+
+Both examples include:
+- ✅ **Complete wallet selection flow**
+- ✅ **Professional UI with animations**
+- ✅ **Error handling and user feedback**
+- ✅ **Mobile-responsive design**
 
 ### Step 2: Environment Setup
 

@@ -1,104 +1,229 @@
-# Wallet and Account Selection Guide
+# Wallet Selection Implementation Guide
 
 ## Overview
 
-Both KeyPass boilerplates now support **wallet and account selection**, allowing users to choose which wallet extension and which specific account to use for authentication. This provides much more flexibility and control over the authentication process.
+This guide explains **how the wallet selection functionality is implemented** in the KeyPass examples. The wallet selection features are **frontend implementations** built on top of the KeyPass Core SDK, not core SDK functionality itself.
 
-## Features
+## 🏗️ Architecture Understanding
 
-### 🔗 Multi-Wallet Support
+### **What's Implemented Where**
 
-**Polkadot Ecosystem:**
-- Polkadot.js Extension
-- Talisman Wallet
-- SubWallet
-- Any compatible Polkadot extension
-
-**Ethereum Ecosystem:**
-- MetaMask
-- Trust Wallet
-- Coinbase Wallet
-- Any compatible Ethereum wallet
-
-### 👤 Account Selection
-
-- View all available accounts in your selected wallet
-- Choose which specific account to authenticate with
-- See account names and addresses clearly
-- Support for multiple accounts per wallet
-
-### 🎨 User Experience
-
-- **Step-by-step flow**: Chain → Wallet → Account → Authentication
-- **Visual feedback**: Selected items are highlighted
-- **Error handling**: Clear messages for missing wallets or failed connections
-- **Responsive design**: Works on desktop and mobile
-- **Back navigation**: Easy to go back and change selections
-
-## How It Works
-
-### 1. Chain Selection
-Users first choose between Polkadot and Ethereum chains.
-
-### 2. Wallet Detection
-The app automatically detects all available wallet extensions:
-- Shows wallet names and availability status
-- Indicates if wallets are installed but not compatible
-- Provides installation links for missing wallets
-
-### 3. Wallet Selection
-Users click on their preferred wallet:
-- Only available wallets are clickable
-- Selected wallet is highlighted
-- App requests permission to connect
-
-### 4. Account Selection
-Once connected, users see all accounts:
-- Account addresses are displayed in monospace font
-- Account names (if available) are shown
-- Users click to select their preferred account
-
-### 5. Authentication
-Final step signs a message with the selected account:
-- Creates a unique login message
-- Requests signature from the selected account
-- Displays authentication result with account details
-
-## Code Structure
-
-### Vanilla JavaScript Implementation
-
-```javascript
-// State management
-let currentChainType = null;
-let selectedWallet = null;
-let selectedAccount = null;
-let availableWallets = [];
-let availableAccounts = [];
-
-// Wallet detection
-async function detectPolkadotWallets() { /* ... */ }
-async function detectEthereumWallets() { /* ... */ }
-
-// Account fetching
-async function getPolkadotAccounts(wallet) { /* ... */ }
-async function getEthereumAccounts(wallet) { /* ... */ }
-
-// Authentication
-async function authenticateWithPolkadot(account) { /* ... */ }
-async function authenticateWithEthereum(account) { /* ... */ }
+```
+┌─────────────────────────────────────┐
+│     Example Frontend Code          │ ← This Guide Covers
+├─────────────────────────────────────┤
+│  • detectPolkadotWallets()         │
+│  • detectEthereumWallets()          │
+│  • getPolkadotAccounts()           │
+│  • getEthereumAccounts()           │
+│  • Wallet selection UI             │
+│  • Account selection UI            │
+├─────────────────────────────────────┤
+│      KeyPass Core SDK               │ ← Used by Examples
+├─────────────────────────────────────┤
+│  • loginWithPolkadot()             │
+│  • loginWithEthereum()             │
+│  • connectWallet()                 │
+│  • WalletAdapter interfaces        │
+└─────────────────────────────────────┘
 ```
 
-### React Implementation
+### **Key Distinction**
+- **Core SDK**: Provides authentication functions that auto-connect to first available wallet
+- **Examples**: Implement UI layers that let users choose wallets and accounts before calling Core SDK functions
+
+## ✨ Features Implemented in Examples
+
+### 🔗 Multi-Wallet Detection
+
+**Polkadot Ecosystem Detection:**
+- ✅ Polkadot.js Extension detection
+- ✅ Talisman Wallet detection
+- ✅ Generic Polkadot extension detection (`window.injectedWeb3`)
+- ✅ Installation status checking
+
+**Ethereum Ecosystem Detection:**
+- ✅ MetaMask detection (`window.ethereum.isMetaMask`)
+- ✅ Trust Wallet detection (`window.ethereum.isTrust`)
+- ✅ Coinbase Wallet detection (`window.ethereum.isCoinbaseWallet`)
+- ✅ Generic Ethereum provider detection (`window.ethereum`)
+
+### 👤 Account Selection Implementation
+
+- ✅ **Account enumeration**: List all accounts from connected wallet
+- ✅ **Account metadata display**: Show names and addresses clearly
+- ✅ **Interactive selection**: Click to choose specific account
+- ✅ **Account validation**: Ensure selected account exists and is accessible
+
+### 🎨 User Experience Patterns
+
+- ✅ **Step-by-step flow**: Chain → Wallet → Account → Authentication
+- ✅ **Visual feedback**: Highlighted selections and loading states
+- ✅ **Error handling**: User-friendly error messages and retry logic
+- ✅ **Responsive design**: Mobile-friendly wallet selection interfaces
+- ✅ **Back navigation**: Easy navigation between selection steps
+
+## 🔧 Implementation Details
+
+### 1. Chain Selection (Example Implementation)
+
+```javascript
+// Implemented in examples - not core SDK
+function handleChainSelection(chainType) {
+  currentChainType = chainType;
+  loadWallets(chainType);
+  showWalletSelection(chainType);
+}
+```
+
+### 2. Wallet Detection (Example Implementation)
+
+```javascript
+// Polkadot wallet detection - implemented in examples
+const detectPolkadotWallets = async () => {
+  const wallets = [];
+  
+  // Wait for extensions to inject
+  await new Promise(resolve => setTimeout(resolve, 200));
+  
+  if (window.injectedWeb3) {
+    const extensions = Object.keys(window.injectedWeb3);
+    
+    for (const extensionName of extensions) {
+      const extension = window.injectedWeb3[extensionName];
+      let displayName = extensionName;
+      
+      // Map extension names to user-friendly names
+      if (extensionName === 'polkadot-js') {
+        displayName = 'Polkadot.js Extension';
+      } else if (extensionName === 'talisman') {
+        displayName = 'Talisman';
+      }
+      
+      wallets.push({
+        id: extensionName,
+        name: displayName,
+        status: extension.enable ? 'Available' : 'Not Compatible',
+        available: extension.enable !== undefined,
+        extension: extension
+      });
+    }
+  }
+  
+  return wallets;
+};
+
+// Ethereum wallet detection - implemented in examples  
+const detectEthereumWallets = async () => {
+  const wallets = [];
+  
+  if (window.ethereum) {
+    let walletName = 'Ethereum Wallet';
+    
+    // Detect specific wallet types
+    if (window.ethereum.isMetaMask) {
+      walletName = 'MetaMask';
+    } else if (window.ethereum.isTrust) {
+      walletName = 'Trust Wallet';
+    } else if (window.ethereum.isCoinbaseWallet) {
+      walletName = 'Coinbase Wallet';
+    }
+    
+    wallets.push({
+      id: 'ethereum',
+      name: walletName,
+      status: 'Available',
+      available: true,
+      provider: window.ethereum
+    });
+  }
+  
+  return wallets;
+};
+```
+
+### 3. Account Fetching (Example Implementation)
+
+```javascript
+// Polkadot account fetching - implemented in examples
+const getPolkadotAccounts = async (wallet) => {
+  try {
+    const injectedExtension = await wallet.extension.enable('KeyPass Demo');
+    const accounts = await injectedExtension.accounts.get();
+    
+    return accounts.map(account => ({
+      address: account.address,
+      name: account.name || 'Unnamed Account',
+      meta: account.meta,
+      injectedExtension: injectedExtension
+    }));
+  } catch (error) {
+    throw new Error(`Failed to get accounts: ${error.message}`);
+  }
+};
+
+// Ethereum account fetching - implemented in examples
+const getEthereumAccounts = async (wallet) => {
+  try {
+    const accounts = await wallet.provider.request({
+      method: 'eth_requestAccounts'
+    });
+    
+    return accounts.map((address, index) => ({
+      address: address,
+      name: `Account ${index + 1}`,
+      provider: wallet.provider
+    }));
+  } catch (error) {
+    if (error.code === 4001) {
+      throw new Error('User rejected the connection request');
+    }
+    throw new Error(`Failed to get accounts: ${error.message}`);
+  }
+};
+```
+
+### 4. Authentication Integration (How Examples Use Core SDK)
+
+```javascript
+// How examples integrate with Core SDK
+const authenticateWithPolkadot = async (account) => {
+  try {
+    // Example implementation: Create message and sign with selected account
+    const message = `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: ${Math.random().toString(36).substring(7)}\nAddress: ${account.address}`;
+    
+    const signature = await account.injectedExtension.signer.signRaw({
+      address: account.address,
+      data: message,
+      type: 'bytes'
+    });
+
+    return {
+      address: account.address,
+      did: `did:key:${account.address}`,
+      chainType: 'polkadot',
+      signature: signature.signature,
+      message: message,
+      issuedAt: new Date().toISOString(),
+      nonce: Math.random().toString(36).substring(7),
+      accountName: account.name
+    };
+  } catch (error) {
+    throw new Error(`Signing failed: ${error.message}`);
+  }
+};
+
+// Alternative: Using Core SDK directly (simpler, no wallet selection)
+import { loginWithPolkadot } from '@keypass/login-sdk';
+const result = await loginWithPolkadot(); // Auto-selects first available wallet/account
+```
+
+## 🎨 UI Implementation Patterns
+
+### React Implementation Structure
 
 ```typescript
-// State management with hooks
-const [currentView, setCurrentView] = useState<'login' | 'wallet-selection' | 'profile'>('login');
-const [currentChainType, setCurrentChainType] = useState<'polkadot' | 'ethereum' | null>(null);
-const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
-const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-
-// TypeScript interfaces
+// State management for wallet selection
 interface Wallet {
   id: string;
   name: string;
@@ -115,16 +240,62 @@ interface Account {
   injectedExtension?: any;
   provider?: any;
 }
+
+// Component state
+const [currentView, setCurrentView] = useState<'login' | 'wallet-selection' | 'profile'>('login');
+const [currentChainType, setCurrentChainType] = useState<'polkadot' | 'ethereum' | null>(null);
+const [availableWallets, setAvailableWallets] = useState<Wallet[]>([]);
+const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
+const [availableAccounts, setAvailableAccounts] = useState<Account[]>([]);
+const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 ```
 
-## UI Components
+### Vanilla JavaScript Implementation
 
-### Wallet Grid
+```javascript
+// Global state management
+let currentChainType = null;
+let selectedWallet = null;
+let selectedAccount = null;
+let availableWallets = [];
+let availableAccounts = [];
+
+// UI manipulation functions
+function showWalletSelection(chainType) {
+  document.getElementById('walletSelection').classList.add('show');
+  document.getElementById('walletSelectionTitle').textContent = 
+    `Choose Your ${chainType === 'polkadot' ? 'Polkadot' : 'Ethereum'} Wallet`;
+}
+
+function renderWalletOptions(wallets) {
+  const container = document.getElementById('walletOptions');
+  container.innerHTML = '';
+  
+  wallets.forEach(wallet => {
+    const walletElement = createWalletElement(wallet);
+    container.appendChild(walletElement);
+  });
+}
+```
+
+## 🔧 Styling Implementation
+
+### CSS for Wallet Selection UI
+
 ```css
+.wallet-selection {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .wallet-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 15px;
+  margin: 20px 0;
 }
 
 .wallet-option {
@@ -135,10 +306,17 @@ interface Account {
   cursor: pointer;
   transition: all 0.3s ease;
 }
-```
 
-### Account List
-```css
+.wallet-option:hover:not(.disabled) {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.wallet-option.selected {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.2);
+}
+
 .account-list {
   max-height: 250px;
   overflow-y: auto;
@@ -148,218 +326,176 @@ interface Account {
 
 .account-option {
   padding: 15px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
+
+.account-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.account-option.selected {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
+}
 ```
 
-## Error Handling
+## 🛡️ Error Handling Patterns
 
 ### Common Error Scenarios
 
-1. **No Wallets Detected**
-   - Shows installation instructions
-   - Provides direct links to wallet downloads
-
-2. **Wallet Connection Failed**
-   - Clear error messages
-   - Suggests troubleshooting steps
-
-3. **No Accounts Found**
-   - Prompts user to create accounts in their wallet
-   - Explains account setup process
-
-4. **Signature Rejected**
-   - Handles user rejection gracefully
-   - Allows retry without full restart
-
-### Error Messages
-
 ```javascript
-// Example error handling
+// No wallets detected
+if (availableWallets.length === 0) {
+  showError('No wallets detected. Please install a supported wallet extension.');
+  showInstallationLinks();
+}
+
+// Wallet connection failed
 try {
   const accounts = await getPolkadotAccounts(wallet);
-  if (accounts.length === 0) {
-    throw new Error('No accounts found. Please create an account in your wallet.');
-  }
 } catch (error) {
-  if (error.code === 4001) {
-    showError('User rejected the connection request');
+  if (error.message.includes('User rejected')) {
+    showError('Connection cancelled by user');
+  } else if (error.message.includes('Not found')) {
+    showError('Wallet not found. Please ensure it is installed and enabled.');
   } else {
-    showError(`Failed to get accounts: ${error.message}`);
+    showError(`Connection failed: ${error.message}`);
+  }
+}
+
+// No accounts available
+if (accounts.length === 0) {
+  showError('No accounts found. Please create an account in your wallet first.');
+  showAccountCreationGuide();
+}
+
+// Signature rejection
+try {
+  const signature = await signMessage(message, account);
+} catch (error) {
+  if (error.code === 4001 || error.message.includes('User rejected')) {
+    showError('Signature cancelled by user');
+  } else {
+    showError(`Signing failed: ${error.message}`);
   }
 }
 ```
 
-## Security Considerations
+### User-Friendly Error Messages
 
-### Message Signing
-Each authentication creates a unique message:
 ```javascript
-const message = `KeyPass Login
-Issued At: ${new Date().toISOString()}
-Nonce: ${Math.random().toString(36).substring(7)}
-Address: ${account.address}`;
+const errorMessages = {
+  NO_WALLETS: 'No wallet extensions found. Please install Polkadot.js, Talisman, or MetaMask.',
+  WALLET_LOCKED: 'Your wallet appears to be locked. Please unlock it and try again.',
+  NO_ACCOUNTS: 'No accounts found in your wallet. Please create an account first.',
+  USER_REJECTED: 'You cancelled the request. Click connect to try again.',
+  NETWORK_ERROR: 'Network error occurred. Please check your connection and try again.',
+  UNKNOWN_ERROR: 'An unexpected error occurred. Please refresh the page and try again.'
+};
 ```
 
-### Permission Handling
-- Requests minimal necessary permissions
-- Only accesses selected accounts
-- No persistent storage of sensitive data
-- Clear permission requests to users
+## 🧪 Testing the Implementation
 
-## Browser Compatibility
+### Manual Testing Checklist
 
-### Supported Browsers
-- Chrome/Chromium (recommended)
-- Firefox
-- Safari (with limitations)
-- Edge
-
-### Extension Requirements
-- Polkadot.js Extension 0.44.1+
-- Talisman 1.0.0+
-- MetaMask 10.0.0+
-- Modern browser with extension support
-
-## Testing
-
-### Manual Testing Steps
-
-1. **Install Test Wallets**
-   ```bash
-   # Install browser extensions:
-   # - Polkadot.js Extension
-   # - Talisman (optional)
-   # - MetaMask
-   ```
-
-2. **Create Test Accounts**
-   - Create at least 2 accounts in each wallet
-   - Give accounts descriptive names
-   - Ensure accounts have different addresses
-
-3. **Test Flow**
-   - Select Polkadot → Choose wallet → Select account → Sign
-   - Select Ethereum → Choose wallet → Select account → Sign
-   - Test with multiple accounts
-   - Test error scenarios (reject signature, etc.)
-
-### Automated Testing
 ```javascript
-// Example test structure
-describe('Wallet Selection', () => {
-  test('detects available wallets', async () => {
-    const wallets = await detectPolkadotWallets();
-    expect(wallets.length).toBeGreaterThan(0);
-  });
-  
-  test('handles wallet selection', async () => {
-    const wallet = availableWallets[0];
-    await handleWalletSelection(wallet);
-    expect(selectedWallet).toBe(wallet);
+// Test wallet detection
+□ Install Polkadot.js extension and verify detection
+□ Install Talisman and verify detection  
+□ Install MetaMask and verify detection
+□ Test with no wallets installed
+□ Test with wallets installed but locked
+
+// Test account selection
+□ Create multiple accounts in each wallet
+□ Verify all accounts are displayed
+□ Test account selection flow
+□ Test with wallet that has no accounts
+
+// Test authentication flow
+□ Complete full flow: chain → wallet → account → auth
+□ Test signature approval and rejection
+□ Test back navigation between steps
+□ Test error recovery flows
+```
+
+### Integration Testing
+
+```javascript
+// Test Core SDK integration
+describe('Wallet Selection Integration', () => {
+  test('uses Core SDK after wallet selection', async () => {
+    // Mock wallet selection
+    const selectedAccount = await selectAccountFromUI();
+    
+    // Verify Core SDK is called correctly
+    const result = await authenticateWithPolkadot(selectedAccount);
+    expect(result.address).toBe(selectedAccount.address);
   });
 });
 ```
 
-## Customization
+## 🔄 Migration and Customization
 
-### Adding New Wallets
-
-To support additional wallets, extend the detection functions:
+### From Core SDK Only to Wallet Selection
 
 ```javascript
-async function detectPolkadotWallets() {
-  // ... existing code ...
-  
-  // Add new wallet detection
-  if (extensionName === 'nova-wallet') {
-    displayName = 'Nova Wallet';
-  } else if (extensionName === 'fearless-wallet') {
-    displayName = 'Fearless Wallet';
-  }
-  
-  // ... rest of function
-}
-```
+// Before: Direct Core SDK usage
+import { loginWithPolkadot } from '@keypass/login-sdk';
+const result = await loginWithPolkadot(); // Auto-selects first wallet/account
 
-### Styling Customization
+// After: Add wallet selection layer
+import { detectPolkadotWallets, getPolkadotAccounts } from './walletSelection';
 
-Override CSS variables for consistent theming:
-
-```css
-:root {
-  --wallet-bg: rgba(255, 255, 255, 0.03);
-  --wallet-border: rgba(255, 255, 255, 0.1);
-  --wallet-hover: rgba(59, 130, 246, 0.1);
-  --wallet-selected: rgba(59, 130, 246, 0.2);
-}
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"No wallets detected"**
-   - Ensure wallet extensions are installed
-   - Refresh the page after installing
-   - Check browser extension permissions
-
-2. **"Failed to get accounts"**
-   - Create accounts in your wallet first
-   - Ensure wallet is unlocked
-   - Check wallet permissions for the site
-
-3. **"Signing failed"**
-   - Don't reject the signature request
-   - Ensure account has sufficient permissions
-   - Try refreshing and reconnecting
-
-### Debug Mode
-
-Enable debug mode by opening browser console:
-
-```javascript
-// Access debug functions
-window.KeyPassDemo.selectedWallet();
-window.KeyPassDemo.selectedAccount();
-window.KeyPassDemo.currentUser();
-```
-
-## Migration from Previous Version
-
-If upgrading from the previous version:
-
-1. **No breaking changes** - existing functionality preserved
-2. **Enhanced UX** - users now get wallet/account selection
-3. **Same API** - authentication results have same structure
-4. **Additional data** - results now include `accountName` field
-
-### Before (automatic selection):
-```javascript
-// Old: Used first available wallet and account
-const result = await loginWithPolkadot();
-```
-
-### After (user selection):
-```javascript
-// New: User chooses wallet and account through UI
-// Same result structure, but with user choice
+const wallets = await detectPolkadotWallets();
+const selectedWallet = await showWalletPicker(wallets);
+const accounts = await getPolkadotAccounts(selectedWallet);
+const selectedAccount = await showAccountPicker(accounts);
 const result = await authenticateWithPolkadot(selectedAccount);
 ```
 
-## Next Steps
+### Adding Custom Wallet Support
 
-- **Multi-chain support**: Connect to multiple chains simultaneously
-- **Account management**: Switch accounts without full reconnection
-- **Wallet preferences**: Remember user's preferred wallet
-- **Advanced permissions**: Fine-grained permission control
-- **Hardware wallet support**: Ledger and other hardware wallets
+```javascript
+// Extend wallet detection for custom wallets
+const detectPolkadotWallets = async () => {
+  // ... existing detection logic ...
+  
+  // Add custom wallet detection
+  if (window.customWallet && window.customWallet.polkadot) {
+    wallets.push({
+      id: 'custom-wallet',
+      name: 'Custom Wallet',
+      status: 'Available',
+      available: true,
+      extension: window.customWallet.polkadot
+    });
+  }
+  
+  return wallets;
+};
+```
 
-## Support
+## 📚 Implementation Resources
 
-For issues or questions:
-- Check the troubleshooting section above
-- Open an issue on GitHub
-- Review browser console for error details
-- Test with different wallets/accounts to isolate issues 
+### **Copy-Paste Ready Code**
+- **React Implementation**: `examples/react-boilerplate/src/App.tsx`
+- **Vanilla Implementation**: `examples/vanilla-boilerplate/index.html`
+- **Styling**: Both examples include complete CSS implementations
+
+### **Customization Points**
+- **Wallet detection logic**: Add or remove wallet types
+- **UI styling**: Customize colors, layouts, animations
+- **Error messages**: Modify text and error handling flows
+- **Account display**: Customize how accounts are shown to users
+
+### **Integration with Core SDK**
+- **Authentication**: Examples show how to use Core SDK after wallet selection
+- **Error handling**: How to handle Core SDK errors in UI context
+- **Server communication**: How examples verify signatures with KeyPass server
+
+---
+
+**Important**: This guide covers **frontend implementation patterns**. The actual wallet communication and authentication logic is handled by the KeyPass Core SDK. These examples show you how to build user-friendly interfaces around the Core SDK functionality. 

@@ -1,6 +1,72 @@
 # Error Handling Guide
 
-This guide provides comprehensive documentation for error handling in the KeyPass Login SDK.
+This guide provides comprehensive documentation for error handling in the KeyPass Login SDK, including **wallet and account selection** error scenarios and best practices for creating robust user experiences.
+
+## 🆕 New Wallet Selection Error Types
+
+### **Enhanced WalletError Interface**
+
+```typescript
+interface WalletError extends Error {
+  code: WalletErrorCode;
+  walletId?: WalletId;
+  chainType?: ChainType;
+  details?: any;
+}
+
+type WalletErrorCode = 
+  | 'WALLET_NOT_FOUND'
+  | 'WALLET_NOT_INSTALLED'
+  | 'WALLET_CONNECTION_FAILED'
+  | 'WALLET_LOCKED'
+  | 'USER_REJECTED_CONNECTION'
+  | 'USER_REJECTED_SIGNING'
+  | 'NO_ACCOUNTS_AVAILABLE'
+  | 'ACCOUNT_ACCESS_DENIED'
+  | 'NETWORK_ERROR'
+  | 'TIMEOUT_ERROR'
+  | 'INVALID_SIGNATURE'
+  | 'UNSUPPORTED_CHAIN'
+  | 'WALLET_DISCONNECTED'
+  | 'SELECTION_CANCELLED'
+  | 'SELECTION_TIMEOUT';
+```
+
+### **Wallet Selection Error Handling**
+
+```typescript
+import { WalletError, loginWithWalletSelection } from '@keypass/login-sdk';
+
+try {
+  const result = await loginWithWalletSelection();
+  console.log('Login successful:', result);
+} catch (error) {
+  if (error instanceof WalletError) {
+    handleWalletError(error);
+  } else {
+    console.error('Unexpected error:', error);
+  }
+}
+
+function handleWalletError(error: WalletError) {
+  switch (error.code) {
+    case 'WALLET_NOT_INSTALLED':
+      showInstallWalletDialog(error.walletId);
+      break;
+    case 'USER_REJECTED_CONNECTION':
+      showUserRejectionMessage();
+      break;
+    case 'NO_ACCOUNTS_AVAILABLE':
+      showNoAccountsMessage();
+      break;
+    case 'WALLET_LOCKED':
+      showUnlockWalletMessage();
+      break;
+    default:
+      showGenericErrorMessage(error.message);
+  }
+}
+```
 
 ## Error Types
 

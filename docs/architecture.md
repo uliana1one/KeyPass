@@ -1,39 +1,45 @@
-# Multi-Chain Architecture Overview
+# Architecture Overview
 
-The KeyPass Login SDK follows a **multi-chain 7-layer architecture** designed for modularity, security, and maintainability across both Polkadot and Ethereum ecosystems. Each layer has a specific responsibility and interacts with other layers through well-defined interfaces.
+The KeyPass Login SDK follows a **two-layer architecture** that separates core authentication logic from user interface implementations, providing flexibility for developers to choose their integration approach.
 
-## Supported Chains
+## 🏗️ Architectural Layers
 
-### Polkadot Ecosystem
-- **Signature Algorithm**: SR25519/Ed25519
-- **Address Format**: SS58 (base58 encoded)
-- **DID Method**: `did:key` with multibase encoding
-- **Wallets**: Polkadot.js, Talisman, WalletConnect
+### **Layer 1: Core SDK** (`src/`)
+**Purpose**: Provides the fundamental authentication and wallet connection logic
+- **Wallet connection and management**
+- **Message signing and verification** 
+- **DID (Decentralized Identifier) creation and management**
+- **Multi-chain support** (Polkadot and Ethereum)
+- **Error handling and validation**
 
-### Ethereum Ecosystem
-- **Signature Algorithm**: ECDSA (secp256k1)
-- **Address Format**: Hex (0x-prefixed)
-- **DID Method**: `did:ethr` with Ethereum addresses
-- **Wallets**: MetaMask, WalletConnect, injected providers
+### **Layer 2: Frontend Examples** (`examples/`)
+**Purpose**: Demonstrates complete user experience implementations
+- **Interactive wallet selection interfaces**
+- **Account selection workflows**
+- **Chain selection UI components**
+- **Professional styling and animations**
+- **Comprehensive error handling UI**
 
-## Layer System
+## 🔧 Core SDK Architecture (7-Layer System)
+
+The core SDK implements a clean 7-layer architecture focused on authentication logic:
 
 ### 1. Config Layer (`src/config/`)
-- **Purpose**: Multi-chain configuration management and validation
+- **Purpose**: Configuration management and validation
 - **Components**:
-  - Chain-specific wallet adapter configurations
-  - Multi-chain message format templates
-  - Chain-specific validation rules
+  - Wallet adapter configurations
+  - Message format templates
+  - Validation rules
 - **Key Files**:
-  - `config/validator.ts`: Multi-chain configuration validation
-  - `config/messageFormat.json`: Chain-agnostic message templates
+  - `config/validator.ts`: Configuration validation
+  - `config/messageFormat.json`: Message templates
 
 ### 2. Wallet Adapter Layer (`src/adapters/`)
 - **Purpose**: Multi-chain wallet interaction abstraction
 - **Components**:
   - `WalletAdapter` interface (chain-agnostic)
   - **Polkadot**: PolkadotJsAdapter, TalismanAdapter
-  - **Ethereum**: EthereumAdapter, MetaMaskAdapter
+  - **Ethereum**: EthereumAdapter  
   - **Universal**: WalletConnectAdapter (supports both chains)
 - **Key Features**:
   - Chain-specific wallet connection management
@@ -42,21 +48,18 @@ The KeyPass Login SDK follows a **multi-chain 7-layer architecture** designed fo
   - Unified error handling across chains
 
 ### 3. Account Layer (`src/accounts/`)
-- **Purpose**: Multi-chain account management and selection
+- **Purpose**: Basic account management
 - **Components**:
-  - Chain-agnostic account selection logic
-  - Multi-format address validation (SS58 + Hex)
-  - Chain-specific account metadata
-- **Key Features**:
-  - Cross-chain account handling
-  - Address format detection and validation
-  - Chain-specific account filtering
+  - Simple account selection logic (`selectAccount()`)
+  - Address validation
+  - Account metadata handling
+- **Note**: Advanced account selection UI is implemented in examples
 
 ### 4. Message Layer (`src/message/`)
 - **Purpose**: Chain-agnostic message handling and validation
 - **Components**:
   - Universal message builder
-  - Chain-agnostic template management
+  - Template management
   - Multi-chain validation rules
 - **Key Features**:
   - Unified message construction across chains
@@ -69,7 +72,7 @@ The KeyPass Login SDK follows a **multi-chain 7-layer architecture** designed fo
 - **Components**:
   - **UnifiedVerificationService**: Auto-routing verification service
   - **EthereumVerificationService**: ECDSA signature verification
-  - **PolkadotVerificationService**: SR25519/Ed25519 verification
+  - **PolkadotVerificationService**: SR25519/Ed25519 verification (via VerificationService)
 - **Key Features**:
   - **Automatic chain detection** from address format
   - **ECDSA support** for Ethereum (using ethers.js)
@@ -81,7 +84,7 @@ The KeyPass Login SDK follows a **multi-chain 7-layer architecture** designed fo
 - **Purpose**: Multi-chain decentralized identifier management
 - **Components**:
   - **EthereumDIDProvider**: `did:ethr` method implementation
-  - **PolkadotDIDProvider**: `did:key` method implementation
+  - **PolkadotDIDProvider** (UUIDProvider): `did:key` method implementation
   - **Unified DID resolution** across chains
 - **Key Features**:
   - **Chain-specific DID creation**
@@ -103,239 +106,174 @@ The KeyPass Login SDK follows a **multi-chain 7-layer architecture** designed fo
   - **Chain-specific security headers**
   - **Unified rate limiting**
 
-## Multi-Chain Data Flow
+## 🎨 Example Implementation Architecture
 
-### 1. **Chain Detection & Authentication Initiation**
-   ```
-   Client -> Config Layer -> Chain Detection -> Wallet Adapter Layer
-   ```
+The examples demonstrate how to build complete user experiences on top of the core SDK:
 
-### 2. **Chain-Specific Wallet Connection**
-   ```
-   Wallet Adapter Layer -> Account Layer -> Message Layer
-   ```
-   - **Polkadot**: PolkadotJsAdapter/TalismanAdapter
-   - **Ethereum**: EthereumAdapter/MetaMaskAdapter
-   - **Universal**: WalletConnectAdapter
+### **React Boilerplate Architecture** (`examples/react-boilerplate/`)
+```
+┌─────────────────────────────────────┐
+│            App Component            │
+├─────────────────────────────────────┤
+│  State Management:                  │
+│  • Chain selection state           │
+│  • Wallet detection results        │
+│  • Account selection state         │
+│  • Authentication state            │
+├─────────────────────────────────────┤
+│  UI Flow Management:                │
+│  • Chain Selection View            │
+│  • Wallet Selection View           │
+│  • Account Selection View          │
+│  • Authentication Success View     │
+├─────────────────────────────────────┤
+│  Core SDK Integration:              │
+│  • connectWallet()                  │
+│  • loginWithPolkadot()             │
+│  • loginWithEthereum()             │
+└─────────────────────────────────────┘
+```
 
-### 3. **Chain-Appropriate Message Signing**
-   ```
-   Message Layer -> Wallet Adapter Layer -> Signature Layer
-   ```
-   - **Polkadot**: SR25519/Ed25519 signing
-   - **Ethereum**: ECDSA (secp256k1) signing
+### **Vanilla Boilerplate Architecture** (`examples/vanilla-boilerplate/`)
+```
+┌─────────────────────────────────────┐
+│           Single HTML File          │
+├─────────────────────────────────────┤
+│  JavaScript Functions:              │
+│  • detectPolkadotWallets()         │
+│  • detectEthereumWallets()          │
+│  • getPolkadotAccounts()           │
+│  • getEthereumAccounts()           │
+│  • authenticateWith*()             │
+├─────────────────────────────────────┤
+│  UI Management:                     │
+│  • showWalletSelection()           │
+│  • Dynamic DOM manipulation        │
+│  • Event handling                  │
+├─────────────────────────────────────┤
+│  Core Logic:                        │
+│  • Direct wallet API calls         │
+│  • Message signing                 │
+│  • Server verification             │
+└─────────────────────────────────────┘
+```
 
-### 4. **Unified Verification & DID Creation**
-   ```
-   Signature Layer -> UnifiedVerificationService -> Chain-Specific Verification -> DID Layer -> Server Layer -> Client
-   ```
-   - **Auto-detection**: Address format determines chain type
-   - **Polkadot**: SR25519 verification → `did:key` creation
-   - **Ethereum**: ECDSA verification → `did:ethr` creation
+## 🔄 Data Flow Patterns
 
-## Component Interactions
+### **Core SDK Flow** (Basic Authentication)
+```
+Client App
+    ↓
+loginWithPolkadot() / loginWithEthereum()
+    ↓
+connectWallet() (Auto-detects available wallets)
+    ↓
+WalletAdapter.enable() → WalletAdapter.getAccounts()
+    ↓
+WalletAdapter.signMessage()
+    ↓
+Server Verification (/api/verify)
+    ↓
+DID Creation
+    ↓
+LoginResult
+```
 
-The layers interact in the following sequence:
+### **Example Implementation Flow** (Full UI Experience)
+```
+Client App
+    ↓
+Chain Selection UI (Polkadot vs Ethereum)
+    ↓
+detectPolkadotWallets() / detectEthereumWallets()
+    ↓
+Wallet Selection UI (List available wallets)
+    ↓
+getPolkadotAccounts() / getEthereumAccounts()
+    ↓
+Account Selection UI (Choose specific account)
+    ↓
+authenticateWithPolkadot() / authenticateWithEthereum()
+    ↓
+Core SDK Authentication Flow
+    ↓
+Authentication Success UI
+```
 
-1. Client initiates requests to the Server Layer
-2. Server Layer coordinates two main flows:
-   - Authentication Flow:
-     * Server → Signature Layer (verifies signatures)
-     * Signature Layer → DID Layer (creates/validates DIDs)
-   - Message Flow:
-     * Server → Message Layer (handles message format)
-     * Message Layer → Account Layer (manages accounts)
-     * Account Layer → Wallet Adapter Layer (connects to wallets)
-     * Wallet Adapter Layer → Config Layer (loads settings)
+## 🏆 Architecture Benefits
 
-Each layer only communicates with its immediate neighbors, maintaining a clean separation of concerns.
+### **Separation of Concerns**
+- **Core SDK**: Focuses purely on authentication logic
+- **Examples**: Handle all UI/UX considerations
+- **Clear boundaries**: Easy to understand what belongs where
 
-## Security Considerations
+### **Flexibility**
+- **Use core SDK only**: For custom UI implementations
+- **Use examples as base**: For rapid development
+- **Mix and match**: Copy specific components from examples
 
+### **Maintainability**
+- **Independent testing**: Core logic and UI tested separately
+- **Framework agnostic**: Core SDK works with any frontend framework
+- **Clear dependencies**: Examples depend on core SDK, not vice versa
+
+## 🔍 Component Interactions
+
+### **Within Core SDK**
+The layers interact in a strict hierarchy:
+1. Client calls Server Layer functions
+2. Server Layer coordinates with other layers:
+   - Authentication Flow: Server → Signature → DID
+   - Message Flow: Server → Message → Account → Adapter → Config
+
+### **Between Core SDK and Examples**
+Examples use core SDK functions as building blocks:
+- **Import core functions**: `import { connectWallet, loginWithPolkadot } from '@keypass/login-sdk'`
+- **Add UI layer**: Implement wallet detection, selection interfaces
+- **Handle user interaction**: Convert UI events to core SDK function calls
+
+## 🛡️ Security Considerations
+
+### **Core SDK Security**
 - Each layer implements its own security measures
 - Cross-layer communication is strictly typed
 - Error handling is consistent across layers
 - Cryptographic operations are isolated
 - Input validation at each layer
 
-## Best Practices
+### **Example Security**
+- UI validation before calling core SDK functions
+- Secure handling of sensitive data in UI state
+- Proper error display without exposing internals
+- Safe wallet extension interaction
 
-1. **Layer Independence**
-   - Each layer is independently testable
-   - Dependencies flow downward
-   - No circular dependencies
+## 🧪 Testing Strategy
 
-2. **Error Handling**
-   - Errors are caught at the appropriate layer
-   - Error types are specific to each layer
-   - Error messages are user-friendly
+### **Core SDK Testing**
+- **Unit tests**: Each layer tested independently
+- **Integration tests**: Layer interactions validated
+- **End-to-end tests**: Complete authentication flows
 
-3. **Type Safety**
-   - TypeScript interfaces for all layer boundaries
-   - Runtime type checking where necessary
-   - Comprehensive type definitions
+### **Example Testing**
+- **UI component tests**: Interface behavior validation
+- **Integration tests**: Core SDK integration verification
+- **User experience tests**: Complete workflow validation
 
-4. **Testing**
-   - Unit tests for each layer
-   - Integration tests for layer interactions
-   - End-to-end tests for complete flows
+## 🚀 Deployment Patterns
 
-## Core Components
-
-### Wallet Connection Layer
-
-The wallet connection system provides a unified interface for different wallet types:
-
-1. Main Entry Point: `connectWallet`
-   - Attempts to connect to available wallets in priority order
-   - Handles connection errors and retries
-
-2. Common Interface: `WalletAdapter`
-   - Standard methods for all wallet types:
-     * enable(): Connect to wallet
-     * getAccounts(): List available accounts
-     * signMessage(): Sign authentication messages
-     * getProvider(): Get wallet provider info
-     * disconnect(): End wallet session
-     * Event handling (on/off)
-
-3. Supported Wallet Types:
-   - Polkadot.js (Priority 1)
-   - Talisman (Priority 2)
-   - WalletConnect (Priority 3)
-
-Each wallet adapter implements the same interface, allowing the system to work with any supported wallet type.
-
-### Authentication Flow
-
-The authentication process follows these steps:
-
-1. Client initiates wallet connection
-2. User selects an account and signs a login message
-3. Server verifies the signature:
-   - First attempts sr25519 verification
-   - If that fails, tries ed25519 verification
-   - Retries on network errors
-4. On successful verification, creates a DID for the address
-5. Generates and returns a session with verification data
-
-### DID Management
-
-The DID system works as follows:
-
-1. Creates a DID from a Polkadot address using the did:key method
-2. Generates a DID document containing:
-   - A verification method (public key)
-   - Authentication capability
-   - Assertion capability
-   - Invocation and delegation capabilities
-3. Provides DID resolution to look up and validate documents
-4. Manages capability verification for actions
-
-## Wallet Adapters
-
-### Common Interface
-
-All wallet adapters implement the `WalletAdapter` interface:
-
-```typescript
-interface WalletAdapter {
-  enable(): Promise<void>;
-  getAccounts(): Promise<WalletAccount[]>;
-  signMessage(message: string): Promise<string>;
-  getProvider(): string | null;
-  disconnect(): Promise<void>;
-  on(event: string, callback: EventHandler): void;
-  off(event: string, callback: EventHandler): void;
-}
+### **Core SDK Only** (Minimal)
+```
+Your App → @keypass/login-sdk → KeyPass Server
 ```
 
-### Adapter Types
-
-1. **PolkadotJsAdapter**
-   - Connects to the Polkadot.js browser extension
-   - Uses `@polkadot/extension-dapp`
-   - Priority: 1
-
-2. **TalismanAdapter**
-   - Connects to the Talisman wallet extension
-   - Uses Talisman's injected provider
-   - Priority: 2
-
-3. **WalletConnectAdapter**
-   - Connects to any wallet supporting WalletConnect
-   - Uses `@walletconnect/web3-provider`
-   - Requires WalletConnect project ID
-   - Priority: 3
-
-## Error Handling
-
-The SDK uses a hierarchical error system:
-
+### **With Examples** (Complete)
 ```
-Error
-├── WalletError
-│   ├── WalletNotFoundError
-│   ├── UserRejectedError
-│   ├── TimeoutError
-│   └── WalletConnectionError
-├── ValidationError
-│   ├── MessageValidationError
-│   └── AddressValidationError
-└── AuthenticationError
-    ├── InvalidSignatureError
-    └── ConfigurationError
+Your App → Example UI Components → Core SDK → KeyPass Server
 ```
 
-## Configuration
+### **Hybrid** (Customized)
+```
+Your App → Custom UI + Example Components → Core SDK → KeyPass Server
+```
 
-The SDK can be configured through:
-
-1. Environment variables:
-   ```
-   WALLETCONNECT_PROJECT_ID=your_project_id_here
-   ```
-
-2. Wallet configuration (wallets.json):
-   ```json
-   {
-     "wallets": [
-       {
-         "id": "polkadot-js",
-         "name": "Polkadot.js",
-         "adapter": "PolkadotJsAdapter",
-         "priority": 1
-       },
-       {
-         "id": "talisman",
-         "name": "Talisman",
-         "adapter": "TalismanAdapter",
-         "priority": 2
-       },
-       {
-         "id": "walletconnect",
-         "name": "WalletConnect",
-         "adapter": "WalletConnectAdapter",
-         "priority": 3
-       }
-     ]
-   }
-   ```
-
-## Security Considerations
-
-1. **Message Signing**
-   - Messages are validated and sanitized
-   - Signatures are verified
-   - Nonces prevent replay attacks
-
-2. **Session Management**
-   - Sessions expire after a configurable timeout
-   - DIDs provide verifiable identity
-   - Secure headers protect against common web vulnerabilities
-
-3. **WalletConnect Security**
-   - Project ID required for WalletConnect
-   - Session encryption
-   - Chain ID validation
-   - Address validation 
+This architecture provides maximum flexibility while maintaining clear separation between authentication logic and user interface implementation. 
