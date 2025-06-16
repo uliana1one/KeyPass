@@ -1,11 +1,11 @@
 import { sr25519Verify, ed25519Verify } from '@polkadot/util-crypto';
 import { hexToU8a } from '@polkadot/util';
-import { PolkadotDIDProvider } from '../did/UUIDProvider';
-import { buildLoginMessage } from '../message/messageBuilder';
-import { validatePolkadotAddress, validateSignature } from '../adapters/types';
-import { VerificationRequest, VerificationResponse } from './types';
-import { AddressValidationError, MessageValidationError } from '../errors/WalletErrors';
-import messageFormat from '../../config/messageFormat.json';
+import { PolkadotDIDProvider } from '../did/UUIDProvider.js';
+import { buildLoginMessage } from '../message/messageBuilder.js';
+import { validatePolkadotAddress, validateSignature } from '../adapters/types.js';
+import { VerificationRequest, VerificationResponse } from './types.js';
+import { AddressValidationError, MessageValidationError } from '../errors/WalletErrors.js';
+import messageFormat from '../../config/messageFormat.json' assert { type: 'json' };
 
 // Error codes for verification responses
 export const ERROR_CODES = {

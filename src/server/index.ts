@@ -1,4 +1,4 @@
-import { createServer } from './server';
+import { createServer } from './server.js';
 
 const app = createServer();
 const port = parseInt(process.env.PORT || '3000', 10);

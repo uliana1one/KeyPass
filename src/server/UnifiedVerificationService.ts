@@ -1,6 +1,6 @@
-import { VerificationService } from './verificationService';
-import { EthereumVerificationService } from './EthereumVerificationService';
-import { VerificationRequest, VerificationResponse, VerificationService as IVerificationService } from './types';
+import { VerificationService } from './verificationService.js';
+import { EthereumVerificationService } from './EthereumVerificationService.js';
+import { VerificationRequest, VerificationResponse, VerificationService as IVerificationService } from './types.js';
 
 /**
  * Unified verification service that handles both Polkadot and Ethereum signature verification.

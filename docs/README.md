@@ -2,7 +2,7 @@
 
 Welcome to the KeyPass Login SDK documentation. This documentation provides comprehensive information about implementing **multi-chain wallet authentication** in your Web3 applications.
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 The KeyPass Login SDK follows a **two-layer architecture**:
 
@@ -17,181 +17,155 @@ The KeyPass Login SDK follows a **two-layer architecture**:
 - **Interactive wallet selection UI**
 - **Account selection interfaces** 
 - **Chain selection workflows**
-- **Professional UI components** with dark theme and glassmorphism design
-- **Complete user experience flows**
+- **Professional UI components** with dark theme and animations
+- **Comprehensive error handling and user feedback**
 
-## 🚀 What's Available
+## What's Available
 
-### ✅ **Core SDK Features** (Available when you `npm install @keypass/login-sdk`)
-- **`loginWithPolkadot()`**: Complete Polkadot authentication
-- **`loginWithEthereum()`**: Complete Ethereum authentication  
-- **`connectWallet()`**: Multi-wallet connection with auto-detection
-- **Wallet Adapters**: PolkadotJs, Talisman, WalletConnect, Ethereum
-- **DID Providers**: Automatic DID creation for both chains
-- **Verification Service**: Server-side signature verification
+### **Core SDK Features** (Available when you `npm install @keypass/login-sdk`)
+- `loginWithPolkadot()` - Authenticate with Polkadot wallets
+- `loginWithEthereum()` - Authenticate with Ethereum wallets  
+- `connectWallet()` - Direct wallet connection
+- Wallet adapters for Polkadot.js, Talisman, MetaMask
+- Server verification endpoints
+- TypeScript interfaces and error types
 
-### ✅ **Example Implementation Features** (Available in the boilerplates)
-- **Interactive wallet selection UI**: Professional modal interfaces
-- **Multi-step selection flow**: Chain → Wallet → Account → Authentication
-- **Wallet detection functions**: Auto-discovery of installed wallets
-- **Account selection interface**: Interactive account picker with metadata
-- **Error handling UI**: User-friendly error messages and retry logic
-- **Mobile-responsive design**: Works on all devices
+### **Example Implementation Features** (Available in the boilerplates)
+- Interactive wallet selection UI (chain → wallet → account)
+- Wallet detection functions (`detectPolkadotWallets`, `detectEthereumWallets`)
+- Account selection interfaces with metadata display
+- Professional styling with glassmorphism design
+- Comprehensive error handling with user-friendly messages
+- Mobile-responsive layouts
 
-## 📚 Documentation Sections
+## Documentation Sections
 
-1. **[Architecture Overview](architecture.md)**
-   - Core SDK vs Frontend implementation distinction
-   - Multi-chain authentication patterns
-   - Component interactions and data flow
+### **Core Documentation**
+- **[API Reference](./api.md)** - Complete API documentation for Core SDK functions
+- **[Integration Guide](./integration.md)** - How to integrate the SDK into your application
+- **[Architecture Guide](./architecture.md)** - Technical architecture and design patterns
+- **[Tutorial](./tutorial.md)** - Step-by-step implementation guide
+- **[Error Handling](./errors.md)** - Error types and handling strategies
+- **[Testing Guide](./testing.md)** - Testing strategies and mock implementations
 
-2. **[API Reference](api.md)**
-   - **Core SDK APIs**: Functions available when you install the library
-   - **Example Implementation APIs**: Frontend utilities in the boilerplates
-   - Multi-chain type definitions and interfaces
+### **Example Documentation**
+- **[Examples Overview](../examples/README.md)** - Complete guide to frontend implementations
+- **[Wallet Selection Guide](../examples/WALLET_SELECTION.md)** - Implementation patterns for wallet selection
+- **[React Boilerplate](../examples/react-boilerplate/README.md)** - React implementation guide
+- **[Vanilla JS Boilerplate](../examples/vanilla-boilerplate/README.md)** - Vanilla JavaScript implementation
 
-3. **[Integration Guide](integration.md)**
-   - **Using the Core SDK**: How to implement basic authentication
-   - **Using the Examples**: How to implement the full UI experience
-   - Server setup and configuration
+### **Additional Resources**
+- **[Protocols](./protocols.md)** - Supported blockchain protocols and standards
+- **[Docker Testing](./docker-testing.md)** - Docker-based testing setup
 
-4. **[Tutorial](tutorial.md)**
-   - **Basic Integration**: Using just the core SDK functions
-   - **Full UI Implementation**: Building wallet selection like the examples
-   - Best practices and common patterns
+## Quick Setup Guide
 
-5. **[Error Handling](errors.md)**
-   - Core SDK error types and handling
-   - Example UI error handling patterns
-   - Troubleshooting guide
-
-6. **[Testing](testing.md)**
-   - Core SDK testing strategies
-   - [Docker Testing](docker-testing.md) - Containerized test environment
-   - Frontend testing approaches
-
-7. **[Protocols](protocols.md)**
-   - Multi-chain authentication protocols
-   - Wallet communication standards
-   - Security protocols and best practices
-
-## 🛠️ Quick Setup Guide
-
-### 1. **Start the KeyPass Server**
-```bash
-# From the root KeyPass directory
-cd /path/to/KeyPass
-npm start
-```
-
-### 2. **Choose Your Integration Approach**
-
-#### **Option A: Use the Complete Examples** (Recommended for new projects)
-```bash
-# React Boilerplate (includes full wallet selection UI)
-cd examples/react-boilerplate
-npm install
-npm start
-
-# Vanilla JavaScript Boilerplate (zero dependencies)
-cd examples/vanilla-boilerplate
-python3 -m http.server 8006
-# Open http://localhost:8006
-```
-
-#### **Option B: Use Just the Core SDK** (For custom implementations)
+### **1. Install the Core SDK**
 ```bash
 npm install @keypass/login-sdk
 ```
 
+### **2. Start KeyPass Server** (Required for signature verification)
+```bash
+# From the main KeyPass directory
+npm install
+npm start
+# Server starts on http://localhost:3000
+```
+
+### **3. Choose Your Integration Approach**
+
+#### **Option A: Use Complete Examples**
+```bash
+# Copy React boilerplate
+cp -r examples/react-boilerplate/* your-project/
+
+# Or copy Vanilla JS boilerplate  
+cp -r examples/vanilla-boilerplate/* your-project/
+```
+
+#### **Option B: Core SDK Only**
 ```typescript
 import { loginWithPolkadot, loginWithEthereum } from '@keypass/login-sdk';
 
-// Basic Polkadot login (no UI)
+// Simple authentication (auto-selects first available wallet)
 const result = await loginWithPolkadot();
-
-// Basic Ethereum login (no UI)  
-const result = await loginWithEthereum();
 ```
 
-### 3. **Test the Experience**
-- Install wallet extensions (Polkadot.js, MetaMask, etc.)
-- Navigate to the example applications
-- Experience the complete wallet selection flow
+#### **Option C: Custom UI + Core SDK**
+```typescript
+// Build your own wallet selection UI
+import { detectPolkadotWallets } from './examples/walletDetection';
+import { loginWithPolkadot } from '@keypass/login-sdk';
 
-## 💡 Integration Patterns
+const wallets = await detectPolkadotWallets();
+const selectedWallet = await showCustomWalletPicker(wallets);
+const result = await loginWithPolkadot(selectedWallet);
+```
 
-### **Pattern 1: Use the Examples as Starting Point** (Fastest)
-1. Copy the React or Vanilla boilerplate
-2. Customize the UI to match your brand
-3. Modify the authentication flow as needed
-4. Deploy alongside the KeyPass server
+## Integration Patterns
 
-### **Pattern 2: Build Custom UI with Core SDK** (Most Flexible)
-1. Install the core SDK: `npm install @keypass/login-sdk`
-2. Use `connectWallet()` for wallet detection
-3. Use `loginWithPolkadot()` or `loginWithEthereum()` for authentication
-4. Build your own wallet selection UI
-5. Handle errors and loading states
+### **Pattern 1: Complete Example Integration** (Fastest)
+- Copy entire React or Vanilla JS boilerplate
+- Customize styling and branding
+- Deploy with minimal changes
 
-### **Pattern 3: Hybrid Approach** (Balanced)
-1. Use core SDK functions for authentication logic
-2. Copy UI components from examples for wallet selection
-3. Customize styling and user experience
-4. Maintain separation between logic and presentation
+### **Pattern 2: Component Extraction** (Flexible)
+- Extract specific components from examples
+- Integrate into existing applications
+- Maintain your current architecture
 
-## 🎯 What's New in This Release
+### **Pattern 3: Core SDK Integration** (Minimal)
+- Use only the authentication functions
+- Build completely custom UI
+- Maximum control over user experience
 
-### **Enhanced Developer Experience**
-- **Clear architecture separation**: Distinguish between core SDK and UI implementations
-- **Multiple integration options**: Choose the approach that fits your needs
-- **Comprehensive examples**: Both React and vanilla JavaScript implementations
-- **Detailed documentation**: Clear guidance on where each feature lives
+## What's New in This Release
 
-### **Complete User Experience** (Available in Examples)
-- **Step-by-step selection**: Users choose chain → wallet → account in a guided flow
-- **Visual feedback**: Loading states, success indicators, and clear error messages
-- **Professional design**: Dark theme with glassmorphism effects and smooth animations
-- **Mobile optimization**: Responsive design that works on all devices
+### **Enhanced Architecture**
+- **Clear separation** between Core SDK and Frontend implementations
+- **Multiple integration approaches** for different use cases
+- **Comprehensive documentation** with accurate feature attribution
 
-### **Robust Core SDK** (Available when you install the library)
-- **Enhanced wallet detection**: Robust detection with retry logic and fallbacks
-- **Better error handling**: Specific error types for different wallet scenarios
-- **Improved TypeScript support**: Enhanced type definitions and interfaces
-- **Security enhancements**: Updated authentication flows and validation
+### **Wallet Selection Features**
+- **Interactive UI components** for wallet and account selection
+- **Multi-wallet support** with auto-detection
+- **Professional styling** with responsive design
+- **Error handling** with user-friendly messages
 
-## 📚 Learning Path
+### **Developer Experience**
+- **Complete working examples** in React and Vanilla JavaScript
+- **Copy-paste ready code** with detailed comments
+- **Testing strategies** for both Core SDK and UI components
+- **Production deployment** guidance
 
-### **I want the full experience (UI + Auth)**
-1. Start with [Tutorial](tutorial.md) - Section: "Using the Complete Examples"
-2. Try the [React Boilerplate](../examples/react-boilerplate/) or [Vanilla Boilerplate](../examples/vanilla-boilerplate/)
-3. Customize the UI and deploy
+## Learning Path
 
-### **I want to build my own UI**
-1. Review [API Reference](api.md) - Section: "Core SDK APIs"
-2. Follow [Integration Guide](integration.md) - Section: "Using the Core SDK"
-3. Check [Architecture Overview](architecture.md) for patterns
+### **For Beginners**
+1. Start with [Vanilla JavaScript Example](../examples/vanilla-boilerplate/)
+2. Understand the authentication flow
+3. Study wallet detection patterns
+4. Experiment with customizations
 
-### **I want to understand everything**
-1. Read [Architecture Overview](architecture.md) for the complete picture
-2. Explore both the core SDK source and example implementations
-3. Review [Protocols](protocols.md) for security considerations
+### **For React Developers**
+1. Start with [React Boilerplate](../examples/react-boilerplate/)
+2. Study component architecture
+3. Integrate with existing React apps
+4. Customize for production use
 
-## 🔗 Quick Links
+### **For Backend Developers**
+1. Review [API Reference](./api.md)
+2. Study server verification patterns
+3. Implement secure session management
+4. Add production security measures
 
-- **[Live Examples](../examples/)** - Complete wallet selection experiences
-- **[Core SDK Source](../src/)** - Authentication and wallet connection logic
-- **[GitHub Repository](https://github.com/uliana1one/keypass)** - Source code and issues
-- **[Issue Tracker](https://github.com/uliana1one/keypass/issues)** - Bug reports and feature requests
+## Quick Links
 
-## 🆘 Need Help?
+- **[Get Started](./tutorial.md)** - Begin with the tutorial
+- **[API Docs](./api.md)** - Core SDK function reference
+- **[Examples](../examples/)** - Complete implementation examples
+- **[GitHub](https://github.com/uliana1one/keypass)** - Source code and issues
 
-- **"Where is feature X?"**: Check the [Architecture Overview](architecture.md) to understand what's in the core SDK vs examples
-- **Setup Issues**: Check the [Integration Guide](integration.md) troubleshooting section
-- **Wallet Problems**: Review [Error Handling](errors.md) for wallet-specific solutions
-- **Code Examples**: Explore the [examples directory](../examples/) for working implementations
-- **Community Support**: Visit [GitHub Discussions](https://github.com/uliana1one/keypass/discussions)
+---
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details. 
+**Ready to start?** Choose your integration approach and dive into the documentation that matches your needs!

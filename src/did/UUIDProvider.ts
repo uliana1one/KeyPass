@@ -1,8 +1,8 @@
 import { decodeAddress, encodeAddress, base58Encode, base58Decode } from '@polkadot/util-crypto';
-import { DIDDocument, DIDProvider, DIDResolver, Service, VerificationMethod } from './types';
-import { MULTIBASE_PREFIXES, VERIFICATION_METHOD_TYPES } from './verification';
-import { validatePolkadotAddress } from '../adapters/types';
-import { AddressValidationError } from '../errors/WalletErrors';
+import { DIDDocument, DIDProvider, DIDResolver, Service, VerificationMethod } from './types.js';
+import { MULTIBASE_PREFIXES, VERIFICATION_METHOD_TYPES } from './verification.js';
+import { validatePolkadotAddress } from '../adapters/types.js';
+import { AddressValidationError } from '../errors/WalletErrors.js';
 
 /**
  * Provider for creating and managing Polkadot DIDs.

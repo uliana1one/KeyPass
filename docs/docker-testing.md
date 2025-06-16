@@ -199,11 +199,15 @@ Update `package.json` to include:
 ```json
 {
   "scripts": {
+    "start": "node dist/server/index.js",
+    "start:dev": "nodemon --exec ts-node --esm src/server/index.ts",
     "test:docker": "docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test",
-    "test:docker:cleanup": "docker-compose -f docker-compose.test.yml down -v",
+    "test:docker:cleanup": "docker-compose -f docker-compose.test.yml down -v"
   }
 }
 ```
+
+**Note**: The `start` script runs the compiled JavaScript from `dist/` instead of TypeScript source, since Docker already builds the project. For development, `start:dev` uses `ts-node --esm` for hot reloading.
 
 ## Running Tests in Docker
 

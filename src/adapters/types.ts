@@ -1,6 +1,6 @@
-import { WalletError } from '../errors/WalletErrors';
+import { WalletError } from '../errors/WalletErrors.js';
 import { isAddress, checkAddress } from '@polkadot/util-crypto';
-import { MessageValidationError, AddressValidationError } from '../errors/WalletErrors';
+import { MessageValidationError, AddressValidationError } from '../errors/WalletErrors.js';
 
 export interface WalletAccount {
   address: string;

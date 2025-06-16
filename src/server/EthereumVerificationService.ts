@@ -1,7 +1,7 @@
 import { verifyMessage } from 'ethers';
-import { EthereumDIDProvider } from '../did/EthereumDIDProvider';
-import { VerificationRequest, VerificationResponse } from './types';
-import { AddressValidationError, MessageValidationError } from '../errors/WalletErrors';
+import { EthereumDIDProvider } from '../did/EthereumDIDProvider.js';
+import { VerificationRequest, VerificationResponse } from './types.js';
+import { AddressValidationError, MessageValidationError } from '../errors/WalletErrors.js';
 
 // Error codes for verification responses
 export const ETHEREUM_ERROR_CODES = {

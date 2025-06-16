@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { UnifiedVerificationService } from './UnifiedVerificationService';
-import { VerificationRequest } from './types';
-import { MessageValidationError, AddressValidationError } from '../errors/WalletErrors';
+import { UnifiedVerificationService } from './UnifiedVerificationService.js';
+import { VerificationRequest } from './types.js';
+import { MessageValidationError, AddressValidationError } from '../errors/WalletErrors.js';
 
 // Constants for security settings
 const MAX_REQUEST_SIZE = '10kb'; // Maximum request body size
