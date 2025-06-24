@@ -495,7 +495,7 @@ function App() {
       </div>
       {/* SBT Section */}
       {loginResult?.address && (
-        <SBTSection userAddress={loginResult.address} />
+        <SBTSection walletAddress={loginResult.address} />
       )}
     </div>
   );

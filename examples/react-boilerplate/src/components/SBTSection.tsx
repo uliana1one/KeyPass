@@ -2,45 +2,238 @@ import React, { useState, useEffect } from 'react';
 import { SBTGrid } from './SBTGrid';
 import { SBTToken } from './SBTCard';
 import { sbtService } from '../services/sbtService';
+import { API_CONFIG } from '../config/api';
+
+// Mock SBT service for demonstration (fallback)
+const mockSBTService = {
+  async getTokens(walletAddress: string): Promise<SBTToken[]> {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return [
+      {
+        id: '1',
+        name: 'Ethereum Developer Certification',
+        description: 'Certified Ethereum smart contract developer with expertise in Solidity and DeFi protocols.',
+        image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=300&fit=crop',
+        issuer: '0x1234567890123456789012345678901234567890',
+        issuerName: 'Ethereum Foundation',
+        issuedAt: '2024-01-15T10:30:00Z',
+        expiresAt: '2025-01-15T10:30:00Z',
+        chainId: '1',
+        chainType: 'Ethereum',
+        contractAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
+        tokenStandard: 'ERC-721',
+        verificationStatus: 'verified' as const,
+        attributes: [
+          { trait_type: 'Level', value: 'Advanced' },
+          { trait_type: 'Skills', value: 'Solidity, DeFi, Smart Contracts' },
+          { trait_type: 'Experience', value: '3+ years' }
+        ],
+        revocable: true,
+        tags: ['Developer', 'Certification', 'Ethereum']
+      },
+      {
+        id: '2',
+        name: 'Polkadot Ambassador',
+        description: 'Official Polkadot ecosystem ambassador with proven contributions to the community.',
+        image: 'https://images.unsplash.com/photo-1639762681057-408e52192e55?w=400&h=300&fit=crop',
+        issuer: '0x2345678901234567890123456789012345678901',
+        issuerName: 'Polkadot Network',
+        issuedAt: '2024-02-20T14:15:00Z',
+        chainId: '0',
+        chainType: 'Polkadot',
+        contractAddress: '0xbcdef1234567890abcdef1234567890abcdef123',
+        tokenStandard: 'ERC-721',
+        verificationStatus: 'verified' as const,
+        attributes: [
+          { trait_type: 'Role', value: 'Ambassador' },
+          { trait_type: 'Region', value: 'North America' },
+          { trait_type: 'Contributions', value: '50+' }
+        ],
+        revocable: false,
+        tags: ['Ambassador', 'Polkadot', 'Community']
+      },
+      {
+        id: '3',
+        name: 'DeFi Protocol Contributor',
+        description: 'Active contributor to major DeFi protocols with significant impact on the ecosystem.',
+        image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=300&fit=crop',
+        issuer: '0x3456789012345678901234567890123456789012',
+        issuerName: 'DeFi Alliance',
+        issuedAt: '2024-03-10T09:45:00Z',
+        expiresAt: '2024-12-31T23:59:59Z',
+        chainId: '1',
+        chainType: 'Ethereum',
+        contractAddress: '0xcdef1234567890abcdef1234567890abcdef1234',
+        tokenStandard: 'ERC-721',
+        verificationStatus: 'pending' as const,
+        attributes: [
+          { trait_type: 'Protocols', value: 'Uniswap, Aave, Compound' },
+          { trait_type: 'Contributions', value: '100+' },
+          { trait_type: 'Impact Score', value: '95' }
+        ],
+        revocable: true,
+        tags: ['DeFi', 'Contributor', 'Protocol']
+      },
+      {
+        id: '4',
+        name: 'Blockchain Security Expert',
+        description: 'Certified blockchain security expert with specialization in smart contract auditing.',
+        image: 'https://images.unsplash.com/photo-1639762681057-408e52192e55?w=400&h=300&fit=crop',
+        issuer: '0x4567890123456789012345678901234567890123',
+        issuerName: 'Security Guild',
+        issuedAt: '2024-01-05T16:20:00Z',
+        chainId: '1',
+        chainType: 'Ethereum',
+        contractAddress: '0xdef1234567890abcdef1234567890abcdef12345',
+        tokenStandard: 'ERC-721',
+        verificationStatus: 'verified' as const,
+        attributes: [
+          { trait_type: 'Specialization', value: 'Smart Contract Auditing' },
+          { trait_type: 'Audits Completed', value: '25+' },
+          { trait_type: 'Success Rate', value: '100%' }
+        ],
+        revocable: false,
+        tags: ['Security', 'Auditing', 'Expert']
+      },
+      {
+        id: '5',
+        name: 'DAO Governance Participant',
+        description: 'Active participant in DAO governance with voting power and proposal creation rights.',
+        image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=300&fit=crop',
+        issuer: '0x5678901234567890123456789012345678901234',
+        issuerName: 'DAO Collective',
+        issuedAt: '2024-02-28T11:00:00Z',
+        chainId: '1',
+        chainType: 'Ethereum',
+        contractAddress: '0xef1234567890abcdef1234567890abcdef123456',
+        tokenStandard: 'ERC-721',
+        verificationStatus: 'verified' as const,
+        attributes: [
+          { trait_type: 'Voting Power', value: '1000' },
+          { trait_type: 'Proposals Created', value: '5' },
+          { trait_type: 'Participation Rate', value: '85%' }
+        ],
+        revocable: true,
+        tags: ['DAO', 'Governance', 'Voting']
+      },
+      {
+        id: '6',
+        name: 'NFT Artist Recognition',
+        description: 'Recognized NFT artist with successful collections and community engagement.',
+        image: 'https://images.unsplash.com/photo-1639762681057-408e52192e55?w=400&h=300&fit=crop',
+        issuer: '0x6789012345678901234567890123456789012345',
+        issuerName: 'NFT Art Council',
+        issuedAt: '2024-03-15T13:30:00Z',
+        chainId: '1',
+        chainType: 'Ethereum',
+        contractAddress: '0xf1234567890abcdef1234567890abcdef1234567',
+        tokenStandard: 'ERC-721',
+        verificationStatus: 'failed' as const,
+        attributes: [
+          { trait_type: 'Collections', value: '3' },
+          { trait_type: 'Total Sales', value: '50 ETH' },
+          { trait_type: 'Community Size', value: '10K+' }
+        ],
+        revocable: false,
+        tags: ['NFT', 'Artist', 'Creative']
+      }
+    ];
+  }
+};
 
 interface SBTSectionProps {
-  userAddress: string;
+  walletAddress: string;
+  useRealData?: boolean; // Toggle between real and mock data
 }
 
-export const SBTSection: React.FC<SBTSectionProps> = ({ userAddress }) => {
+export const SBTSection: React.FC<SBTSectionProps> = ({ 
+  walletAddress, 
+  useRealData = true // Enable real data by default
+}) => {
   const [tokens, setTokens] = useState<SBTToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedToken, setSelectedToken] = useState<SBTToken | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [dataSource, setDataSource] = useState<'real' | 'mock' | 'test'>(
+    useRealData ? 'real' : 'mock'
+  );
 
-  useEffect(() => {
-    loadTokens();
-  }, [userAddress]);
+  // Configure SBT service with test mode
+  const configuredSbtService = new (sbtService.constructor as any)({
+    enableTestMode: dataSource === 'test',
+    enableCaching: true,
+    cacheTimeout: 5 * 60 * 1000
+  });
 
   const loadTokens = async () => {
     try {
-      setLoading(true);
       setError(null);
-      const userTokens = await sbtService.getTokens(userAddress);
-      setTokens(userTokens);
+      let fetchedTokens: SBTToken[];
+      
+      if (dataSource === 'real') {
+        // Use real SBT service (requires API keys)
+        fetchedTokens = await sbtService.getTokens(walletAddress);
+      } else if (dataSource === 'test') {
+        // Use test mode with realistic simulated data
+        fetchedTokens = await configuredSbtService.getTokens(walletAddress);
+      } else {
+        // Use mock service for demonstration
+        fetchedTokens = await mockSBTService.getTokens(walletAddress);
+      }
+      
+      setTokens(fetchedTokens);
     } catch (err) {
-      setError('Failed to load Soulbound Tokens');
+      setError('Failed to load Soulbound Tokens. Please try again.');
       console.error('Error loading SBTs:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadTokens();
+    setRefreshing(false);
+  };
+
   const handleTokenClick = (token: SBTToken) => {
-    setSelectedToken(token);
+    // In a real app, this would open a modal with detailed token information
+    console.log('Token clicked:', token);
+    alert(`Viewing details for: ${token.name}\n\nThis would open a detailed modal with:\n- Full token metadata\n- Verification details\n- Blockchain transaction history\n- Issuer information\n- Token attributes and properties`);
   };
 
-  const handleCloseModal = () => {
-    setSelectedToken(null);
+  const toggleDataSource = () => {
+    const sources: ('real' | 'mock' | 'test')[] = ['mock', 'test', 'real'];
+    const currentIndex = sources.indexOf(dataSource);
+    const newDataSource = sources[(currentIndex + 1) % sources.length];
+    setDataSource(newDataSource);
+    setLoading(true);
+    // Reload tokens with new data source
+    setTimeout(() => loadTokens(), 100);
   };
 
-  const handleRefresh = () => {
+  useEffect(() => {
     loadTokens();
+  }, [walletAddress, dataSource]);
+
+  const getDataSourceLabel = () => {
+    switch (dataSource) {
+      case 'real': return 'Real Data';
+      case 'test': return 'Test Mode';
+      case 'mock': return 'Demo Data';
+      default: return 'Demo Data';
+    }
+  };
+
+  const getDataSourceDescription = () => {
+    switch (dataSource) {
+      case 'real': return 'Fetching from actual blockchain APIs (requires configuration)';
+      case 'test': return 'Simulated real API calls with realistic test data';
+      case 'mock': return 'Static demo data for UI demonstration';
+      default: return 'Static demo data for UI demonstration';
+    }
   };
 
   return (
@@ -50,15 +243,98 @@ export const SBTSection: React.FC<SBTSectionProps> = ({ userAddress }) => {
           <h2 className="sbt-section-title">Soulbound Tokens</h2>
           <p className="sbt-section-subtitle">
             Your digital credentials and achievements on the blockchain
+            <br />
+            <small style={{ color: '#6b7280', fontSize: '12px' }}>
+              Mode: {getDataSourceLabel()} - {getDataSourceDescription()}
+            </small>
           </p>
         </div>
-        <button
-          className="sbt-refresh-button"
-          onClick={handleRefresh}
-          disabled={loading}
-        >
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setDataSource('mock')}
+            style={{
+              padding: '8px 16px',
+              background: dataSource === 'mock' ? '#3b82f6' : '#e5e7eb',
+              color: dataSource === 'mock' ? 'white' : '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            Demo Data
+          </button>
+          <button
+            onClick={() => setDataSource('test')}
+            style={{
+              padding: '8px 16px',
+              background: dataSource === 'test' ? '#3b82f6' : '#e5e7eb',
+              color: dataSource === 'test' ? 'white' : '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            Test Mode
+          </button>
+          <button
+            onClick={() => setDataSource('real')}
+            style={{
+              padding: '8px 16px',
+              background: dataSource === 'real' ? '#3b82f6' : '#e5e7eb',
+              color: dataSource === 'real' ? 'white' : '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            Real Data
+          </button>
+          <button
+            onClick={async () => {
+              console.log('🔍 Testing real data fetching...');
+              console.log('Wallet address:', walletAddress);
+              console.log('API config:', API_CONFIG);
+              try {
+                const testTokens = await configuredSbtService.getTokens(walletAddress);
+                console.log('✅ Real data fetch result:', testTokens);
+                console.log('📊 Tokens found:', testTokens.length);
+              } catch (error) {
+                console.error('❌ Real data fetch error:', error);
+              }
+            }}
+            style={{
+              padding: '8px 16px',
+              background: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            🧪 Test Fetch
+          </button>
+          <button
+            className="sbt-refresh-button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            style={{
+              padding: '8px 16px',
+              background: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: refreshing ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              opacity: refreshing ? 0.6 : 1
+            }}
+          >
+            {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -70,146 +346,58 @@ export const SBTSection: React.FC<SBTSectionProps> = ({ userAddress }) => {
         </div>
       )}
 
+      {dataSource === 'test' && (
+        <div style={{ 
+          marginBottom: '16px', 
+          padding: '12px', 
+          background: '#f0f9ff', 
+          border: '1px solid #bfdbfe', 
+          borderRadius: '8px',
+          fontSize: '14px',
+          color: '#1e40af'
+        }}>
+          <strong>Test Mode:</strong> This simulates real API calls with realistic test data:
+          <ul style={{ margin: '8px 0 0 20px' }}>
+            <li>Simulates API delays and network requests</li>
+            <li>Generates different tokens based on wallet address</li>
+            <li>Includes realistic metadata, attributes, and verification statuses</li>
+            <li>Perfect for testing the real data flow without API keys</li>
+          </ul>
+        </div>
+      )}
+
+      {dataSource === 'real' && (
+        <div style={{ 
+          marginBottom: '16px', 
+          padding: '12px', 
+          background: '#f0f9ff', 
+          border: '1px solid #bfdbfe', 
+          borderRadius: '8px',
+          fontSize: '14px',
+          color: '#1e40af'
+        }}>
+          <strong>Real Data Mode:</strong> Fetching actual SBT tokens from multiple sources:
+          <ul style={{ margin: '8px 0 0 20px' }}>
+            <li>✅ Ethereum blockchain via Etherscan API</li>
+            <li>✅ Polygon blockchain via Alchemy RPC</li>
+            <li>✅ Gitcoin Passport registry</li>
+            <li>✅ Known SBT contract addresses</li>
+          </ul>
+          <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
+            <strong>Note:</strong> API calls are being made with placeholder keys. For production use, 
+            add real API keys to your .env file (see env-template.txt for setup instructions).
+          </p>
+          <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#059669' }}>
+            <strong>Status:</strong> Real data fetching is active. Check browser console for API call logs.
+          </p>
+        </div>
+      )}
+
       <SBTGrid
         tokens={tokens}
         loading={loading}
         onTokenClick={handleTokenClick}
       />
-
-      {selectedToken && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Token Details
-                </h3>
-                <button
-                  onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="relative h-64 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-700 dark:to-gray-600 rounded-lg overflow-hidden">
-                  {selectedToken.image ? (
-                    <img 
-                      src={selectedToken.image} 
-                      alt={selectedToken.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
-                      <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                      {selectedToken.name}
-                    </h4>
-                    <p className="text-gray-600 dark:text-gray-300">
-                      {selectedToken.description}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Issuer:</span>
-                      <p className="font-medium text-gray-900 dark:text-white">{selectedToken.issuerName}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Chain:</span>
-                      <p className="font-medium text-gray-900 dark:text-white">{selectedToken.chainType}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Issued:</span>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {new Date(selectedToken.issuedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {selectedToken.expiresAt && (
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">Expires:</span>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {new Date(selectedToken.expiresAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {selectedToken.attributes && selectedToken.attributes.length > 0 && (
-                    <div>
-                      <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Attributes</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {selectedToken.attributes.map((attr, index) => (
-                          <div key={index} className="bg-gray-50 dark:bg-gray-700 p-2 rounded">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">{attr.trait_type}:</span>
-                            <p className="font-medium text-gray-900 dark:text-white">{attr.value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedToken.tags && selectedToken.tags.length > 0 && (
-                    <div>
-                      <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Tags</h5>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedToken.tags.map((tag, index) => (
-                          <span 
-                            key={index}
-                            className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                    <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Contract Information</h5>
-                    <div className="space-y-1 text-xs">
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">Contract Address:</span>
-                        <p className="font-mono text-gray-900 dark:text-white break-all">
-                          {selectedToken.contractAddress}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">Token ID:</span>
-                        <p className="font-mono text-gray-900 dark:text-white">{selectedToken.id}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">Standard:</span>
-                        <p className="font-mono text-gray-900 dark:text-white">{selectedToken.tokenStandard}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={handleCloseModal}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }; 
