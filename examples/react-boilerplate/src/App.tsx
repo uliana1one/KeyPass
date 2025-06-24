@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { SBTSection } from './components/SBTSection';
 
 // Types
 interface Wallet {
@@ -492,6 +493,10 @@ function App() {
           Logout
         </button>
       </div>
+      {/* SBT Section */}
+      {loginResult?.address && (
+        <SBTSection userAddress={loginResult.address} />
+      )}
     </div>
   );
 
