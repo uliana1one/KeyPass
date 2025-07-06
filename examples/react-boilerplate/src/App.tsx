@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import './components/DIDWizard.css';
+import './components/DIDDocumentViewer.css';
 import { SBTSection } from './components/SBTSection';
+import { DIDWizard, DIDCreationResult } from './components/DIDWizard';
+import { DIDDocumentViewer } from './components/DIDDocumentViewer';
 
 // Types
 interface Wallet {
@@ -29,6 +33,7 @@ interface LoginResult {
   issuedAt: string;
   nonce: string;
   accountName: string;
+  didCreationResult?: DIDCreationResult;
 }
 
 // Declare global types for wallet extensions
@@ -227,7 +232,7 @@ const authenticateWithEthereum = async (account: Account): Promise<LoginResult> 
 
 function App() {
   // State management
-  const [currentView, setCurrentView] = useState<'login' | 'wallet-selection' | 'profile'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'wallet-selection' | 'did-creation' | 'profile'>('login');
   const [currentChainType, setCurrentChainType] = useState<'polkadot' | 'ethereum' | null>(null);
   const [availableWallets, setAvailableWallets] = useState<Wallet[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
@@ -236,6 +241,7 @@ function App() {
   const [loginResult, setLoginResult] = useState<LoginResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDIDWizard, setShowDIDWizard] = useState(false);
 
   // Load wallets when chain type is selected
   useEffect(() => {
@@ -310,6 +316,17 @@ function App() {
       return;
     }
     
+    // Show DID creation wizard instead of directly authenticating
+    setCurrentView('did-creation');
+    setError(null);
+  };
+
+  const handleDIDCreationComplete = async (didCreationResult: DIDCreationResult) => {
+    if (!selectedWallet || !selectedAccount) {
+      setError('Please select a wallet and account');
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
@@ -321,6 +338,9 @@ function App() {
         result = await authenticateWithEthereum(selectedAccount);
       }
       
+      // Add DID creation result to login result
+      result.didCreationResult = didCreationResult;
+      
       setLoginResult(result);
       setCurrentView('profile');
     } catch (err: any) {
@@ -328,6 +348,16 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDIDCreationCancel = () => {
+    setCurrentView('wallet-selection');
+    setError(null);
+  };
+
+  const handleBackToWalletSelection = () => {
+    setCurrentView('wallet-selection');
+    setError(null);
   };
 
   const handleLogout = () => {
@@ -487,6 +517,27 @@ function App() {
             <strong>Logged in at:</strong>
             <span>{loginResult ? new Date(loginResult.issuedAt).toLocaleString() : ''}</span>
           </div>
+          
+          {loginResult?.didCreationResult && (
+            <>
+              <div className="info-row">
+                <strong>DID Type:</strong>
+                <span>{loginResult.didCreationResult.options.type === 'basic' ? 'Basic DID' : 'Advanced DID'}</span>
+              </div>
+              
+              {loginResult.didCreationResult.options.purpose && (
+                <div className="info-row">
+                  <strong>DID Purpose:</strong>
+                  <span>{loginResult.didCreationResult.options.purpose}</span>
+                </div>
+              )}
+              
+              <div className="info-row">
+                <strong>DID Created:</strong>
+                <span>{new Date(loginResult.didCreationResult.createdAt).toLocaleString()}</span>
+              </div>
+            </>
+          )}
         </div>
         
         <button className="logout-button" onClick={handleLogout}>
@@ -497,7 +548,28 @@ function App() {
       {loginResult?.address && (
         <SBTSection walletAddress={loginResult.address} />
       )}
+      
+      {/* DID Document Viewer */}
+      {loginResult?.didCreationResult && (
+        <DIDDocumentViewer
+          didCreationResult={loginResult.didCreationResult}
+          did={loginResult.did}
+          address={loginResult.address}
+          chainType={loginResult.chainType}
+        />
+      )}
     </div>
+  );
+
+  const renderDIDCreation = () => (
+    <DIDWizard
+      walletAddress={selectedAccount?.address || ''}
+      chainType={currentChainType || 'polkadot'}
+      accountName={selectedAccount?.name || 'Unknown Account'}
+      onComplete={handleDIDCreationComplete}
+      onCancel={handleDIDCreationCancel}
+      onBack={handleBackToWalletSelection}
+    />
   );
 
   return (
@@ -508,6 +580,7 @@ function App() {
         
         {currentView === 'login' && renderLogin()}
         {currentView === 'wallet-selection' && renderWalletSelection()}
+        {currentView === 'did-creation' && renderDIDCreation()}
         {currentView === 'profile' && renderProfile()}
         
         <div className="footer">
