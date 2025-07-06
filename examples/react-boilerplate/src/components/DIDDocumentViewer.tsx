@@ -17,11 +17,13 @@ export const DIDDocumentViewer: React.FC<DIDDocumentViewerProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'document' | 'verification'>('overview');
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      // You could add a toast notification here
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
       console.log('Copied to clipboard:', text);
-    });
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+    }
   };
 
   const renderOverview = () => (

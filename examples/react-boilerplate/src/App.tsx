@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import './components/DIDWizard.css';
 import './components/DIDDocumentViewer.css';
+import './components/CredentialCard.css';
 import { SBTSection } from './components/SBTSection';
 import { DIDWizard, DIDCreationResult } from './components/DIDWizard';
 import { DIDDocumentViewer } from './components/DIDDocumentViewer';
+import { CredentialSection } from './components/CredentialSection';
 
 // Types
 interface Wallet {
@@ -556,6 +558,15 @@ function App() {
           did={loginResult.did}
           address={loginResult.address}
           chainType={loginResult.chainType}
+        />
+      )}
+      
+      {/* Credential Section */}
+      {loginResult?.did && (
+        <CredentialSection
+          did={loginResult.did}
+          walletAddress={loginResult.address}
+          chainType={loginResult.chainType as 'polkadot' | 'ethereum'}
         />
       )}
     </div>

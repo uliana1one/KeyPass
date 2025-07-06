@@ -77,10 +77,15 @@
     "@polkadot/extension-dapp": "^0.45.3",
     "@polkadot/types": "^10.11.2",
     "@polkadot/util-crypto": "^12.6.2",
+    "@semaphore-protocol/group": "^4.11.1",
+    "@semaphore-protocol/identity": "^4.11.1",
+    "@semaphore-protocol/proof": "^4.11.1",
     "@walletconnect/types": "^1.8.0",
     "@walletconnect/web3-provider": "^1.8.0",
+    "circomlib": "^2.0.5",
     "ethers": "^6.14.4",
     "express": "^4.18.2",
+    "snarkjs": "^0.7.5",
     "uuid": "^11.1.0"
   }
 }
