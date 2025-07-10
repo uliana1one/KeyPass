@@ -90,10 +90,10 @@ describe('SBT Mock Data', () => {
         // Date validation
         expect(() => new Date(token.issuedAt)).not.toThrow();
         if (token.expiresAt) {
-          expect(() => new Date(token.expiresAt)).not.toThrow();
+          expect(() => new Date(token.expiresAt || '')).not.toThrow();
         }
         if (token.revokedAt) {
-          expect(() => new Date(token.revokedAt)).not.toThrow();
+          expect(() => new Date(token.revokedAt || '')).not.toThrow();
         }
 
         // Attributes validation
