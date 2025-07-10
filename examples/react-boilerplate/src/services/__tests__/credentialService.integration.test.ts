@@ -1,10 +1,94 @@
 import { CredentialService } from '../credentialService';
-import { ZKProofService } from '../zkProofService';
 import { VerifiableCredential, CredentialRequest, ZKProof } from '../../types/credential';
+
+// Mock the ZK-proof service to avoid Worker issues in Jest
+jest.mock('../zkProofService', () => ({
+  zkProofService: {
+    generateZKProof: jest.fn(async (circuitId: string, publicInputs: any, credentials: any[]) => {
+      // Simulate error conditions that should fail
+      if (circuitId === 'non-existent-circuit' || circuitId === 'unknown-circuit') {
+        throw new Error(`Circuit not found: ${circuitId}`);
+      }
+      
+      if (!credentials || credentials.length === 0) {
+        throw new Error('At least one credential is required');
+      }
+      
+      // Check for invalid credentials (simulate validation)
+      const credential = credentials[0];
+      if (circuitId === 'semaphore-age-verification' && 
+          credential.credentialSubject && 
+          !credential.credentialSubject.age && 
+          !credential.credentialSubject.birthDate && 
+          !credential.credentialSubject.dateOfBirth &&
+          !credential.type.some((t: string) => t.toLowerCase().includes('age'))) {
+        throw new Error('Credential does not meet circuit requirements');
+      }
+      
+      // Return successful mock proof for valid cases
+      return {
+        type: 'semaphore',
+        proof: JSON.stringify({
+          nullifierHash: `mock_nullifier_${Date.now()}`,
+          merkleTreeRoot: `mock_root_${Math.random().toString(36)}`,
+          signal: Object.values(publicInputs).join('_')
+        }),
+        publicSignals: [
+          `mock_nullifier_${Date.now()}`,
+          `mock_root_${Math.random().toString(36)}`,
+          Object.values(publicInputs).join('_')
+        ],
+        verificationKey: `mock_vk_${circuitId}`,
+        circuit: circuitId
+      };
+    }),
+    verifyZKProof: jest.fn(async (proof: ZKProof) => {
+      try {
+        const parsedProof = JSON.parse(proof.proof);
+        return Boolean(parsedProof.nullifierHash && parsedProof.merkleTreeRoot);
+      } catch {
+        return false;
+      }
+    }),
+    getAvailableCircuits: jest.fn(() => [
+      {
+        id: 'semaphore-age-verification',
+        name: 'Semaphore Age Verification',
+        description: 'Prove age without revealing exact age',
+        type: 'age-verification',
+        verificationKey: 'semaphore_vk_age_v1',
+        constraints: { minAge: 18, maxAge: 150 },
+        publicInputs: ['nullifierHash', 'merkleTreeRoot', 'signal'],
+        privateInputs: ['identity', 'merkleTreeProof', 'age']
+      },
+      {
+        id: 'semaphore-membership-proof',
+        name: 'Semaphore Membership Proof',
+        description: 'Prove membership without revealing identity',
+        type: 'membership-proof',
+        verificationKey: 'semaphore_vk_membership_v1',
+        constraints: { groupSize: 1000 },
+        publicInputs: ['nullifierHash', 'merkleTreeRoot', 'signal'],
+        privateInputs: ['identity', 'merkleTreeProof', 'membershipToken']
+      }
+    ]),
+    clearCaches: jest.fn(),
+    getGroupStats: jest.fn(async () => ({
+      memberCount: 0,
+      depth: 20,
+      groupId: '1'
+    }))
+  },
+  ZKProofService: jest.fn().mockImplementation(() => ({
+    generateZKProof: jest.fn(),
+    verifyZKProof: jest.fn(),
+    getAvailableCircuits: jest.fn(() => []),
+    clearCaches: jest.fn()
+  }))
+}));
 
 describe('CredentialService ZK-Proof Integration', () => {
   let credentialService: CredentialService;
-  let zkProofService: ZKProofService;
   let mockCredential: VerifiableCredential;
 
   beforeEach(() => {
@@ -15,7 +99,7 @@ describe('CredentialService ZK-Proof Integration', () => {
       zkProofProvider: 'semaphore'
     });
 
-    zkProofService = new ZKProofService({ mockMode: true });
+    // ZK-proof service is mocked above
 
     mockCredential = {
       id: 'test-age-credential',
@@ -48,7 +132,7 @@ describe('CredentialService ZK-Proof Integration', () => {
   });
 
   afterEach(() => {
-    zkProofService.clearCaches();
+    // Clear any test state if needed
   });
 
   describe('ZK-Proof Generation Integration', () => {

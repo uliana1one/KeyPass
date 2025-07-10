@@ -16,7 +16,10 @@
     "start": "node dist/server/index.js",
     "start:dev": "nodemon --exec ts-node --esm src/server/index.ts",
     "test:docker": "docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test",
-    "test:docker:cleanup": "docker-compose -f docker-compose.test.yml down -v"
+    "test:docker:cleanup": "docker-compose -f docker-compose.test.yml down -v",
+    "verify:production": "node scripts/production-verification.js",
+    "test:e2e": "jest --testPathPattern=e2e",
+    "test:integration": "jest --testPathPattern=integration"
   },
   "keywords": [
     "polkadot",
@@ -85,7 +88,9 @@
     "circomlib": "^2.0.5",
     "ethers": "^6.14.4",
     "express": "^4.18.2",
+    "react": "^19.1.0",
     "snarkjs": "^0.7.5",
+    "typescript": "^5.8.3",
     "uuid": "^11.1.0"
   }
 }
