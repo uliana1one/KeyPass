@@ -370,16 +370,21 @@ export class SBTService {
 
       // Try Gitcoin Passport registry
       try {
-        const response = await fetch(`${API_CONFIG.sbtRegistries.gitcoinPassport}/registry/${walletAddress}`);
+        const url = `${API_CONFIG.sbtRegistries.gitcoinPassport}/registry/${walletAddress}`;
+        console.log('[SBTService] Fetching Gitcoin Passport registry:', url);
+        const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
           if (data && data.items) {
             const passportTokens = data.items.map((item: any) => this.buildTokenFromRegistry(item, 'gitcoin'));
             tokens.push(...passportTokens);
           }
+        } else {
+          console.warn(`[SBTService] Gitcoin registry fetch failed: HTTP ${response.status} ${response.statusText}`);
         }
       } catch (error) {
-        console.warn('Failed to fetch from Gitcoin registry:', error);
+        console.error('[SBTService] Failed to fetch from Gitcoin registry:', error);
+        // Optionally, you could throw or set a user-friendly error here
       }
 
       return tokens;

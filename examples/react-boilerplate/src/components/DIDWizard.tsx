@@ -486,12 +486,15 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
 
   // Generate preview when step changes to preview step
   useEffect(() => {
-    console.log('[DIDWizard] useEffect fired. currentStep:', currentStep, 'steps:', steps.map(s => s.id));
-    if (steps[currentStep]?.id === 'preview') {
+    // For basic: preview is step 1; for advanced: preview is step 2
+    const isPreviewStep =
+      (didOptions.type === 'basic' && currentStep === 1) ||
+      (didOptions.type === 'advanced' && currentStep === 2);
+    if (isPreviewStep) {
       console.log('[DIDWizard] Generating preview for step', currentStep, 'with type', didOptions.type);
       generatePreview();
     }
-  }, [currentStep, didOptions, walletAddress, chainType, steps]);
+  }, [currentStep, didOptions, walletAddress, chainType]);
 
   const canProceed = () => {
     if (currentStep === 0) return true; // Type selection
