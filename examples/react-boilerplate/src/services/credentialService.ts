@@ -97,12 +97,18 @@ export class CredentialService {
     }
 
     try {
-      // In real implementation, this would query credential storage
-      // Could be IPFS, blockchain, or secure cloud storage
       const response = await fetch(`/api/credentials/${did}`);
+      const rawText = await response.text();
+      console.log('[API] /api/credentials:', rawText);
       if (!response.ok) throw new Error('Failed to fetch credentials');
-      
-      return await response.json();
+      try {
+        const json = JSON.parse(rawText);
+        console.log('[API] Parsed credentials JSON:', json);
+        return json;
+      } catch (parseErr) {
+        console.error('[API] Error parsing credentials JSON:', parseErr);
+        throw parseErr;
+      }
     } catch (error) {
       console.error('Error fetching credentials:', error);
       return [];
@@ -119,9 +125,17 @@ export class CredentialService {
 
     try {
       const response = await fetch(`/api/credential-requests/${did}`);
+      const rawText = await response.text();
+      console.log('[API] /api/credential-requests:', rawText);
       if (!response.ok) throw new Error('Failed to fetch credential requests');
-      
-      return await response.json();
+      try {
+        const json = JSON.parse(rawText);
+        console.log('[API] Parsed credential requests JSON:', json);
+        return json;
+      } catch (parseErr) {
+        console.error('[API] Error parsing credential requests JSON:', parseErr);
+        throw parseErr;
+      }
     } catch (error) {
       console.error('Error fetching credential requests:', error);
       return [];
@@ -138,9 +152,17 @@ export class CredentialService {
 
     try {
       const response = await fetch(`/api/credential-offers/${did}`);
+      const rawText = await response.text();
+      console.log('[API] /api/credential-offers:', rawText);
       if (!response.ok) throw new Error('Failed to fetch credential offers');
-      
-      return await response.json();
+      try {
+        const json = JSON.parse(rawText);
+        console.log('[API] Parsed credential offers JSON:', json);
+        return json;
+      } catch (parseErr) {
+        console.error('[API] Error parsing credential offers JSON:', parseErr);
+        throw parseErr;
+      }
     } catch (error) {
       console.error('Error fetching credential offers:', error);
       return [];

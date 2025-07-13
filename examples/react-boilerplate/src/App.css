@@ -229,6 +229,32 @@
   box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
 }
 
+.profile-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.clear-data-button {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.clear-data-button:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.5);
+  transform: translateY(-1px);
+}
+
 .footer {
   margin-top: 40px;
   padding-top: 20px;
@@ -1098,6 +1124,34 @@
   cursor: not-allowed;
 } 
 
+/* Credential Section */
+.credential-section {
+  max-width: 800px;
+  width: 100%;
+  margin-top: 30px;
+}
+
+.section-header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.section-header-main h2 {
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+  color: #3b82f6;
+}
+
+.section-header-main p {
+  font-size: 1rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
 /* DID Management Section */
 .did-management-section {
   max-width: 600px;
@@ -1226,5 +1280,11 @@
   
   .did-option {
     min-width: 100%;
+  }
+  
+  .section-header-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 } 

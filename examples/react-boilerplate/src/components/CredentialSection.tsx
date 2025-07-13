@@ -11,12 +11,13 @@ import {
   OfferStatus,
   ZKProof 
 } from '../types/credential';
-import { credentialService } from '../services/credentialService';
+import { credentialService, CredentialService } from '../services/credentialService';
 
 interface CredentialSectionProps {
   did: string;
   walletAddress: string;
   chainType: 'polkadot' | 'ethereum';
+  useRealData?: boolean; // Toggle between real and mock data
 }
 
 type TabType = 'credentials' | 'requests' | 'offers' | 'zkproofs';
@@ -24,7 +25,8 @@ type TabType = 'credentials' | 'requests' | 'offers' | 'zkproofs';
 export const CredentialSection: React.FC<CredentialSectionProps> = ({
   did,
   walletAddress,
-  chainType
+  chainType,
+  useRealData = false // Default to mock data for safety
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('credentials');
   const [credentials, setCredentials] = useState<VerifiableCredential[]>([]);
@@ -35,10 +37,20 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
   const [showRequestWizard, setShowRequestWizard] = useState(false);
   const [showZKProofGenerator, setShowZKProofGenerator] = useState(false);
   const [selectedCredential, setSelectedCredential] = useState<VerifiableCredential | null>(null);
+  const [dataSource, setDataSource] = useState<'real' | 'mock'>(
+    useRealData ? 'real' : 'mock'
+  );
+
+  // Configure credential service based on data source
+  const configuredCredentialService = new CredentialService({
+    enableMockData: dataSource === 'mock',
+    enableZKProofs: true,
+    zkProofProvider: 'semaphore'
+  });
 
   useEffect(() => {
     loadAllData();
-  }, [did]);
+  }, [did, dataSource]);
 
   const loadAllData = async () => {
     try {
@@ -46,9 +58,9 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
       setError(null);
       
       const [credentialsData, requestsData, offersData] = await Promise.all([
-        credentialService.getCredentials(did),
-        credentialService.getCredentialRequests(did),
-        credentialService.getCredentialOffers(did)
+        configuredCredentialService.getCredentials(did),
+        configuredCredentialService.getCredentialRequests(did),
+        configuredCredentialService.getCredentialOffers(did)
       ]);
       
       setCredentials(credentialsData);
@@ -67,7 +79,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
       if (!credential) return;
 
       // Create a verifiable presentation
-      const presentation = await credentialService.createPresentation(
+      const presentation = await configuredCredentialService.createPresentation(
         [credential],
         'challenge_' + Date.now(),
         window.location.origin,
@@ -84,7 +96,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
 
   const handleRevokeCredential = async (credentialId: string) => {
     try {
-      await credentialService.revokeCredential(credentialId, 'User requested revocation');
+      await configuredCredentialService.revokeCredential(credentialId, 'User requested revocation');
       
       // Update local state
       setCredentials(prev => 
@@ -103,7 +115,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
 
   const handleAcceptOffer = async (offerId: string) => {
     try {
-      const newCredential = await credentialService.acceptCredentialOffer(offerId, did);
+      const newCredential = await configuredCredentialService.acceptCredentialOffer(offerId, did);
       
       // Add to credentials and remove from offers
       setCredentials(prev => [...prev, newCredential]);
@@ -122,7 +134,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
 
   const handleNewCredentialRequest = async (requestData: any) => {
     try {
-      const newRequest = await credentialService.requestCredential(
+      const newRequest = await configuredCredentialService.requestCredential(
         did,
         requestData.credentialType,
         requestData.requiredClaims,
@@ -411,8 +423,28 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
   return (
     <div className="credential-section">
       <div className="section-header-main">
-        <h2>Verifiable Credentials</h2>
-        <p>Manage your digital identity credentials with privacy controls</p>
+        <div>
+          <h2>Verifiable Credentials</h2>
+          <p>Manage your digital identity credentials with privacy controls</p>
+          <small style={{ color: '#6b7280', fontSize: '12px' }}>
+            Mode: {dataSource === 'real' ? 'Real Data' : 'Demo Data'} - 
+            {dataSource === 'real' ? 'Fetching from actual credential APIs' : 'Using mock data for demonstration'}
+          </small>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            className={`secondary-button${dataSource === 'mock' ? ' active' : ''}`}
+            onClick={() => setDataSource('mock')}
+          >
+            Demo Data
+          </button>
+          <button
+            className={`secondary-button${dataSource === 'real' ? ' active' : ''}`}
+            onClick={() => setDataSource('real')}
+          >
+            Real Data
+          </button>
+        </div>
       </div>
       
       <div className="credential-tabs">

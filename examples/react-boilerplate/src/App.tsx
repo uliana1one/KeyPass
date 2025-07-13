@@ -393,13 +393,14 @@ function App() {
         result = await authenticateWithEthereum(selectedAccount);
       }
       
-      // Store DID data in localStorage
-      const did = result.did;
+      // Store DID data in localStorage - use the DID from the DIDWizard, not the authentication result
+      const did = didCreationResult.did;
       localStorage.setItem(`did_${selectedAccount.address}`, did);
       localStorage.setItem(`did_data_${selectedAccount.address}`, JSON.stringify(didCreationResult));
       
-      // Add DID creation result to login result
+      // Add DID creation result to login result and update the DID
       result.didCreationResult = didCreationResult;
+      result.did = did; // Use the DID from the wizard
       
       setLoginResult(result);
       setCurrentView('profile');
@@ -421,7 +422,18 @@ function App() {
   };
 
   const handleLogout = () => {
-    // Clear DID data from localStorage if user is logged in
+    // Don't clear DID data from localStorage - keep it for future logins
+    // This allows users to log in with existing wallet after logout
+    
+    setLoginResult(null);
+    setCurrentView('login');
+    setCurrentChainType(null);
+    resetSelection();
+    setError(null);
+  };
+
+  const handleClearAllData = () => {
+    // Clear all DID data from localStorage
     if (loginResult?.address) {
       localStorage.removeItem(`did_${loginResult.address}`);
       localStorage.removeItem(`did_data_${loginResult.address}`);
@@ -680,9 +692,14 @@ function App() {
           )}
         </div>
         
-        <button className="logout-button" onClick={handleLogout}>
-          Logout
-        </button>
+        <div className="profile-buttons">
+          <button className="logout-button" onClick={handleLogout}>
+            Logout
+          </button>
+          <button className="clear-data-button" onClick={handleClearAllData}>
+            Clear All Data
+          </button>
+        </div>
       </div>
       {/* SBT Section */}
       {loginResult?.address && (
@@ -705,6 +722,7 @@ function App() {
           did={loginResult.did}
           walletAddress={loginResult.address}
           chainType={loginResult.chainType as 'polkadot' | 'ethereum'}
+          useRealData={true} // Set to true to enable real data fetching
         />
       )}
     </div>
