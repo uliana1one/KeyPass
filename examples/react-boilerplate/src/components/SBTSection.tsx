@@ -251,88 +251,44 @@ export const SBTSection: React.FC<SBTSectionProps> = ({
         </div>
         <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
+            className={`secondary-button${dataSource === 'mock' ? ' active' : ''}`}
             onClick={() => setDataSource('mock')}
-            style={{
-              padding: '8px 16px',
-              background: dataSource === 'mock' ? '#3b82f6' : '#e5e7eb',
-              color: dataSource === 'mock' ? 'white' : '#374151',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
           >
             Demo Data
           </button>
           <button
+            className={`secondary-button${dataSource === 'test' ? ' active' : ''}`}
             onClick={() => setDataSource('test')}
-            style={{
-              padding: '8px 16px',
-              background: dataSource === 'test' ? '#3b82f6' : '#e5e7eb',
-              color: dataSource === 'test' ? 'white' : '#374151',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
           >
             Test Mode
           </button>
           <button
+            className={`secondary-button${dataSource === 'real' ? ' active' : ''}`}
             onClick={() => setDataSource('real')}
-            style={{
-              padding: '8px 16px',
-              background: dataSource === 'real' ? '#3b82f6' : '#e5e7eb',
-              color: dataSource === 'real' ? 'white' : '#374151',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
           >
             Real Data
           </button>
           <button
+            className="primary-button"
             onClick={async () => {
-              console.log('🔍 Testing real data fetching...');
-              console.log('Wallet address:', walletAddress);
-              console.log('API config:', API_CONFIG);
+              // Test fetch logic
               try {
                 const testTokens = await configuredSbtService.getTokens(walletAddress);
-                console.log('✅ Real data fetch result:', testTokens);
-                console.log('📊 Tokens found:', testTokens.length);
+                console.log('Real data fetch result:', testTokens);
+                console.log('Tokens found:', testTokens.length);
               } catch (error) {
-                console.error('❌ Real data fetch error:', error);
+                console.error('Real data fetch error:', error);
               }
             }}
-            style={{
-              padding: '8px 16px',
-              background: '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
           >
-            🧪 Test Fetch
+            Test Fetch
           </button>
           <button
             className="sbt-refresh-button"
             onClick={handleRefresh}
             disabled={refreshing}
-            style={{
-              padding: '8px 16px',
-              background: '#f59e0b',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: refreshing ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              opacity: refreshing ? 0.6 : 1
-            }}
           >
-            {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
       </div>

@@ -219,13 +219,13 @@ export const CredentialRequestWizard: React.FC<CredentialRequestWizardProps> = (
             <h4>Privacy Settings</h4>
             <div className="privacy-badges">
               {zkProofRequired && (
-                <span className="privacy-badge zk">🔐 ZK-Proof Required</span>
+                <span className="privacy-badge zk">ZK-Proof Required</span>
               )}
               {selectiveDisclosure && (
-                <span className="privacy-badge selective">🔒 Selective Disclosure</span>
+                <span className="privacy-badge selective">Selective Disclosure</span>
               )}
               {!zkProofRequired && !selectiveDisclosure && (
-                <span className="privacy-badge standard">📄 Standard</span>
+                <span className="privacy-badge standard">Standard</span>
               )}
             </div>
           </div>
@@ -284,7 +284,6 @@ export const CredentialRequestWizard: React.FC<CredentialRequestWizardProps> = (
           >
             Cancel
           </button>
-          
           {step > 1 && (
             <button 
               className="secondary-button"
@@ -293,7 +292,6 @@ export const CredentialRequestWizard: React.FC<CredentialRequestWizardProps> = (
               Previous
             </button>
           )}
-          
           {step < 4 ? (
             <button 
               className="primary-button"

@@ -151,7 +151,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
     <div className="credentials-grid">
       {credentials.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">📜</div>
+          <div className="empty-icon" />
           <h3>No Credentials Yet</h3>
           <p>You haven't received any verifiable credentials yet. Request one to get started!</p>
           <button 
@@ -192,7 +192,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
     <div className="requests-section">
       {requests.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">📋</div>
+          <div className="empty-icon" />
           <h3>No Pending Requests</h3>
           <p>You don't have any pending credential requests.</p>
         </div>
@@ -228,10 +228,10 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                     <strong>Privacy Requirements:</strong>
                     <div className="privacy-tags">
                       {request.privacyRequirements.zkProofRequired && (
-                        <span className="privacy-tag">🔐 ZK-Proof Required</span>
+                        <span className="privacy-tag">ZK-Proof Required</span>
                       )}
                       {request.privacyRequirements.selectiveDisclosure && (
-                        <span className="privacy-tag">🔒 Selective Disclosure</span>
+                        <span className="privacy-tag">Selective Disclosure</span>
                       )}
                     </div>
                   </div>
@@ -255,7 +255,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
     <div className="offers-section">
       {offers.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">🎁</div>
+          <div className="empty-icon" />
           <h3>No Available Offers</h3>
           <p>You don't have any pending credential offers.</p>
         </div>
@@ -311,13 +311,13 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                 
                 <div className="offer-actions">
                   <button 
-                    className="accept-button"
+                    className="primary-button"
                     onClick={() => handleAcceptOffer(offer.id)}
                   >
                     Accept Offer
                   </button>
                   <button 
-                    className="decline-button"
+                    className="secondary-button"
                     onClick={() => handleDeclineOffer(offer.id)}
                   >
                     Decline

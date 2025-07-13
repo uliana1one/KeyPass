@@ -559,15 +559,14 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
       
       <div className="wizard-actions">
         <button 
-          className="wizard-button secondary"
+          className="secondary-button"
           onClick={currentStep === 0 ? onCancel : handlePrevious}
         >
           {currentStep === 0 ? 'Cancel' : 'Previous'}
         </button>
-        
         {currentStep < steps.length - 1 ? (
           <button 
-            className="wizard-button primary"
+            className="primary-button"
             onClick={handleNext}
             disabled={!canProceed() || loading}
           >

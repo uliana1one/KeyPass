@@ -288,7 +288,6 @@ export const ZKProofGenerator: React.FC<ZKProofGeneratorProps> = ({
           >
             Cancel
           </button>
-          
           {step > 1 && (
             <button 
               className="secondary-button"
@@ -298,7 +297,6 @@ export const ZKProofGenerator: React.FC<ZKProofGeneratorProps> = ({
               Previous
             </button>
           )}
-          
           {step < 4 ? (
             <button 
               className="primary-button"

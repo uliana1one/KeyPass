@@ -40,7 +40,7 @@ export const DIDDocumentViewer: React.FC<DIDDocumentViewerProps> = ({
                 onClick={() => copyToClipboard(did)}
                 title="Copy DID"
               >
-                📋
+                Copy
               </button>
             </div>
           </div>
@@ -138,7 +138,7 @@ export const DIDDocumentViewer: React.FC<DIDDocumentViewerProps> = ({
           onClick={() => copyToClipboard(JSON.stringify(didCreationResult.didDocument, null, 2))}
           title="Copy DID Document"
         >
-          📋 Copy Document
+          Copy Document
         </button>
       </div>
       <div className="document-content">
@@ -213,7 +213,7 @@ export const DIDDocumentViewer: React.FC<DIDDocumentViewerProps> = ({
                 onClick={() => copyToClipboard(address)}
                 title="Copy Address"
               >
-                📋
+                Copy
               </button>
             </div>
           </div>
@@ -241,7 +241,7 @@ export const DIDDocumentViewer: React.FC<DIDDocumentViewerProps> = ({
           className="expand-button"
           onClick={() => setIsExpanded(!isExpanded)}
         >
-          {isExpanded ? '🔼 Collapse' : '🔽 Expand Details'}
+          {isExpanded ? 'Collapse' : 'Expand Details'}
         </button>
       </div>
 

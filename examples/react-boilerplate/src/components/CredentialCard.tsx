@@ -184,7 +184,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
             onClick={() => onViewDetails?.(credential)}
             title="View Details"
           >
-            👁️ View
+            View
           </button>
           
           {onShare && (
@@ -193,7 +193,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
               onClick={handleShare}
               title="Share Credential"
             >
-              📤 Share
+              Share
             </button>
           )}
           
@@ -203,7 +203,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
               onClick={handleRevoke}
               title="Revoke Credential"
             >
-              🗑️ Revoke
+              Revoke
             </button>
           )}
           
@@ -212,7 +212,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
             onClick={() => setShowPrivacyControls(!showPrivacyControls)}
             title="Privacy Controls"
           >
-            🔒 Privacy
+            Privacy
           </button>
         </div>
       )}
