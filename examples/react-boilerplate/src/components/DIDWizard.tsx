@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
 // Types for DID creation
 export interface DIDCreationOptions {
@@ -56,8 +56,57 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
   const [newAttributeKey, setNewAttributeKey] = useState('');
   const [newAttributeValue, setNewAttributeValue] = useState('');
 
+  const generatePreview = async () => {
+    try {
+      setLoading(true);
+      console.log('[DIDWizard] generatePreview called. didOptions:', didOptions, 'walletAddress:', walletAddress, 'chainType:', chainType);
+      // Generate preview DID document
+      const previewDID = `did:key:z${chainType}${walletAddress.slice(-8)}preview`;
+      const previewDocument = {
+        '@context': [
+          'https://www.w3.org/ns/did/v1',
+          chainType === 'polkadot' 
+            ? 'https://w3id.org/security/suites/sr25519-2020/v1'
+            : 'https://w3id.org/security/suites/secp256k1-2019/v1'
+        ],
+        id: previewDID,
+        controller: previewDID,
+        verificationMethod: [{
+          id: `${previewDID}#keys-1`,
+          type: chainType === 'polkadot' ? 'Sr25519VerificationKey2020' : 'EcdsaSecp256k1VerificationKey2019',
+          controller: previewDID,
+          publicKeyMultibase: `z${walletAddress.slice(-16)}`
+        }],
+        authentication: [`${previewDID}#keys-1`],
+        assertionMethod: [`${previewDID}#keys-1`],
+        capabilityInvocation: [`${previewDID}#keys-1`],
+        capabilityDelegation: [`${previewDID}#keys-1`],
+        ...(didOptions.type === 'advanced' && {
+          service: didOptions.includeServices ? [{
+            id: `${previewDID}#service-1`,
+            type: 'IdentityService',
+            serviceEndpoint: 'https://identity.example.com'
+          }] : [],
+          metadata: {
+            purpose: didOptions.purpose,
+            description: didOptions.description,
+            customAttributes: didOptions.customAttributes,
+            credentialReady: didOptions.includeCredentials
+          }
+        })
+      };
+      console.log('[DIDWizard] Setting previewData:', previewDocument);
+      setPreviewData(previewDocument);
+    } catch (err: any) {
+      setError(`Failed to generate preview: ${err.message}`);
+      console.error('[DIDWizard] Error in generatePreview:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Step 1: Choose DID Type
-  const renderTypeSelection = () => (
+  const renderTypeSelection = useCallback(() => (
     <div className="did-step">
       <h3>Choose Your DID Type</h3>
       <p className="step-description">
@@ -98,10 +147,10 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
         </div>
       </div>
     </div>
-  );
+  ), [didOptions]);
 
   // Step 2: Configure Options (for advanced DID)
-  const renderAdvancedOptions = () => (
+  const renderAdvancedOptions = useCallback(() => (
     <div className="did-step">
       <h3>Configure Advanced Options</h3>
       <p className="step-description">
@@ -251,62 +300,10 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
         </div>
       </div>
     </div>
-  );
+  ), [didOptions, newAttributeKey, newAttributeValue, setDidOptions, setNewAttributeKey, setNewAttributeValue]);
 
   // Step 3: Preview DID
-  const renderPreview = () => {
-    useEffect(() => {
-      generatePreview();
-    }, []);
-
-    const generatePreview = async () => {
-      try {
-        setLoading(true);
-        
-        // Generate preview DID document
-        const previewDID = `did:key:z${chainType}${walletAddress.slice(-8)}preview`;
-        const previewDocument = {
-          '@context': [
-            'https://www.w3.org/ns/did/v1',
-            chainType === 'polkadot' 
-              ? 'https://w3id.org/security/suites/sr25519-2020/v1'
-              : 'https://w3id.org/security/suites/secp256k1-2019/v1'
-          ],
-          id: previewDID,
-          controller: previewDID,
-          verificationMethod: [{
-            id: `${previewDID}#keys-1`,
-            type: chainType === 'polkadot' ? 'Sr25519VerificationKey2020' : 'EcdsaSecp256k1VerificationKey2019',
-            controller: previewDID,
-            publicKeyMultibase: `z${walletAddress.slice(-16)}`
-          }],
-          authentication: [`${previewDID}#keys-1`],
-          assertionMethod: [`${previewDID}#keys-1`],
-          capabilityInvocation: [`${previewDID}#keys-1`],
-          capabilityDelegation: [`${previewDID}#keys-1`],
-          ...(didOptions.type === 'advanced' && {
-            service: didOptions.includeServices ? [{
-              id: `${previewDID}#service-1`,
-              type: 'IdentityService',
-              serviceEndpoint: 'https://identity.example.com'
-            }] : [],
-            metadata: {
-              purpose: didOptions.purpose,
-              description: didOptions.description,
-              customAttributes: didOptions.customAttributes,
-              credentialReady: didOptions.includeCredentials
-            }
-          })
-        };
-        
-        setPreviewData(previewDocument);
-      } catch (err: any) {
-        setError(`Failed to generate preview: ${err.message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+  const renderPreview = useCallback(() => {
     return (
       <div className="did-step">
         <h3>Preview Your DID</h3>
@@ -376,10 +373,10 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
         )}
       </div>
     );
-  };
+  }, [loading, previewData, didOptions, chainType, accountName, walletAddress]);
 
   // Step 4: Create DID
-  const renderCreation = () => {
+  const renderCreation = useCallback(() => {
     const handleCreateDID = async () => {
       try {
         setLoading(true);
@@ -451,9 +448,9 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
         )}
       </div>
     );
-  };
+  }, [loading, previewData, didOptions, chainType, walletAddress, accountName, onComplete]);
 
-  const steps: WizardStep[] = [
+  const steps: WizardStep[] = useMemo(() => [
     {
       id: 'type',
       title: 'DID Type',
@@ -478,7 +475,23 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
       description: 'Create your DID',
       component: renderCreation()
     }
-  ];
+  ], [didOptions.type, renderTypeSelection, renderAdvancedOptions, renderPreview, renderCreation]);
+
+  // Add debug logging for didOptions.type and steps
+  useEffect(() => {
+    console.log('[DIDWizard] didOptions.type:', didOptions.type);
+    console.log('[DIDWizard] steps:', steps.map(s => s.id));
+    console.log('[DIDWizard] currentStep:', currentStep);
+  }, [didOptions.type, steps.length, currentStep]);
+
+  // Generate preview when step changes to preview step
+  useEffect(() => {
+    console.log('[DIDWizard] useEffect fired. currentStep:', currentStep, 'steps:', steps.map(s => s.id));
+    if (steps[currentStep]?.id === 'preview') {
+      console.log('[DIDWizard] Generating preview for step', currentStep, 'with type', didOptions.type);
+      generatePreview();
+    }
+  }, [currentStep, didOptions, walletAddress, chainType, steps]);
 
   const canProceed = () => {
     if (currentStep === 0) return true; // Type selection

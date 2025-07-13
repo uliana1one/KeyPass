@@ -4,7 +4,7 @@ import {
   WalletAccount,
   WALLET_TIMEOUT,
   validateAndSanitizeMessage,
-} from './types';
+} from './types.js';
 import {
   WalletNotFoundError,
   UserRejectedError,
@@ -12,7 +12,7 @@ import {
   InvalidSignatureError,
   WalletConnectionError,
   MessageValidationError,
-} from '../errors/WalletErrors';
+} from '../errors/WalletErrors.js';
 
 declare global {
   interface Window {

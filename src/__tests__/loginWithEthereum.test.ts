@@ -13,9 +13,6 @@ import {
 jest.mock('../adapters/EthereumAdapter');
 jest.mock('../did/EthereumDIDProvider');
 jest.mock('../message/messageBuilder');
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'mock-uuid-1234'),
-}));
 
 // Mock message format
 jest.mock('../../config/messageFormat.json', () => ({
@@ -43,7 +40,6 @@ describe('loginWithEthereum', () => {
 
   const mockSignature = '0x1234567890abcdef';
   const mockDID = 'did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH';
-  const mockMessage = 'KeyPass Login\nIssued At: 2023-01-01T00:00:00.000Z\nNonce: mock-uuid-1234\nAddress: 0x742d35cc6634c0532925a3b8d0e9c56a56b1c45b';
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -59,7 +55,11 @@ describe('loginWithEthereum', () => {
     mockAdapter.signMessage.mockResolvedValue(mockSignature);
     mockAdapter.disconnect.mockResolvedValue(undefined);
     mockDIDProvider.createDid.mockResolvedValue(mockDID);
-    (buildLoginMessage as jest.Mock).mockResolvedValue(mockMessage);
+    
+    // Mock buildLoginMessage to return a message with the provided nonce
+    (buildLoginMessage as jest.Mock).mockImplementation((params) => {
+      return Promise.resolve(`KeyPass Login\nIssued At: ${params.issuedAt}\nNonce: ${params.nonce}\nAddress: ${params.address}`);
+    });
 
     // Mock Date
     jest.spyOn(Date.prototype, 'toISOString').mockReturnValue('2023-01-01T00:00:00.000Z');
@@ -73,14 +73,16 @@ describe('loginWithEthereum', () => {
     it('should complete the full login flow successfully', async () => {
       const result = await loginWithEthereum();
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         address: mockAccount.address,
         signature: mockSignature,
-        message: mockMessage,
         did: mockDID,
         issuedAt: '2023-01-01T00:00:00.000Z',
-        nonce: 'mock-uuid-1234',
       });
+      
+      // Check that nonce is a valid UUID format
+      expect(result.nonce).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      expect(result.message).toBeDefined();
     });
 
     it('should call all adapter methods in correct order', async () => {
@@ -89,19 +91,20 @@ describe('loginWithEthereum', () => {
       expect(mockAdapter.enable).toHaveBeenCalled();
       expect(mockAdapter.getAccounts).toHaveBeenCalled();
       expect(mockAdapter.setCurrentAddress).toHaveBeenCalledWith(mockAccount.address);
-      expect(mockAdapter.signMessage).toHaveBeenCalledWith(mockMessage);
+      expect(mockAdapter.signMessage).toHaveBeenCalled();
       expect(mockAdapter.disconnect).toHaveBeenCalled();
     });
 
     it('should build login message with correct parameters', async () => {
       await loginWithEthereum();
 
-      expect(buildLoginMessage).toHaveBeenCalledWith({
-        template: 'KeyPass Login\nIssued At: {{issuedAt}}\nNonce: {{nonce}}\nAddress: {{address}}',
-        issuedAt: '2023-01-01T00:00:00.000Z',
-        nonce: 'mock-uuid-1234',
-        address: mockAccount.address,
-      });
+      expect(buildLoginMessage).toHaveBeenCalledTimes(1);
+      
+      const callArgs = (buildLoginMessage as jest.Mock).mock.calls[0][0];
+      expect(callArgs.template).toBe('KeyPass Login\nIssued At: {{issuedAt}}\nNonce: {{nonce}}\nAddress: {{address}}');
+      expect(callArgs.issuedAt).toBe('2023-01-01T00:00:00.000Z');
+      expect(callArgs.address).toBe(mockAccount.address);
+      expect(callArgs.nonce).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it('should create DID for the correct address', async () => {
@@ -212,16 +215,13 @@ describe('loginWithEthereum', () => {
 
   describe('timestamp and nonce generation', () => {
     it('should generate unique nonce for each login attempt', async () => {
-      const { v4: uuidv4 } = require('uuid');
-      (uuidv4 as jest.Mock)
-        .mockReturnValueOnce('nonce-1')
-        .mockReturnValueOnce('nonce-2');
-
       const result1 = await loginWithEthereum();
       const result2 = await loginWithEthereum();
 
-      expect(result1.nonce).toBe('nonce-1');
-      expect(result2.nonce).toBe('nonce-2');
+      // Check that nonces are valid UUIDs and different
+      expect(result1.nonce).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      expect(result2.nonce).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      expect(result1.nonce).not.toBe(result2.nonce);
     });
 
     it('should use current timestamp for each login attempt', async () => {

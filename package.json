@@ -71,6 +71,7 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "nodemon": "^3.1.0",
+    "rimraf": "^6.0.1",
     "supertest": "^6.3.4",
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2"
@@ -90,11 +91,10 @@
     "@walletconnect/utils": "^2.21.4",
     "circomlib": "^2.0.5",
     "ethers": "^6.14.4",
-    "express": "^4.18.2",
+    "express": "^4.21.2",
     "react": "^19.1.0",
     "snarkjs": "^0.7.5",
-    "typescript": "^5.8.3",
-    "uuid": "^11.1.0"
+    "typescript": "^5.8.3"
   },
   "overrides": {
     "semver": "^7.5.4",

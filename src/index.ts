@@ -1,11 +1,11 @@
-import { connectWallet } from './walletConnector';
-import { buildLoginMessage } from './message/messageBuilder';
+import { connectWallet } from './walletConnector.js';
+import { buildLoginMessage } from './message/messageBuilder.js';
 import messageFormat from '../config/messageFormat.json';
-import { WalletConnectionError } from './errors/WalletErrors';
-import { PolkadotDIDProvider } from './did/UUIDProvider';
-import { VerificationService } from './server/verificationService';
-import { EthereumAdapter } from './adapters/EthereumAdapter';
-import { EthereumDIDProvider } from './did/EthereumDIDProvider';
+import { WalletConnectionError } from './errors/WalletErrors.js';
+import { PolkadotDIDProvider } from './did/UUIDProvider.js';
+import { VerificationService } from './server/verificationService.js';
+import { EthereumAdapter } from './adapters/EthereumAdapter.js';
+import { EthereumDIDProvider } from './did/EthereumDIDProvider.js';
 
 // Simple UUID generator for browser compatibility
 function generateUUID(): string {

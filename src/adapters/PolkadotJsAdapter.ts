@@ -10,7 +10,7 @@ import {
   WALLET_TIMEOUT,
   validateAndSanitizeMessage,
   validatePolkadotAddress,
-} from './types';
+} from './types.js';
 import {
   WalletNotFoundError,
   UserRejectedError,

@@ -1,10 +1,10 @@
 import walletsConfig from '../config/wallets.json';
-import { validateWalletConfig } from './config/validator';
-import { WalletAdapter } from './adapters/types';
-import { ConfigurationError, WalletNotFoundError } from './errors/WalletErrors';
-import { PolkadotJsAdapter } from './adapters/PolkadotJsAdapter';
-import { TalismanAdapter } from './adapters/TalismanAdapter';
-import { WalletConnectAdapter, WalletConnectConfig } from './adapters/WalletConnectAdapter';
+import { validateWalletConfig } from './config/validator.js';
+import { WalletAdapter } from './adapters/types.js';
+import { ConfigurationError, WalletNotFoundError } from './errors/WalletErrors.js';
+import { PolkadotJsAdapter } from './adapters/PolkadotJsAdapter.js';
+import { TalismanAdapter } from './adapters/TalismanAdapter.js';
+import { WalletConnectAdapter, WalletConnectConfig } from './adapters/WalletConnectAdapter.js';
 
 // Validate wallet configuration at startup
 try {

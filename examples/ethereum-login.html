@@ -66,73 +66,84 @@
     <div id="result" class="result" style="display: none;"></div>
 
     <script type="module">
-        import { loginWithPolkadot, loginWithEthereum } from '../dist/index.js';
-
-        const polkadotBtn = document.getElementById('polkadot-btn');
-        const ethereumBtn = document.getElementById('ethereum-btn');
-        const resultDiv = document.getElementById('result');
-
-        function showResult(data, isError = false) {
-            resultDiv.style.display = 'block';
-            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
-            resultDiv.textContent = isError ? data : JSON.stringify(data, null, 2);
-        }
-
-        function hideResult() {
-            resultDiv.style.display = 'none';
-        }
-
-        async function handlePolkadotLogin() {
-            hideResult();
-            polkadotBtn.disabled = true;
-            polkadotBtn.textContent = '🟣 Connecting...';
-
-            try {
-                const result = await loginWithPolkadot();
-                showResult(result);
-                console.log('Polkadot login successful:', result);
-            } catch (error) {
-                showResult(`Polkadot login failed: ${error.message}`, true);
-                console.error('Polkadot login error:', error);
-            } finally {
-                polkadotBtn.disabled = false;
-                polkadotBtn.textContent = '🟣 Login with Polkadot';
-            }
-        }
-
-        async function handleEthereumLogin() {
-            hideResult();
-            ethereumBtn.disabled = true;
-            ethereumBtn.textContent = '🦊 Connecting...';
-
-            try {
-                const result = await loginWithEthereum();
-                showResult(result);
-                console.log('Ethereum login successful:', result);
-            } catch (error) {
-                showResult(`Ethereum login failed: ${error.message}`, true);
-                console.error('Ethereum login error:', error);
-            } finally {
-                ethereumBtn.disabled = false;
-                ethereumBtn.textContent = '🦊 Login with MetaMask';
-            }
-        }
-
-        polkadotBtn.addEventListener('click', handlePolkadotLogin);
-        ethereumBtn.addEventListener('click', handleEthereumLogin);
-
-        // Check wallet availability
-        window.addEventListener('load', () => {
-            if (!window.ethereum) {
-                ethereumBtn.disabled = true;
-                ethereumBtn.textContent = '🦊 MetaMask Not Found';
-            }
+        console.log('Loading KeyPass module...');
+        
+        try {
+            const { loginWithPolkadot, loginWithEthereum } = await import('../dist/index.js?v=3');
+            console.log('Module loaded successfully');
             
-            if (!window.injectedWeb3) {
-                polkadotBtn.disabled = true;
-                polkadotBtn.textContent = '🟣 Polkadot Wallet Not Found';
+            const polkadotBtn = document.getElementById('polkadot-btn');
+            const ethereumBtn = document.getElementById('ethereum-btn');
+            const resultDiv = document.getElementById('result');
+
+            function showResult(data, isError = false) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+                resultDiv.textContent = isError ? data : JSON.stringify(data, null, 2);
             }
-        });
+
+            function hideResult() {
+                resultDiv.style.display = 'none';
+            }
+
+            async function handlePolkadotLogin() {
+                hideResult();
+                polkadotBtn.disabled = true;
+                polkadotBtn.textContent = '🟣 Connecting...';
+
+                try {
+                    const result = await loginWithPolkadot();
+                    showResult(result);
+                    console.log('Polkadot login successful:', result);
+                } catch (error) {
+                    showResult(`Polkadot login failed: ${error.message}`, true);
+                    console.error('Polkadot login error:', error);
+                } finally {
+                    polkadotBtn.disabled = false;
+                    polkadotBtn.textContent = '🟣 Login with Polkadot';
+                }
+            }
+
+            async function handleEthereumLogin() {
+                hideResult();
+                ethereumBtn.disabled = true;
+                ethereumBtn.textContent = '🦊 Connecting...';
+
+                try {
+                    const result = await loginWithEthereum();
+                    showResult(result);
+                    console.log('Ethereum login successful:', result);
+                } catch (error) {
+                    showResult(`Ethereum login failed: ${error.message}`, true);
+                    console.error('Ethereum login error:', error);
+                } finally {
+                    ethereumBtn.disabled = false;
+                    ethereumBtn.textContent = '🦊 Login with MetaMask';
+                }
+            }
+
+            polkadotBtn.addEventListener('click', handlePolkadotLogin);
+            ethereumBtn.addEventListener('click', handleEthereumLogin);
+
+            // Check wallet availability
+            window.addEventListener('load', () => {
+                if (!window.ethereum) {
+                    ethereumBtn.disabled = true;
+                    ethereumBtn.textContent = '🦊 MetaMask Not Found';
+                }
+                
+                if (!window.injectedWeb3) {
+                    polkadotBtn.disabled = true;
+                    polkadotBtn.textContent = '🟣 Polkadot Wallet Not Found';
+                }
+            });
+            
+        } catch (error) {
+            console.error('Failed to load module:', error);
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('result').className = 'result error';
+            document.getElementById('result').textContent = 'Failed to load KeyPass module: ' + error.message;
+        }
     </script>
 </body>
 </html> 
