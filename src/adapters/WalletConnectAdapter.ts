@@ -6,6 +6,7 @@ import {
   validateAndSanitizeMessage,
   validateAddress as ethValidateAddress,
   validatePolkadotAddress,
+  validateSignature,
 } from './types.js';
 import {
   WalletNotFoundError,
@@ -253,38 +254,25 @@ export class WalletConnectAdapter implements WalletAdapter {
       if (!this.session) {
         throw new WalletNotFoundError('No WalletConnect session found. Call enable() first.');
       }
-
-      // Validate and sanitize the message
-      const sanitizedMessage = validateAndSanitizeMessage(message);
-
-      // Get the first account for signing
       const accounts = await this.getAccounts();
-      if (accounts.length === 0) {
+      if (!accounts || accounts.length === 0) {
         throw new WalletNotFoundError('No accounts available for signing');
       }
-
       const account = accounts[0];
-      const chainId = this.config.chainId ? getChainId(this.config.chainId) : getChainId('polkadot');
-
+      const sanitizedMessage = validateAndSanitizeMessage(message);
       // Sign the message using WalletConnect
       const signature = await this.provider.request({
         method: 'personal_sign',
         params: [sanitizedMessage, account.address],
       });
-
       if (!signature || typeof signature !== 'string') {
         throw new InvalidSignatureError('Invalid signature received from wallet');
       }
-
-      // Validate the signature
       try {
-        // The original code had validateSignature here, but validateSignature is not imported.
-        // Assuming it's meant to be removed or replaced with a placeholder if needed.
-        // For now, removing it as it's not in the new import.
+        validateSignature(signature);
       } catch (e) {
         throw new InvalidSignatureError('Invalid signature received from wallet');
       }
-
       return signature;
     } catch (error) {
       if (error instanceof WalletNotFoundError || 
@@ -293,7 +281,6 @@ export class WalletConnectAdapter implements WalletAdapter {
           error instanceof MessageValidationError) {
         throw error;
       }
-      
       // Handle WalletConnect specific errors
       if (error && typeof error === 'object' && 'code' in error) {
         const walletError = error as any;
@@ -301,7 +288,6 @@ export class WalletConnectAdapter implements WalletAdapter {
           throw new UserRejectedError('message_signing');
         }
       }
-      
       throw new WalletConnectionError(
         `Failed to sign message: ${error instanceof Error ? error.message : 'Unknown error'}`
       );

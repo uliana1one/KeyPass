@@ -1,14 +1,16 @@
-# KeyPass Login SDK Tutorial
+# KeyPass Identity Platform Tutorial
 
-This comprehensive tutorial will guide you through integrating the KeyPass Login SDK with **wallet and account selection** functionality into your applications. We'll cover both React and vanilla JavaScript implementations with step-by-step examples.
+This comprehensive tutorial will guide you through integrating the KeyPass Identity Platform with **wallet authentication**, **DID creation**, **credential management**, and **privacy-preserving features** into your applications. We'll cover both React and vanilla JavaScript implementations with step-by-step examples.
 
 ## What is KeyPass?
 
-KeyPass is a powerful SDK that provides **interactive wallet and account selection** for blockchain applications. It supports multiple wallets across Polkadot and Ethereum ecosystems, offering users a seamless way to connect their preferred wallet and choose specific accounts for authentication.
+KeyPass is a **self-sovereign login and identity system** that replaces "Sign in with Google" using decentralized identifiers (DIDs) and crypto wallets. Users can log into apps using their wallet, own their digital identity, and prove traits like age or student status via zk-proofs—all while maintaining privacy and data control.
 
-### **New Wallet Selection Features**
-- **Multi-wallet support**: Polkadot.js Extension, Talisman, SubWallet, MetaMask, Trust Wallet, Coinbase Wallet
-- **Interactive selection flow**: Chain → Wallet → Account → Authentication
+### **Key Identity Platform Features**
+- **Multi-chain wallet authentication**: Polkadot.js Extension, Talisman, MetaMask, Trust Wallet
+- **DID creation and management**: Create and manage decentralized identifiers
+- **Credential/SBT management**: Display and manage Soulbound Tokens and credentials
+- **zkProof generation**: Privacy-preserving credential verification
 - **Professional UI**: Dark theme with glassmorphism design and smooth animations
 - **Mobile-responsive**: Works perfectly on all devices
 
@@ -25,7 +27,7 @@ Before you begin, make sure you have:
 
 ## Server Setup (Required)
 
-The wallet selection functionality requires the KeyPass server to be running:
+The identity platform functionality requires the KeyPass server to be running:
 
 ```bash
 # From the root KeyPass directory
@@ -46,7 +48,7 @@ lsof -ti:3000 | xargs kill -9
 
 ## Quick Start with Interactive Examples
 
-The fastest way to get started is using our enhanced boilerplate projects with wallet selection:
+The fastest way to get started is using our enhanced boilerplate projects with full identity features:
 
 ### Option 1: React Boilerplate (Recommended for Production)
 
@@ -61,6 +63,15 @@ npm install
 npm start
 ```
 
+This includes:
+- ✅ **DID Explorer dashboard** with multi-step creation wizard
+- ✅ **Credential/SBT display** with grid and card layouts
+- ✅ **zkProof credential demo** with circuit selection
+- ✅ **Complete wallet selection flow**
+- ✅ **Professional UI with animations**
+- ✅ **Error handling and user feedback**
+- ✅ **Mobile-responsive design**
+
 ### Option 2: Vanilla JavaScript Boilerplate (Great for Learning)
 
 ```bash
@@ -73,40 +84,9 @@ python3 -m http.server 8006
 # Open http://localhost:8006 in your browser
 ```
 
-Both examples include:
-- ✅ **Complete wallet selection flow**
-- ✅ **Professional UI with animations**
-- ✅ **Error handling and user feedback**
-- ✅ **Mobile-responsive design**
+## Understanding the Identity Platform
 
-### Step 2: Environment Setup
-
-Create a `.env` file in your project root. This file stores configuration that shouldn't be shared publicly:
-
-```bash
-# Optional: WalletConnect Project ID (only needed for WalletConnect support)
-# Get one at https://cloud.walletconnect.com/
-WALLETCONNECT_PROJECT_ID=your_project_id_here
-
-# Optional: Customize timeouts (in milliseconds)
-WALLET_TIMEOUT=30000
-MAX_MESSAGE_AGE_MS=300000
-```
-
-> **Beginner Note**: Environment variables are like settings for your app. The `.env` file keeps them organized and separate from your code.
-
-### Step 3: Run the Application
-
-```bash
-# Start the development server
-npm run dev
-```
-
-Open your browser to `http://localhost:5173` and you should see the KeyPass demo app!
-
-## Understanding the Boilerplate
-
-Let's break down what the boilerplate does and how you can customize it.
+Let's break down what the KeyPass Identity Platform does and how you can customize it.
 
 ### Project Structure
 
@@ -114,46 +94,104 @@ Let's break down what the boilerplate does and how you can customize it.
 your-project/
 ├── src/
 │   ├── components/
-│   │   └── WalletConnect.tsx    # Main wallet connection component
-│   ├── App.tsx                  # Your main app component
-│   ├── main.tsx                # App entry point
-│   └── index.css               # Styles
-├── .env                        # Environment variables
-├── package.json               # Dependencies and scripts
-├── vite.config.ts            # Build configuration
-└── tsconfig.json            # TypeScript configuration
+│   │   ├── DIDWizard.tsx           # DID creation wizard
+│   │   ├── CredentialSection.tsx   # Credential/SBT display
+│   │   ├── ZKProofGenerator.tsx    # zkProof generation
+│   │   └── WalletConnect.tsx       # Main wallet connection component
+│   ├── services/
+│   │   ├── credentialService.ts    # Credential management
+│   │   ├── sbtService.ts          # SBT service
+│   │   └── zkProofService.ts      # zkProof generation
+│   ├── App.tsx                     # Your main app component
+│   ├── main.tsx                   # App entry point
+│   └── index.css                  # Styles
+├── .env                           # Environment variables
+├── package.json                   # Dependencies and scripts
+├── vite.config.ts                # Build configuration
+└── tsconfig.json                 # TypeScript configuration
 ```
 
 ### The Main App Component
 
-Here's what `App.tsx` looks like:
+Here's what `App.tsx` looks like with full identity features:
 
 ```tsx
 import { useState, useEffect } from 'react';
 import { WalletConnect } from './components/WalletConnect';
+import { DIDWizard } from './components/DIDWizard';
+import { CredentialSection } from './components/CredentialSection';
+import { ZKProofGenerator } from './components/ZKProofGenerator';
 
 function App() {
   const [connectedAccounts, setConnectedAccounts] = useState<string[]>([]);
+  const [currentDID, setCurrentDID] = useState<string>('');
+  const [credentials, setCredentials] = useState<any[]>([]);
 
   const handleConnect = (accounts: string[]) => {
     console.log('Connected accounts:', accounts);
     setConnectedAccounts(accounts);
   };
 
+  const handleDIDCreated = (did: string) => {
+    console.log('DID created:', did);
+    setCurrentDID(did);
+  };
+
+  const handleCredentialsLoaded = (creds: any[]) => {
+    console.log('Credentials loaded:', creds);
+    setCredentials(creds);
+  };
+
   const handleError = (error: Error) => {
-    console.error('Wallet connection error:', error);
+    console.error('Error:', error);
   };
 
   return (
     <div className="min-h-screen bg-gray-100 py-12 px-4">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-8">
-          KeyPass Demo
+          KeyPass Identity Platform Demo
         </h1>
-        <WalletConnect
-          onConnect={handleConnect}
-          onError={handleError}
-        />
+        
+        {/* Wallet Connection */}
+        <div className="mb-8">
+          <WalletConnect
+            onConnect={handleConnect}
+            onError={handleError}
+          />
+        </div>
+
+        {/* DID Creation */}
+        {connectedAccounts.length > 0 && !currentDID && (
+          <div className="mb-8">
+            <DIDWizard
+              walletAddress={connectedAccounts[0]}
+              onComplete={handleDIDCreated}
+              onError={handleError}
+            />
+          </div>
+        )}
+
+        {/* Credential Management */}
+        {currentDID && (
+          <div className="mb-8">
+            <CredentialSection
+              did={currentDID}
+              onCredentialsLoaded={handleCredentialsLoaded}
+              onError={handleError}
+            />
+          </div>
+        )}
+
+        {/* zkProof Generation */}
+        {credentials.length > 0 && (
+          <div className="mb-8">
+            <ZKProofGenerator
+              credentials={credentials}
+              onError={handleError}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -162,609 +200,649 @@ function App() {
 export default App;
 ```
 
-> **Beginner Note**: This is a React component. The `useState` hook stores data (like connected accounts), and the `handleConnect` function runs when a wallet connects successfully.
+> **Beginner Note**: This component manages the full identity flow: wallet connection → DID creation → credential management → zkProof generation. Each step depends on the previous one being completed.
 
-## Building Your Own Wallet Connection
+## Building Your Own Identity Components
 
-Now let's create a simple wallet connection component from scratch:
+Now let's create identity components from scratch:
 
-### Step 1: Basic Wallet Connection
+### Step 1: Basic DID Creation
 
-Create a new file `src/components/SimpleWallet.tsx`:
+Create a new file `src/components/SimpleDIDCreator.tsx`:
 
 ```tsx
 import React, { useState } from 'react';
-import { connectWallet } from '@keypass/login-sdk/dist/walletConnector';
+import { DIDProvider } from '@keypass/login-sdk';
 
-interface SimpleWalletProps {
-  onConnect: (accounts: string[]) => void;
+interface SimpleDIDCreatorProps {
+  walletAddress: string;
+  onComplete: (did: string) => void;
+  onError: (error: Error) => void;
 }
 
-export function SimpleWallet({ onConnect }: SimpleWalletProps) {
-  const [accounts, setAccounts] = useState<string[]>([]);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function SimpleDIDCreator({ walletAddress, onComplete, onError }: SimpleDIDCreatorProps) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [didType, setDidType] = useState<'basic' | 'advanced'>('basic');
 
-  const handleConnect = async () => {
+  const handleCreateDID = async () => {
     try {
-      // Show loading state
-      setIsConnecting(true);
-      setError(null);
+      setIsCreating(true);
       
-      // Connect to wallet
-      const wallet = await connectWallet();
+      const didProvider = new DIDProvider();
+      const did = await didProvider.createDid(walletAddress);
       
-      // Get available accounts
-      const walletAccounts = await wallet.getAccounts();
-      const accountAddresses = walletAccounts.map(acc => acc.address);
-      
-      // Update state
-      setAccounts(accountAddresses);
-      onConnect(accountAddresses);
+      onComplete(did);
       
     } catch (err) {
-      // Handle errors
-      setError(err instanceof Error ? err.message : 'Connection failed');
+      onError(err instanceof Error ? err : new Error('DID creation failed'));
     } finally {
-      // Hide loading state
-      setIsConnecting(false);
+      setIsCreating(false);
     }
   };
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-lg">
-      <h2 className="text-xl font-bold mb-4">Connect Your Wallet</h2>
+      <h2 className="text-xl font-bold mb-4">Create Your Digital Identity</h2>
       
-      {accounts.length === 0 ? (
-        <button
-          onClick={handleConnect}
-          disabled={isConnecting}
-          className="w-full py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">DID Type:</label>
+        <select
+          value={didType}
+          onChange={(e) => setDidType(e.target.value as 'basic' | 'advanced')}
+          className="w-full p-2 border rounded"
         >
-          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-        </button>
-      ) : (
-        <div>
-          <p className="text-green-600 mb-2">✅ Wallet Connected!</p>
-          <div className="text-sm">
-            <strong>Accounts:</strong>
-            <ul className="mt-1">
-              {accounts.map(account => (
-                <li key={account} className="truncate">
-                  {account}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-      
-      {error && (
-        <div className="mt-4 p-3 bg-red-100 text-red-700 rounded">
-          Error: {error}
-        </div>
-      )}
-    </div>
-  );
-}
-```
+          <option value="basic">Basic DID</option>
+          <option value="advanced">Advanced DID</option>
+        </select>
+      </div>
 
-> **Beginner Note**: This component uses `async/await` to handle the wallet connection. The `try/catch` block handles any errors that might occur.
-
-### Step 2: Use Your Component
-
-Replace the WalletConnect import in your `App.tsx`:
-
-```tsx
-import { SimpleWallet } from './components/SimpleWallet';
-
-// In your return statement:
-<SimpleWallet onConnect={handleConnect} />
-```
-
-## How Wallet Connection Works
-
-Here's what happens when a user clicks "Connect Wallet":
-
-1. **Detection**: The SDK looks for installed wallet extensions
-2. **Selection**: If multiple wallets are found, it picks the best one
-3. **Connection**: The wallet opens and asks the user to approve the connection
-4. **Accounts**: Once approved, the SDK gets the user's wallet accounts
-5. **Callback**: Your `onConnect` function is called with the account addresses
-
-## Common Setup Issues
-
-### Issue 1: "connectWallet is not defined"
-
-**Problem**: Wrong import path
-```tsx
-// ❌ Wrong
-import { connectWallet } from '@keypass/login-sdk';
-
-// ✅ Correct
-import { connectWallet } from '@keypass/login-sdk/dist/walletConnector';
-```
-
-### Issue 2: "Buffer is not defined" or similar errors
-
-**Problem**: Missing browser polyfills. Update your `vite.config.ts`:
-
-```ts
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
-
-export default defineConfig({
-  plugins: [
-    react(),
-    nodePolyfills({
-      include: ['util', 'buffer', 'process', 'stream', 'crypto', 'events'],
-    }),
-  ],
-  // ... rest of config
-})
-```
-
-Make sure to install the polyfills:
-```bash
-npm install --save-dev vite-plugin-node-polyfills
-npm install util
-```
-
-### Issue 3: "No wallet found"
-
-**Problem**: No wallet extension is installed
-**Solution**: Install a wallet extension like:
-- [Polkadot.js extension](https://polkadot.js.org/extension/)
-- [Talisman](https://talisman.xyz/)
-
-## Next Steps
-
-Now that you have basic wallet connection working:
-
-1. **Style it**: Customize the appearance with CSS or Tailwind
-2. **Add features**: Handle wallet disconnection, multiple wallets
-3. **Authentication**: Use the connected wallet for user authentication
-4. **Error handling**: Add better error messages and retry logic
-
-Check out the complete boilerplate (`examples/boilerplate/src/components/WalletConnect.tsx`) to see a full-featured implementation with:
-- Multiple wallet support
-- Account selection modal
-- Automatic reconnection
-- Session management
-- Better error handling
-
-## Understanding the Full Boilerplate
-
-The boilerplate includes a more sophisticated `WalletConnect` component. Here are the key features:
-
-### Multiple Wallet Support
-- Connects to any available wallet automatically
-- Handles multiple connected wallets
-- Account selection modal when multiple accounts are available
-
-### Error Handling
-```tsx
-try {
-  const wallet = await connectWallet();
-  // ... handle success
-} catch (error) {
-  if (error.message.includes('No wallet')) {
-    setError('Please install a wallet extension');
-  } else {
-    setError('Connection failed. Please try again.');
-  }
-}
-```
-
-### Session Management
-- Automatically checks if wallets are still connected
-- Handles wallet disconnection gracefully
-- Maintains connection state across page refreshes
-
-## Advanced Features
-
-Now that you understand the basics, let's explore some advanced features you can implement.
-
-### Adding Wallet Disconnection
-
-Let's enhance our simple wallet component to handle disconnection:
-
-```tsx
-import React, { useState } from 'react';
-import { connectWallet } from '@keypass/login-sdk/dist/walletConnector';
-import type { WalletAdapter } from '@keypass/login-sdk/dist/adapters/types';
-
-interface AdvancedWalletProps {
-  onConnect: (accounts: string[]) => void;
-  onDisconnect: () => void;
-}
-
-export function AdvancedWallet({ onConnect, onDisconnect }: AdvancedWalletProps) {
-  const [accounts, setAccounts] = useState<string[]>([]);
-  const [wallet, setWallet] = useState<WalletAdapter | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleConnect = async () => {
-    try {
-      setIsConnecting(true);
-      setError(null);
-      
-      const connectedWallet = await connectWallet();
-      const walletAccounts = await connectedWallet.getAccounts();
-      const accountAddresses = walletAccounts.map(acc => acc.address);
-      
-      setWallet(connectedWallet);
-      setAccounts(accountAddresses);
-      onConnect(accountAddresses);
-      
-      // Listen for wallet events
-      connectedWallet.on('disconnect', handleDisconnect);
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connection failed');
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    if (wallet) {
-      try {
-        await wallet.disconnect();
-      } catch (err) {
-        console.error('Disconnect error:', err);
-      }
-    }
-    
-    setWallet(null);
-    setAccounts([]);
-    onDisconnect();
-  };
-
-  return (
-    <div className="p-6 bg-white rounded-lg shadow-lg">
-      <h2 className="text-xl font-bold mb-4">Advanced Wallet Connection</h2>
-      
-      {accounts.length === 0 ? (
-        <button
-          onClick={handleConnect}
-          disabled={isConnecting}
-          className="w-full py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-        >
-          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-        </button>
-      ) : (
-        <div>
-          <p className="text-green-600 mb-4">✅ Wallet Connected!</p>
-          <div className="text-sm mb-4">
-            <strong>Connected Accounts:</strong>
-            <ul className="mt-1 space-y-1">
-              {accounts.map(account => (
-                <li key={account} className="p-2 bg-gray-50 rounded truncate">
-                  {account}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <button
-            onClick={handleDisconnect}
-            className="w-full py-2 px-4 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Disconnect Wallet
-          </button>
-        </div>
-      )}
-      
-      {error && (
-        <div className="mt-4 p-3 bg-red-100 text-red-700 rounded">
-          Error: {error}
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-### Handling Multiple Accounts
-
-When a wallet has multiple accounts, you might want to let users choose which one to use:
-
-```tsx
-interface Account {
-  address: string;
-  name?: string;
-}
-
-export function AccountSelector({ accounts, onSelect }: {
-  accounts: Account[];
-  onSelect: (account: string) => void;
-}) {
-  const [selectedAccount, setSelectedAccount] = useState<string>('');
-
-  return (
-    <div className="p-4 border rounded-lg">
-      <h3 className="font-semibold mb-2">Select Account</h3>
-      <select
-        value={selectedAccount}
-        onChange={(e) => setSelectedAccount(e.target.value)}
-        className="w-full p-2 border rounded mb-2"
-      >
-        <option value="">Choose an account...</option>
-        {accounts.map(account => (
-          <option key={account.address} value={account.address}>
-            {account.name || account.address}
-          </option>
-        ))}
-      </select>
       <button
-        onClick={() => onSelect(selectedAccount)}
-        disabled={!selectedAccount}
-        className="w-full py-2 px-4 bg-blue-500 text-white rounded disabled:opacity-50"
+        onClick={handleCreateDID}
+        disabled={isCreating}
+        className="w-full py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
       >
-        Use This Account
+        {isCreating ? 'Creating DID...' : 'Create DID'}
       </button>
     </div>
   );
 }
 ```
 
-### Better Error Handling
+### Step 2: Credential Display Component
 
-Let's create a helper function to handle common wallet errors with user-friendly messages:
-
-```tsx
-export function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-    
-    if (message.includes('no wallet') || message.includes('not found')) {
-      return 'No wallet extension found. Please install Polkadot.js or Talisman.';
-    }
-    
-    if (message.includes('rejected') || message.includes('cancelled')) {
-      return 'Connection was cancelled. Please try again.';
-    }
-    
-    if (message.includes('timeout')) {
-      return 'Connection timed out. Please check your wallet and try again.';
-    }
-    
-    if (message.includes('already connected')) {
-      return 'This wallet is already connected.';
-    }
-    
-    return error.message;
-  }
-  
-  return 'An unexpected error occurred. Please try again.';
-}
-
-// Usage in your component
-const handleConnect = async () => {
-  try {
-    setIsConnecting(true);
-    setError(null);
-    
-    const wallet = await connectWallet();
-    // ... rest of connection logic
-    
-  } catch (err) {
-    setError(getErrorMessage(err));
-  } finally {
-    setIsConnecting(false);
-  }
-};
-```
-
-### Loading States and User Feedback
-
-Good user experience means showing what's happening. Here's a more detailed loading component:
+Create `src/components/SimpleCredentialDisplay.tsx`:
 
 ```tsx
-interface LoadingButtonProps {
-  isLoading: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  disabled?: boolean;
+import React, { useState, useEffect } from 'react';
+import { SBTService } from '@keypass/login-sdk';
+
+interface SimpleCredentialDisplayProps {
+  address: string;
+  onCredentialsLoaded: (credentials: any[]) => void;
+  onError: (error: Error) => void;
 }
 
-export function LoadingButton({ isLoading, onClick, children, disabled }: LoadingButtonProps) {
+export function SimpleCredentialDisplay({ address, onCredentialsLoaded, onError }: SimpleCredentialDisplayProps) {
+  const [credentials, setCredentials] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const loadCredentials = async () => {
+      try {
+        setIsLoading(true);
+        
+        const sbtService = new SBTService({
+          providers: {
+            // Configure your blockchain providers
+          },
+          cache: {
+            enabled: true,
+            ttl: 300000,
+            maxSize: 100
+          },
+          defaultTimeout: 10000
+        });
+
+        const tokens = await sbtService.getTokens(address);
+        setCredentials(tokens);
+        onCredentialsLoaded(tokens);
+        
+      } catch (err) {
+        onError(err instanceof Error ? err : new Error('Failed to load credentials'));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (address) {
+      loadCredentials();
+    }
+  }, [address, onCredentialsLoaded, onError]);
+
+  if (isLoading) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-lg">
+        <div className="text-center">Loading credentials...</div>
+      </div>
+    );
+  }
+
   return (
-    <button
-      onClick={onClick}
-      disabled={isLoading || disabled}
-      className="w-full py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center"
-    >
-      {isLoading && (
-        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
+    <div className="p-6 bg-white rounded-lg shadow-lg">
+      <h2 className="text-xl font-bold mb-4">Your Credentials</h2>
+      
+      {credentials.length === 0 ? (
+        <p className="text-gray-500">No credentials found for this address.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {credentials.map((credential, index) => (
+            <div key={index} className="p-4 border rounded-lg">
+              <h3 className="font-semibold">{credential.name || 'Credential'}</h3>
+              <p className="text-sm text-gray-600">{credential.description}</p>
+              <p className="text-xs text-gray-500 mt-2">Chain: {credential.chainType}</p>
+            </div>
+          ))}
+        </div>
       )}
-      {children}
-    </button>
+    </div>
   );
 }
 ```
 
-### Persisting Connection State
+### Step 3: zkProof Generator Component
 
-You might want to remember if a user was connected when they return to your app:
+Create `src/components/SimpleZKProofGenerator.tsx`:
 
 ```tsx
-const [isInitialized, setIsInitialized] = useState(false);
+import React, { useState } from 'react';
+import { ZKProofService } from '@keypass/login-sdk';
 
-// Check for existing connection on app load
-useEffect(() => {
-  const checkExistingConnection = async () => {
-    const savedConnection = localStorage.getItem('wallet_connected');
-    if (savedConnection) {
-      try {
-        // Try to reconnect
-        await handleConnect();
-      } catch (error) {
-        // If reconnection fails, clear saved state
-        localStorage.removeItem('wallet_connected');
-      }
+interface SimpleZKProofGeneratorProps {
+  credentials: any[];
+  onError: (error: Error) => void;
+}
+
+export function SimpleZKProofGenerator({ credentials, onError }: SimpleZKProofGeneratorProps) {
+  const [selectedCredential, setSelectedCredential] = useState<any>(null);
+  const [selectedCircuit, setSelectedCircuit] = useState<'semaphore' | 'plonk' | 'groth16'>('semaphore');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [proof, setProof] = useState<string>('');
+
+  const handleGenerateProof = async () => {
+    if (!selectedCredential) return;
+
+    try {
+      setIsGenerating(true);
+      
+      const zkService = new ZKProofService();
+      const generatedProof = await zkService.generateProof(selectedCredential, selectedCircuit);
+      
+      setProof(generatedProof);
+      
+    } catch (err) {
+      onError(err instanceof Error ? err : new Error('Proof generation failed'));
+    } finally {
+      setIsGenerating(false);
     }
-    setIsInitialized(true);
   };
 
-  checkExistingConnection();
-}, []);
+  return (
+    <div className="p-6 bg-white rounded-lg shadow-lg">
+      <h2 className="text-xl font-bold mb-4">Generate Privacy-Preserving Proof</h2>
+      
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">Select Credential:</label>
+        <select
+          value={selectedCredential?.id || ''}
+          onChange={(e) => {
+            const credential = credentials.find(c => c.id === e.target.value);
+            setSelectedCredential(credential);
+          }}
+          className="w-full p-2 border rounded"
+        >
+          <option value="">Choose a credential...</option>
+          {credentials.map((credential) => (
+            <option key={credential.id} value={credential.id}>
+              {credential.name || credential.id}
+            </option>
+          ))}
+        </select>
+      </div>
 
-// Save connection state when connecting
-const handleConnect = async () => {
-  try {
-    // ... connection logic
-    localStorage.setItem('wallet_connected', 'true');
-  } catch (error) {
-    localStorage.removeItem('wallet_connected');
-    throw error;
-  }
-};
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">Select Circuit:</label>
+        <select
+          value={selectedCircuit}
+          onChange={(e) => setSelectedCircuit(e.target.value as any)}
+          className="w-full p-2 border rounded"
+        >
+          <option value="semaphore">Semaphore</option>
+          <option value="plonk">PLONK</option>
+          <option value="groth16">Groth16</option>
+        </select>
+      </div>
 
-// Clear connection state when disconnecting
-const handleDisconnect = async () => {
-  // ... disconnection logic
-  localStorage.removeItem('wallet_connected');
-};
+      <button
+        onClick={handleGenerateProof}
+        disabled={!selectedCredential || isGenerating}
+        className="w-full py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+      >
+        {isGenerating ? 'Generating Proof...' : 'Generate Proof'}
+      </button>
+
+      {proof && (
+        <div className="mt-4 p-4 bg-gray-50 rounded">
+          <h3 className="font-semibold mb-2">Generated Proof:</h3>
+          <p className="text-sm font-mono break-all">{proof}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## How the Identity Platform Works
+
+Here's what happens in a complete identity flow:
+
+1. **Wallet Connection**: User connects their wallet (Polkadot or Ethereum)
+2. **DID Creation**: System creates a decentralized identifier for the user
+3. **Credential Discovery**: Platform discovers user's SBTs and credentials
+4. **Proof Generation**: User can generate privacy-preserving proofs for credential verification
+5. **Verification**: Other parties can verify proofs without seeing the original credentials
+
+## Advanced Identity Features
+
+Now let's explore some advanced features you can implement.
+
+### Adding DID Document Preview
+
+Let's enhance our DID creator to show the DID document:
+
+```tsx
+import React, { useState } from 'react';
+import { DIDProvider } from '@keypass/login-sdk';
+
+interface DIDDocument {
+  did: string;
+  document: any;
+  metadata: any;
+}
+
+export function AdvancedDIDCreator({ walletAddress, onComplete, onError }: SimpleDIDCreatorProps) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [didDocument, setDidDocument] = useState<DIDDocument | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const handleCreateDID = async () => {
+    try {
+      setIsCreating(true);
+      
+      const didProvider = new DIDProvider();
+      const did = await didProvider.createDid(walletAddress);
+      
+      // Get DID document
+      const document = await didProvider.resolveDID(did);
+      
+      const didDoc: DIDDocument = {
+        did,
+        document,
+        metadata: {
+          created: new Date().toISOString(),
+          walletAddress
+        }
+      };
+      
+      setDidDocument(didDoc);
+      setShowPreview(true);
+      
+    } catch (err) {
+      onError(err instanceof Error ? err : new Error('DID creation failed'));
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleConfirm = () => {
+    if (didDocument) {
+      onComplete(didDocument.did);
+    }
+  };
+
+  return (
+    <div className="p-6 bg-white rounded-lg shadow-lg">
+      <h2 className="text-xl font-bold mb-4">Create Your Digital Identity</h2>
+      
+      {!showPreview ? (
+        <button
+          onClick={handleCreateDID}
+          disabled={isCreating}
+          className="w-full py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+        >
+          {isCreating ? 'Creating DID...' : 'Create DID'}
+        </button>
+      ) : (
+        <div>
+          <h3 className="font-semibold mb-2">DID Document Preview:</h3>
+          <div className="p-4 bg-gray-50 rounded mb-4">
+            <p className="text-sm font-mono break-all">{didDocument?.did}</p>
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleConfirm}
+              className="flex-1 py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              Confirm DID
+            </button>
+            <button
+              onClick={() => setShowPreview(false)}
+              className="flex-1 py-2 px-4 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Credential Request Wizard
+
+Create a component for requesting new credentials:
+
+```tsx
+interface CredentialRequest {
+  type: string;
+  issuer: string;
+  description: string;
+  requirements: string[];
+}
+
+export function CredentialRequestWizard({ onRequest }: { onRequest: (request: CredentialRequest) => void }) {
+  const [request, setRequest] = useState<CredentialRequest>({
+    type: '',
+    issuer: '',
+    description: '',
+    requirements: []
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onRequest(request);
+  };
+
+  return (
+    <div className="p-6 bg-white rounded-lg shadow-lg">
+      <h2 className="text-xl font-bold mb-4">Request New Credential</h2>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Credential Type:</label>
+          <input
+            type="text"
+            value={request.type}
+            onChange={(e) => setRequest({...request, type: e.target.value})}
+            className="w-full p-2 border rounded"
+            placeholder="e.g., Student ID, Age Verification"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Issuer:</label>
+          <input
+            type="text"
+            value={request.issuer}
+            onChange={(e) => setRequest({...request, issuer: e.target.value})}
+            className="w-full p-2 border rounded"
+            placeholder="e.g., University, Government"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Description:</label>
+          <textarea
+            value={request.description}
+            onChange={(e) => setRequest({...request, description: e.target.value})}
+            className="w-full p-2 border rounded"
+            rows={3}
+            placeholder="Describe what this credential represents..."
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Request Credential
+        </button>
+      </form>
+    </div>
+  );
+}
+```
+
+### Privacy Controls for Credentials
+
+Add privacy controls to credential display:
+
+```tsx
+interface CredentialPrivacyControlsProps {
+  credential: any;
+  onShare: (credential: any, proof: string) => void;
+  onRevoke: (credential: any) => void;
+}
+
+export function CredentialPrivacyControls({ credential, onShare, onRevoke }: CredentialPrivacyControlsProps) {
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareProof, setShareProof] = useState(false);
+
+  const handleShare = async () => {
+    if (shareProof) {
+      // Generate zkProof for sharing
+      const zkService = new ZKProofService();
+      const proof = await zkService.generateProof(credential, 'semaphore');
+      onShare(credential, proof);
+    } else {
+      // Share credential directly
+      onShare(credential, '');
+    }
+    setShowShareDialog(false);
+  };
+
+  return (
+    <div className="p-4 border rounded-lg">
+      <h3 className="font-semibold mb-2">{credential.name}</h3>
+      <p className="text-sm text-gray-600 mb-4">{credential.description}</p>
+      
+      <div className="flex space-x-2">
+        <button
+          onClick={() => setShowShareDialog(true)}
+          className="py-1 px-3 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+        >
+          Share
+        </button>
+        <button
+          onClick={() => onRevoke(credential)}
+          className="py-1 px-3 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+        >
+          Revoke
+        </button>
+      </div>
+
+      {showShareDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="font-semibold mb-4">Share Credential</h3>
+            
+            <div className="mb-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={shareProof}
+                  onChange={(e) => setShareProof(e.target.checked)}
+                  className="mr-2"
+                />
+                Share with privacy-preserving proof
+              </label>
+            </div>
+
+            <div className="flex space-x-2">
+              <button
+                onClick={handleShare}
+                className="flex-1 py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Share
+              </button>
+              <button
+                onClick={() => setShowShareDialog(false)}
+                className="flex-1 py-2 px-4 bg-gray-500 text-white rounded hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 ```
 
 ## Best Practices
 
-### 1. **Start Simple, Add Complexity Gradually**
-- Begin with basic wallet connection (like our `SimpleWallet` component)
-- Add features one at a time (disconnection, multiple accounts, etc.)
-- Test each feature thoroughly before adding the next
+### 1. **Start with Wallet Connection, Build Up**
+- Begin with basic wallet authentication
+- Add DID creation once wallet connection works
+- Add credential management after DID creation
+- Add zkProof generation last
 
 ### 2. **User Experience First**
 ```tsx
-// ✅ Good: Clear loading states
-<button disabled={isConnecting}>
-  {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-</button>
+// ✅ Good: Clear progress indication
+<div className="flex items-center space-x-2">
+  <div className={`w-4 h-4 rounded-full ${step >= 1 ? 'bg-green-500' : 'bg-gray-300'}`} />
+  <div className={`w-4 h-4 rounded-full ${step >= 2 ? 'bg-green-500' : 'bg-gray-300'}`} />
+  <div className={`w-4 h-4 rounded-full ${step >= 3 ? 'bg-green-500' : 'bg-gray-300'}`} />
+</div>
 
-// ❌ Bad: No feedback
-<button onClick={handleConnect}>Connect Wallet</button>
+// ❌ Bad: No progress indication
+<div>Creating DID...</div>
 ```
 
-### 3. **Handle Errors Gracefully**
+### 3. **Handle Identity Errors Gracefully**
 ```tsx
-// ✅ Good: User-friendly error messages
-if (error.message.includes('No wallet found')) {
-  setError('Please install a wallet extension like Polkadot.js');
+// ✅ Good: Specific error handling
+if (error.message.includes('DID creation failed')) {
+  setError('Unable to create your digital identity. Please try again.');
+} else if (error.message.includes('No credentials found')) {
+  setError('No credentials found for this address.');
 }
 
-// ❌ Bad: Technical error messages
-setError(error.message); // "WalletNotConnectedError: Extension not found"
+// ❌ Bad: Generic error messages
+setError(error.message);
 ```
 
-### 4. **Test with Real Wallets**
-- Install Polkadot.js extension for testing
-- Try connecting and disconnecting multiple times
-- Test with different wallet states (locked, unlocked, no accounts)
-- Test on different browsers
+### 4. **Test with Real Identity Flows**
+- Test DID creation with different wallet types
+- Test credential loading with various SBTs
+- Test zkProof generation with different circuits
+- Test privacy controls and sharing features
 
 ### 5. **Follow the Boilerplate Pattern**
-The boilerplate at `examples/boilerplate` shows the recommended patterns:
-- Component structure
-- Error handling
-- State management
-- User interface design
+The React boilerplate shows the recommended patterns:
+- Component structure for identity flows
+- Error handling for identity operations
+- State management for DID and credentials
+- User interface design for identity features
 
 ## Next Steps
 
-### 1. **Explore the Full Boilerplate**
-Take a deep dive into the complete boilerplate implementation:
+### 1. **Explore the Full Identity Platform**
+Take a deep dive into the complete React boilerplate:
 ```bash
-cd examples/boilerplate
+cd examples/react-boilerplate
 npm install
 npm run dev
 ```
 
 The boilerplate includes:
-- Multi-wallet support
-- Account selection modal
-- Dark mode toggle
-- Comprehensive error handling
-- Session persistence
-- Production-ready styling
+- Complete DID creation wizard
+- Credential/SBT display and management
+- zkProof generation with multiple circuits
+- Privacy controls and sharing features
+- Production-ready styling and animations
 
-### 2. **Add Authentication**
-Once you have wallet connection working, you might want to:
-- Use wallet addresses for user identification
-- Implement message signing for authentication
-- Create user sessions
-- Build user profiles
+### 2. **Add Advanced Identity Features**
+Once you have basic identity flows working:
+- Implement credential verification
+- Add multi-chain DID support
+- Build credential revocation flows
+- Create privacy-preserving sharing mechanisms
 
-### 3. **Customize the UI**
+### 3. **Customize for Your Use Case**
 Make it match your application:
-- Update colors and fonts
-- Add your branding
-- Integrate with your existing design system
-- Add animations and transitions
+- Update credential types for your domain
+- Customize DID creation flows
+- Add your branding and styling
+- Integrate with your existing systems
 
 ### 4. **Learn More**
 Check out the other documentation:
 - [API Reference](./api.md) - Complete API documentation
 - [Integration Guide](./integration.md) - Advanced integration patterns
-- [Architecture Documentation](./architecture.md) - How the SDK works internally
+- [Architecture Documentation](./architecture.md) - How the platform works internally
+- [DID Wizard Guide](../examples/react-boilerplate/DID_WIZARD_README.md) - DID creation implementation
+- [Credential Implementation Guide](../examples/react-boilerplate/CREDENTIAL_IMPLEMENTATION_GUIDE.md) - Credential management
+- [zkProof Implementation Guide](../examples/react-boilerplate/ZK_PROOF_IMPLEMENTATION.md) - Privacy features
 
 ### 5. **Common Next Features**
-Real applications often need:
-- User authentication with wallet signatures
-- Transaction signing
-- Multi-chain support
-- Mobile wallet support
+Real identity applications often need:
+- Credential verification and validation
+- Multi-chain DID resolution
+- Credential revocation and updates
+- Privacy-preserving sharing mechanisms
+- Integration with existing identity systems
 
 ## Troubleshooting
 
 ### Common Issues and Solutions
 
-**"connectWallet is not defined"**
-```tsx
-// Make sure you're using the correct import path
-import { connectWallet } from '@keypass/login-sdk/dist/walletConnector';
-```
+**"DID creation failed"**
+- Make sure wallet is connected and unlocked
+- Check if the wallet address is valid
+- Verify server is running on port 3000
 
-**"Buffer is not defined"**
-```bash
-# Install the required polyfills
-npm install --save-dev vite-plugin-node-polyfills
-npm install util
+**"No credentials found"**
+- Make sure the address has SBTs or credentials
+- Check blockchain provider configuration
+- Verify network connection
 
-# Update your vite.config.ts with the polyfills
-```
+**"Proof generation failed"**
+- Make sure credential is valid and accessible
+- Check circuit configuration
+- Verify zkProof service is properly configured
 
-**"No wallet found"**
-- Install a wallet extension (Polkadot.js, Talisman)
-- Make sure the extension is enabled
-- Try refreshing the page
-
-**"Connection rejected"**
-- Make sure you approve the connection in your wallet
-- Check if the wallet is unlocked
-- Try connecting again
-
-**"Account not found after connecting"**
-- Create accounts in your wallet extension
-- Make sure accounts are not hidden/disabled
-- Check wallet settings
+**"Privacy controls not working"**
+- Check browser permissions for sharing
+- Verify zkProof generation is working
+- Test with different credential types
 
 ## Getting Help
 
 ### 1. **Check the Examples**
-- Look at the working boilerplate in `examples/boilerplate`
+- Look at the working React boilerplate in `examples/react-boilerplate`
 - Compare your code with the working examples
 - Try running the boilerplate first
 
 ### 2. **Documentation**
 - [API Reference](./api.md) - Complete API documentation
 - [Integration Guide](./integration.md) - Advanced integration patterns
-- [Architecture Documentation](./architecture.md) - How the SDK works
+- [Architecture Documentation](./architecture.md) - How the platform works
+- [DID Wizard Guide](../examples/react-boilerplate/DID_WIZARD_README.md) - DID creation
+- [Credential Implementation Guide](../examples/react-boilerplate/CREDENTIAL_IMPLEMENTATION_GUIDE.md) - Credential management
+- [zkProof Implementation Guide](../examples/react-boilerplate/ZK_PROOF_IMPLEMENTATION.md) - Privacy features
 
 ### 3. **Community Support**
 - Visit our [GitHub repository](https://github.com/uliana1one/keypass)
@@ -775,14 +853,16 @@ npm install util
 
 Congratulations! You now know how to:
 
-✅ Set up a React project with KeyPass SDK  
+✅ Set up a React project with KeyPass Identity Platform  
 ✅ Connect to blockchain wallets  
-✅ Handle multiple accounts  
-✅ Manage errors gracefully  
-✅ Provide good user experience  
-✅ Build production-ready wallet integration  
+✅ Create and manage decentralized identifiers (DIDs)  
+✅ Display and manage credentials/SBTs  
+✅ Generate privacy-preserving zkProofs  
+✅ Implement privacy controls and sharing  
+✅ Handle identity errors gracefully  
+✅ Build production-ready identity applications  
 
-You're ready to build amazing dApps with KeyPass! 🚀
+You're ready to build amazing self-sovereign identity applications with KeyPass! 🚀
 
 ## License
 

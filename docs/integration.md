@@ -1,29 +1,51 @@
 # Integration Guide
 
-This guide covers two main integration approaches: **using the Core SDK** for custom implementations and **using the Examples** for complete UI experiences.
+This guide covers three main integration approaches: **using the Core SDK** for custom implementations, **using the Examples** for complete UI experiences, and **hybrid integration** for maximum flexibility. It now also covers advanced features like the DID Explorer dashboard, credential/SBT display, and zkProof demo.
 
-##  Integration Overview
+## Integration Overview
 
 ### **Option A: Core SDK Integration** 
-Use the authentication functions directly with your own UI
+Use the authentication and identity functions directly with your own UI
 - **Best for**: Custom UIs, specific design requirements, existing component libraries
-- **What you get**: Authentication logic, wallet connections, server verification
-- **What you build**: Wallet selection UI, account selection UI, error handling UI
+- **What you get**: Authentication logic, wallet connections, server verification, DID creation, credential/SBT and zkProof APIs
+- **What you build**: Wallet selection UI, account selection UI, error handling UI, custom dashboards
 
 ### **Option B: Example-Based Integration**
 Use the complete examples as a starting point
 - **Best for**: Rapid development, getting started quickly, proof of concepts
-- **What you get**: Complete UI experience, wallet selection, account selection, styling
-- **What you customize**: Branding, styling, specific workflows
+- **What you get**: Complete UI experience, wallet selection, account selection, DID Explorer wizard, credential/SBT dashboard, zkProof generator, styling
+- **What you customize**: Branding, styling, specific workflows, privacy controls
 
 ### **Option C: Hybrid Integration**
 Mix core SDK functions with example UI components
 - **Best for**: Balanced approach, selective customization
-- **What you do**: Pick specific components from examples, build custom logic around them
+- **What you do**: Pick specific components from examples (e.g., DIDWizard, CredentialSection, ZKProofGenerator), build custom logic around them
 
 ---
 
-##  Option A: Core SDK Integration
+## New Additions: DID Explorer, Credential Dashboard, zkProof Demo
+
+### **DID Explorer Dashboard Integration**
+- **Component**: `DIDWizard` (React)
+- **Features**: Multi-step wizard for DID creation (Type → Configuration → Preview → Create), fixed-stepper UI, supports both Basic and Advanced DIDs
+- **How to use**: Import and render `DIDWizard` in your app, pass wallet/account props, handle `onComplete` for DID creation result
+- **Customization**: Style the wizard, add branding, extend steps as needed
+
+### **Credential & SBT Dashboard Integration**
+- **Components**: `CredentialSection`, `SBTSection`, `CredentialRequestWizard`
+- **Features**: Credential/SBT grid and card display, request wizard, privacy controls, revocation, sharing
+- **How to use**: Import and render dashboard components, connect to core SDK credential APIs, handle credential requests and offers
+- **Customization**: Adjust UI, add new credential types, extend privacy features
+
+### **zkProof Credential Demo Integration**
+- **Component**: `ZKProofGenerator`
+- **Features**: Stepper for selecting credential, circuit, generating and verifying zkProofs (Semaphore, PLONK, Groth16), privacy controls
+- **How to use**: Import and render `ZKProofGenerator`, connect to credential/zkProof APIs, handle proof generation and verification
+- **Customization**: Add new circuits, integrate with custom credential flows, style proof UI
+
+---
+
+## Option A: Core SDK Integration
 
 ### Prerequisites
 
@@ -266,7 +288,15 @@ npm install
 npm start
 ```
 
-#### 2. Customize the React Example
+#### 2. Integrate Advanced Features
+
+- **DID Creation Wizard**: Use `<DIDWizard ... />` for onboarding and identity setup
+- **Credential Dashboard**: Use `<CredentialSection ... />` and `<SBTSection ... />` for displaying credentials and badges
+- **zkProof Generator**: Use `<ZKProofGenerator ... />` for privacy-preserving proof flows
+- **Fixed-stepper UI**: All wizards use a consistent, accessible stepper for user guidance
+- **Privacy Controls**: Credential and proof flows include selective disclosure and sharing options
+
+#### 3. Customize the React Example
 
 ```typescript
 // Customize the App.tsx component
@@ -314,7 +344,7 @@ function YourApp() {
 }
 ```
 
-#### 3. Customize Styling
+#### 4. Customize Styling
 
 ```css
 /* Copy base styles from examples/react-boilerplate/src/App.css */
@@ -394,61 +424,15 @@ python3 -m http.server 8000
 
 ### Use Core SDK + Selected Example Components
 
-#### 1. Extract Wallet Detection from Examples
+#### 1. Extract and Use Advanced Components
+- **DIDWizard**: For multi-step DID creation
+- **CredentialSection/SBTSection**: For credential and badge display
+- **ZKProofGenerator**: For privacy-preserving proof generation
 
-```typescript
-// Copy this function from examples/react-boilerplate/src/App.tsx
-export const detectPolkadotWallets = async (): Promise<Wallet[]> => {
-  const wallets: Wallet[] = [];
-  
-  await new Promise(resolve => setTimeout(resolve, 200));
-  
-  if (window.injectedWeb3) {
-    const extensions = Object.keys(window.injectedWeb3);
-    
-    for (const extensionName of extensions) {
-      const extension = window.injectedWeb3[extensionName];
-      let displayName = extensionName;
-      
-      if (extensionName === 'polkadot-js') {
-        displayName = 'Polkadot.js Extension';
-      } else if (extensionName === 'talisman') {
-        displayName = 'Talisman';
-      }
-      
-      wallets.push({
-        id: extensionName,
-        name: displayName,
-        status: extension.enable ? 'Available' : 'Not Compatible',
-        available: extension.enable !== undefined,
-        extension: extension
-      });
-    }
-  }
-  
-  return wallets;
-};
-```
-
-#### 2. Use Core SDK for Authentication
-
-```typescript
-import { loginWithPolkadot } from '@keypass/login-sdk';
-import { detectPolkadotWallets } from './walletDetection';
-
-async function hybridAuth() {
-  // Use example implementation for wallet detection
-  const wallets = await detectPolkadotWallets();
-  
-  // Show your custom wallet selection UI
-  const selectedWallet = await showWalletPicker(wallets);
-  
-  // Use core SDK for authentication
-  const result = await loginWithPolkadot();
-  
-  return result;
-}
-```
+#### 2. Compose with Custom Logic
+- Use your own state management, routing, or UI framework
+- Connect example components to your backend or custom flows
+- Extend or override steps, privacy settings, or credential types as needed
 
 ---
 
@@ -581,4 +565,4 @@ async function testAuth() {
 - [ ] **Add retry logic** for network failures
 - [ ] **Cache wallet detection** results where appropriate
 
-This integration guide provides multiple paths to implement KeyPass authentication based on your specific needs and technical requirements. 
+This integration guide now covers advanced identity, credential, and privacy flows, and provides multiple paths to implement KeyPass authentication and credential management based on your specific needs and technical requirements. 
