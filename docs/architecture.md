@@ -2,14 +2,16 @@
 
 The KeyPass Login SDK follows a **two-layer architecture** that separates core authentication logic from user interface implementations, providing flexibility for developers to choose their integration approach.
 
-##  Architectural Layers
+## Architectural Layers
 
 ### **Layer 1: Core SDK** (`src/`)
-**Purpose**: Provides the fundamental authentication and wallet connection logic
+**Purpose**: Provides the fundamental authentication logic and identity primitives
 - **Wallet connection and management**
-- **Message signing and verification** 
+- **Message signing and verification**
 - **DID (Decentralized Identifier) creation and management**
 - **Multi-chain support** (Polkadot and Ethereum)
+- **Credential and SBT support**
+- **zkProof generation and verification**
 - **Error handling and validation**
 
 ### **Layer 2: Frontend Examples** (`examples/`)
@@ -17,12 +19,38 @@ The KeyPass Login SDK follows a **two-layer architecture** that separates core a
 - **Interactive wallet selection interfaces**
 - **Account selection workflows**
 - **Chain selection UI components**
+- **DID Explorer dashboard with multi-step wizard**
+- **Credential/SBT display and management**
+- **zkProof credential demo and privacy controls**
 - **Professional styling and animations**
 - **Comprehensive error handling UI**
 
+## 🧩 New Additions: DID Explorer, Credential Dashboard, zkProof Demo
+
+### **DID Explorer Dashboard (React Boilerplate)**
+- Implements a **multi-step wizard** for DID creation:
+  1. **DID Type**: Choose between Basic and Advanced DID
+  2. **Configuration**: (Advanced only) Set purpose, attributes, endpoints
+  3. **Preview**: Review DID document and features
+  4. **Create**: Confirm and generate DID
+- **Fixed-stepper UI**: Always shows all steps for clarity, even if some are skipped in navigation (e.g., Basic DID skips Configuration but step is still visible and inactive)
+- **Componentized logic**: Each step is a separate render function, with state managed in the wizard parent
+- **Integration with core SDK**: Calls DID creation and preview logic from the SDK layer
+
+### **Credential & SBT Dashboard**
+- **Credential display**: Grid and card components for issued credentials and SBTs
+- **Credential request wizard**: Multi-step flow for requesting new credentials, selecting claims, and privacy settings
+- **SBT display**: Grid and card UI for badges and SBTs, with support for demo/test/real data modes
+- **Integration with core SDK**: Uses credential and SBT service APIs for fetching, issuing, and revoking credentials
+
+### **zkProof Credential Demo**
+- **Proof generation UI**: Stepper for selecting credential, circuit, and generating proof (Semaphore, PLONK, Groth16)
+- **Privacy controls**: Selective disclosure, proof sharing, and verification
+- **Integration with core SDK**: Calls zkProof service for proof generation and verification
+
 ## 🔧 Core SDK Architecture (7-Layer System)
 
-The core SDK implements a clean 7-layer architecture focused on authentication logic:
+The core SDK implements a clean 7-layer architecture focused on authentication and identity logic:
 
 ### 1. Config Layer (`src/config/`)
 - **Purpose**: Configuration management and validation
@@ -112,95 +140,80 @@ The examples demonstrate how to build complete user experiences on top of the co
 
 ### **React Boilerplate Architecture** (`examples/react-boilerplate/`)
 ```
-┌─────────────────────────────────────┐
-│            App Component            │
-├─────────────────────────────────────┤
-│  State Management:                  │
-│  • Chain selection state           │
-│  • Wallet detection results        │
-│  • Account selection state         │
-│  • Authentication state            │
-├─────────────────────────────────────┤
-│  UI Flow Management:                │
-│  • Chain Selection View            │
-│  • Wallet Selection View           │
-│  • Account Selection View          │
-│  • Authentication Success View     │
-├─────────────────────────────────────┤
-│  Core SDK Integration:              │
-│  • connectWallet()                  │
-│  • loginWithPolkadot()             │
-│  • loginWithEthereum()             │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│                App Component                │
+├──────────────────────────────────────────────┤
+│  State Management:                          │
+│  • Chain selection state                    │
+│  • Wallet detection results                 │
+│  • Account selection state                  │
+│  • Authentication state                     │
+│  • DID wizard state (step, options, preview)│
+│  • Credential/SBT/zkProof dashboard state   │
+├──────────────────────────────────────────────┤
+│  UI Flow Management:                        │
+│  • Chain Selection View                     │
+│  • Wallet Selection View                    │
+│  • Account Selection View                   │
+│  • DID Creation Wizard (multi-step)         │
+│  • Credential Dashboard                     │
+│  • SBT Display                              │
+│  • zkProof Generation/Verification          │
+│  • Authentication Success View              │
+├──────────────────────────────────────────────┤
+│  Core SDK Integration:                      │
+│  • connectWallet()                          │
+│  • loginWithPolkadot()/loginWithEthereum()  │
+│  • createDID(), previewDID()                │
+│  • getCredentials(), requestCredential()     │
+│  • generateZKProof()                        │
+└──────────────────────────────────────────────┘
 ```
 
-### **Vanilla Boilerplate Architecture** (`examples/vanilla-boilerplate/`)
+### **Multi-Step Wizard Pattern**
+- **Fixed stepper**: UI always shows all steps (DID Type, Configuration, Preview, Create)
+- **Conditional navigation**: For Basic DID, Configuration step is skipped in logic but shown as inactive in UI
+- **Extensible**: New steps or flows (e.g., credential issuance, proof generation) can be added with minimal changes
+
+### **Component Interactions**
+- **DIDWizard**: Manages step state, options, and preview; interacts with core SDK for DID logic
+- **CredentialSection/SBTSection**: Fetches and displays credentials/SBTs; handles requests and revocations
+- **ZKProofGenerator**: Handles proof configuration, generation, and verification
+- **All dashboard components**: Share state via parent App or context, and call core SDK APIs for all blockchain/identity operations
+
+## Data Flow Patterns
+
+### **DID Creation Flow**
 ```
-┌─────────────────────────────────────┐
-│           Single HTML File          │
-├─────────────────────────────────────┤
-│  JavaScript Functions:              │
-│  • detectPolkadotWallets()         │
-│  • detectEthereumWallets()          │
-│  • getPolkadotAccounts()           │
-│  • getEthereumAccounts()           │
-│  • authenticateWith*()             │
-├─────────────────────────────────────┤
-│  UI Management:                     │
-│  • showWalletSelection()           │
-│  • Dynamic DOM manipulation        │
-│  • Event handling                  │
-├─────────────────────────────────────┤
-│  Core Logic:                        │
-│  • Direct wallet API calls         │
-│  • Message signing                 │
-│  • Server verification             │
-└─────────────────────────────────────┘
+User
+  ↓
+DIDWizard (stepper UI)
+  ↓
+User selects type/options
+  ↓
+DIDWizard calls previewDID()/createDID() from core SDK
+  ↓
+DID document preview/generated
+  ↓
+Result passed to dashboard/profile
 ```
 
-##  Data Flow Patterns
-
-### **Core SDK Flow** (Basic Authentication)
+### **Credential/zkProof Flow**
 ```
-Client App
-    ↓
-loginWithPolkadot() / loginWithEthereum()
-    ↓
-connectWallet() (Auto-detects available wallets)
-    ↓
-WalletAdapter.enable() → WalletAdapter.getAccounts()
-    ↓
-WalletAdapter.signMessage()
-    ↓
-Server Verification (/api/verify)
-    ↓
-DID Creation
-    ↓
-LoginResult
+User
+  ↓
+CredentialRequestWizard / ZKProofGenerator
+  ↓
+User selects credential, claims, privacy
+  ↓
+Component calls core SDK (requestCredential, generateZKProof)
+  ↓
+Credential/proof issued or verified
+  ↓
+Result displayed in dashboard
 ```
 
-### **Example Implementation Flow** (Full UI Experience)
-```
-Client App
-    ↓
-Chain Selection UI (Polkadot vs Ethereum)
-    ↓
-detectPolkadotWallets() / detectEthereumWallets()
-    ↓
-Wallet Selection UI (List available wallets)
-    ↓
-getPolkadotAccounts() / getEthereumAccounts()
-    ↓
-Account Selection UI (Choose specific account)
-    ↓
-authenticateWithPolkadot() / authenticateWithEthereum()
-    ↓
-Core SDK Authentication Flow
-    ↓
-Authentication Success UI
-```
-
-##  Architecture Benefits
+## Architecture Benefits
 
 ### **Separation of Concerns**
 - **Core SDK**: Focuses purely on authentication logic
@@ -217,7 +230,7 @@ Authentication Success UI
 - **Framework agnostic**: Core SDK works with any frontend framework
 - **Clear dependencies**: Examples depend on core SDK, not vice versa
 
-##  Component Interactions
+## Component Interactions
 
 ### **Within Core SDK**
 The layers interact in a strict hierarchy:
@@ -232,7 +245,7 @@ Examples use core SDK functions as building blocks:
 - **Add UI layer**: Implement wallet detection, selection interfaces
 - **Handle user interaction**: Convert UI events to core SDK function calls
 
-##  Security Considerations
+## Security Considerations
 
 ### **Core SDK Security**
 - Each layer implements its own security measures
@@ -247,7 +260,7 @@ Examples use core SDK functions as building blocks:
 - Proper error display without exposing internals
 - Safe wallet extension interaction
 
-##  Testing Strategy
+## Testing Strategy
 
 ### **Core SDK Testing**
 - **Unit tests**: Each layer tested independently

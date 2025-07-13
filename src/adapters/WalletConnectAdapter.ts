@@ -4,6 +4,8 @@ import {
   WalletAccount,
   WALLET_TIMEOUT,
   validateAndSanitizeMessage,
+  validateAddress as ethValidateAddress,
+  validatePolkadotAddress,
 } from './types.js';
 import {
   WalletNotFoundError,
@@ -381,11 +383,12 @@ export class WalletConnectAdapter implements WalletAdapter {
   public async validateAddress(address: string): Promise<boolean> {
     const chainType = this.config.chainId || 'polkadot';
     try {
-      // The original code had validateAddress and validatePolkadotAddress here,
-      // but they are not imported. Assuming they are meant to be removed or
-      // replaced with a placeholder if needed.
-      // For now, removing them as they are not in the new import.
-      return true; // Placeholder for now
+      if (chainType === 'ethereum') {
+        ethValidateAddress(address);
+      } else {
+        validatePolkadotAddress(address);
+      }
+      return true;
     } catch (e) {
       return false;
     }
