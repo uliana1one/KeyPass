@@ -190,7 +190,7 @@ const authenticateWithPolkadot = async (account: Account): Promise<LoginResult> 
 
     return {
       address: account.address,
-      did: `did:key:${account.address}`,
+      did: `did:key:z${account.address}`,
       chainType: 'polkadot',
       signature: signature.signature,
       message: message,

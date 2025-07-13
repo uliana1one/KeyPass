@@ -59,6 +59,9 @@ describe('DID Wizard Integration Tests', () => {
     user = userEvent.setup();
     jest.clearAllMocks();
     
+    // Clear localStorage to ensure clean state
+    localStorage.clear();
+    
     // Reset mock implementations
     mockExtension.enable.mockResolvedValue(mockInjectedExtension);
     
@@ -78,7 +81,6 @@ describe('DID Wizard Integration Tests', () => {
     (window as any).injectedWeb3 = {
       'polkadot-js': mockExtension,
     };
-    localStorage.clear();
   });
 
   describe('Complete Authentication Flow with DID Creation', () => {
@@ -112,10 +114,21 @@ describe('DID Wizard Integration Tests', () => {
       const connectButton = screen.getByText('Connect Wallet');
       await user.click(connectButton);
       
-      // Step 5: DID Creation should appear
+      // Step 5: Handle both DID management and direct DID creation flows
       await waitFor(() => {
-        expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        const didManagement = screen.queryByText('DID Management for');
+        const didCreation = screen.queryByText('Create Your DID');
+        expect(didManagement || didCreation).toBeInTheDocument();
       });
+      
+      // If DID management screen appears, click "Create New DID"
+      const didManagement = screen.queryByText('DID Management for');
+      if (didManagement) {
+        await user.click(screen.getByText('Create New DID'));
+        await waitFor(() => {
+          expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        });
+      }
       
       // Step 6: Navigate through DID wizard
       // Step 6a: DID Type Selection (Basic DID is selected by default)
@@ -161,6 +174,22 @@ describe('DID Wizard Integration Tests', () => {
       
       const connectButton = screen.getByText('Connect Wallet');
       await user.click(connectButton);
+      
+      // Handle both DID management and direct DID creation flows
+      await waitFor(() => {
+        const didManagement = screen.queryByText('DID Management for');
+        const didCreation = screen.queryByText('Create Your DID');
+        expect(didManagement || didCreation).toBeInTheDocument();
+      });
+      
+      // If DID management screen appears, click "Create New DID"
+      const didManagement = screen.queryByText('DID Management for');
+      if (didManagement) {
+        await user.click(screen.getByText('Create New DID'));
+        await waitFor(() => {
+          expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        });
+      }
       
       // DID Creation with Basic DID (default selection)
       await waitFor(() => {
@@ -226,9 +255,21 @@ describe('DID Wizard Integration Tests', () => {
       
       await user.click(screen.getByText('Connect Wallet'));
       
+      // Handle both DID management and direct DID creation flows
       await waitFor(() => {
-        expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        const didManagement = screen.queryByText('DID Management for');
+        const didCreation = screen.queryByText('Create Your DID');
+        expect(didManagement || didCreation).toBeInTheDocument();
       });
+      
+      // If DID management screen appears, click "Create New DID"
+      const didManagement = screen.queryByText('DID Management for');
+      if (didManagement) {
+        await user.click(screen.getByText('Create New DID'));
+        await waitFor(() => {
+          expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        });
+      }
       
       // Select Advanced DID and configure
       const advancedCard = screen.getByText('Advanced DID').closest('.did-type-card');
@@ -265,9 +306,21 @@ describe('DID Wizard Integration Tests', () => {
       
       await user.click(screen.getByText('Connect Wallet'));
       
+      // Handle both DID management and direct DID creation flows
       await waitFor(() => {
-        expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        const didManagement = screen.queryByText('DID Management for');
+        const didCreation = screen.queryByText('Create Your DID');
+        expect(didManagement || didCreation).toBeInTheDocument();
       });
+      
+      // If DID management screen appears, click "Create New DID"
+      const didManagement = screen.queryByText('DID Management for');
+      if (didManagement) {
+        await user.click(screen.getByText('Create New DID'));
+        await waitFor(() => {
+          expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        });
+      }
       
       // Cancel DID creation
       await user.click(screen.getByText('Cancel'));
@@ -292,9 +345,21 @@ describe('DID Wizard Integration Tests', () => {
       
       await user.click(screen.getByText('Connect Wallet'));
       
+      // Handle both DID management and direct DID creation flows
       await waitFor(() => {
-        expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        const didManagement = screen.queryByText('DID Management for');
+        const didCreation = screen.queryByText('Create Your DID');
+        expect(didManagement || didCreation).toBeInTheDocument();
       });
+      
+      // If DID management screen appears, click "Create New DID"
+      const didManagement = screen.queryByText('DID Management for');
+      if (didManagement) {
+        await user.click(screen.getByText('Create New DID'));
+        await waitFor(() => {
+          expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        });
+      }
       
       // Use back button
       await user.click(screen.getByText('← Back to Wallet Selection'));
@@ -331,6 +396,22 @@ describe('DID Wizard Integration Tests', () => {
       
       const connectButton = screen.getByText('Connect Wallet');
       await user.click(connectButton);
+      
+      // Handle both DID management and direct DID creation flows
+      await waitFor(() => {
+        const didManagement = screen.queryByText('DID Management for');
+        const didCreation = screen.queryByText('Create Your DID');
+        expect(didManagement || didCreation).toBeInTheDocument();
+      });
+      
+      // If DID management screen appears, click "Create New DID"
+      const didManagement = screen.queryByText('DID Management for');
+      if (didManagement) {
+        await user.click(screen.getByText('Create New DID'));
+        await waitFor(() => {
+          expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        });
+      }
       
       // Wait for DID creation wizard to appear
       await waitFor(() => {
@@ -376,9 +457,21 @@ describe('DID Wizard Integration Tests', () => {
       
       await user.click(screen.getByText('Connect Wallet'));
       
+      // Handle both DID management and direct DID creation flows
       await waitFor(() => {
-        expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        const didManagement = screen.queryByText('DID Management for');
+        const didCreation = screen.queryByText('Create Your DID');
+        expect(didManagement || didCreation).toBeInTheDocument();
       });
+      
+      // If DID management screen appears, click "Create New DID"
+      const didManagement = screen.queryByText('DID Management for');
+      if (didManagement) {
+        await user.click(screen.getByText('Create New DID'));
+        await waitFor(() => {
+          expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        });
+      }
       
       // Create DID
       await user.click(screen.getByText('Next')); // Preview
@@ -412,6 +505,22 @@ describe('DID Wizard Integration Tests', () => {
       });
       
       await user.click(screen.getByText('Connect Wallet'));
+      
+      // Handle both DID management and direct DID creation flows
+      await waitFor(() => {
+        const didManagement = screen.queryByText('DID Management for');
+        const didCreation = screen.queryByText('Create Your DID');
+        expect(didManagement || didCreation).toBeInTheDocument();
+      });
+      
+      // If DID management screen appears, click "Create New DID"
+      const didManagement = screen.queryByText('DID Management for');
+      if (didManagement) {
+        await user.click(screen.getByText('Create New DID'));
+        await waitFor(() => {
+          expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+        });
+      }
       
       await waitFor(() => {
         user.click(screen.getByText('Next')); // Preview
@@ -533,6 +642,22 @@ describe('DID Wizard Integration Tests', () => {
     });
     const connectButton = screen.getByText('Connect Wallet');
     await user.click(connectButton);
+
+    // Handle both DID management and direct DID creation flows
+    await waitFor(() => {
+      const didManagement = screen.queryByText('DID Management for');
+      const didCreation = screen.queryByText('Create Your DID');
+      expect(didManagement || didCreation).toBeInTheDocument();
+    });
+    
+    // If DID management screen appears, click "Create New DID"
+    const didManagement = screen.queryByText('DID Management for');
+    if (didManagement) {
+      await user.click(screen.getByText('Create New DID'));
+      await waitFor(() => {
+        expect(screen.getByText('Create Your DID')).toBeInTheDocument();
+      });
+    }
 
     // Step 5: DID Creation should appear
     await waitFor(() => {

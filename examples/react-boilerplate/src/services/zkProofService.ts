@@ -220,6 +220,26 @@ export class ZKProofService {
     publicInputs: Record<string, any>,
     credentials: VerifiableCredential[]
   ): Promise<ZKProof> {
+    // If not in mock mode and real proofs are disabled, throw error
+    if (!this.config.mockMode && !this.config.enableRealProofs) {
+      throw new Error('Real ZK-proof generation is disabled');
+    }
+    // Validate circuit exists
+    const circuit = REAL_ZK_CIRCUITS.find(c => c.id === circuitId);
+    if (!circuit) {
+      throw new Error('Circuit not found');
+    }
+    // Validate credentials array
+    if (!credentials || credentials.length === 0) {
+      throw new Error('At least one credential is required');
+    }
+    // Validate credentials for the circuit
+    for (const credential of credentials) {
+      const valid = await this.validateCredentialForCircuit(credential, circuitId);
+      if (!valid) {
+        throw new Error('Credential does not meet circuit requirements');
+      }
+    }
     // Always use mock mode for now to avoid API compatibility issues
     return this.generateMockProof(circuitId, publicInputs);
   }

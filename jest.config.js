@@ -25,7 +25,7 @@ export default {
   },
   transformIgnorePatterns: [
     // Transform all ESM modules and specific packages
-    'node_modules/(?!(@walletconnect|@polkadot|preact|@babel/runtime|@walletconnect/web3-provider|@walletconnect/types|@walletconnect/qrcode-modal)/)',
+    'node_modules/(?!(@walletconnect|@polkadot|preact|@babel/runtime|@walletconnect/web3-provider|@walletconnect/types|@walletconnect/qrcode-modal|@zk-kit|poseidon-lite)/)',
   ],
   extensionsToTreatAsEsm: ['.ts', '.tsx', '.mts'],
   moduleNameMapper: {
