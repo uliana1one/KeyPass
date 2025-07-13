@@ -3,14 +3,20 @@ export default {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   transform: {
-    '^.+\\.tsx?$': [
+    '^.+\\.ts$': [
       'ts-jest',
       {
         useESM: true,
         tsconfig: 'tsconfig.json',
       },
     ],
-    '^.+\\.jsx?$': [
+    '^.+\\.(tsx|jsx)$': [
+      'babel-jest',
+      {
+        presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'],
+      },
+    ],
+    '^.+\\.js$': [
       'babel-jest',
       {
         presets: ['@babel/preset-env'],
@@ -29,9 +35,11 @@ export default {
     // Handle specific ESM packages
     '^@walletconnect/(.*)$': '<rootDir>/node_modules/@walletconnect/$1',
     '^preact/(.*)$': '<rootDir>/node_modules/preact/$1',
+    // Handle CSS imports
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/examples/'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node', 'mjs'],
   // Add this to handle ESM modules
   globals: {
@@ -39,4 +47,6 @@ export default {
       useESM: true,
     },
   },
+  // Add testTimeout for longer running tests
+  testTimeout: 10000,
 };

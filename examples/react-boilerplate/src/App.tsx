@@ -234,7 +234,7 @@ const authenticateWithEthereum = async (account: Account): Promise<LoginResult> 
 
 function App() {
   // State management
-  const [currentView, setCurrentView] = useState<'login' | 'wallet-selection' | 'did-creation' | 'profile'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'wallet-selection' | 'did-creation' | 'profile' | 'did-management'>('login');
   const [currentChainType, setCurrentChainType] = useState<'polkadot' | 'ethereum' | null>(null);
   const [availableWallets, setAvailableWallets] = useState<Wallet[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
@@ -318,7 +318,60 @@ function App() {
       return;
     }
     
-    // Show DID creation wizard instead of directly authenticating
+    // Check if user has existing DID for this address
+    const existingDID = localStorage.getItem(`did_${selectedAccount.address}`);
+    console.log('Checking for existing DID:', selectedAccount.address, 'Found:', existingDID);
+    
+    if (existingDID) {
+      // User has existing DID, show options
+      console.log('Showing DID management view');
+      setCurrentView('did-management');
+      setError(null);
+    } else {
+      // No existing DID, go to creation wizard
+      console.log('No existing DID, going to creation wizard');
+      setCurrentView('did-creation');
+      setError(null);
+    }
+  };
+
+  const handleUseExistingDID = async () => {
+    if (!selectedWallet || !selectedAccount) {
+      setError('Please select a wallet and account');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get existing DID from localStorage
+      const existingDID = localStorage.getItem(`did_${selectedAccount.address}`);
+      const existingDIDData = localStorage.getItem(`did_data_${selectedAccount.address}`);
+      
+      let result: LoginResult;
+      if (currentChainType === 'polkadot') {
+        result = await authenticateWithPolkadot(selectedAccount);
+      } else {
+        result = await authenticateWithEthereum(selectedAccount);
+      }
+      
+      // Use existing DID data
+      if (existingDID && existingDIDData) {
+        result.did = existingDID;
+        result.didCreationResult = JSON.parse(existingDIDData);
+      }
+      
+      setLoginResult(result);
+      setCurrentView('profile');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateNewDID = () => {
     setCurrentView('did-creation');
     setError(null);
   };
@@ -339,6 +392,11 @@ function App() {
       } else {
         result = await authenticateWithEthereum(selectedAccount);
       }
+      
+      // Store DID data in localStorage
+      const did = result.did;
+      localStorage.setItem(`did_${selectedAccount.address}`, did);
+      localStorage.setItem(`did_data_${selectedAccount.address}`, JSON.stringify(didCreationResult));
       
       // Add DID creation result to login result
       result.didCreationResult = didCreationResult;
@@ -363,11 +421,44 @@ function App() {
   };
 
   const handleLogout = () => {
+    // Clear DID data from localStorage if user is logged in
+    if (loginResult?.address) {
+      localStorage.removeItem(`did_${loginResult.address}`);
+      localStorage.removeItem(`did_data_${loginResult.address}`);
+    }
+    
     setLoginResult(null);
     setCurrentView('login');
     setCurrentChainType(null);
     resetSelection();
     setError(null);
+  };
+
+  const handleSkipDIDCreation = async () => {
+    if (!selectedWallet || !selectedAccount) {
+      setError('Please select a wallet and account');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      let result: LoginResult;
+      if (currentChainType === 'polkadot') {
+        result = await authenticateWithPolkadot(selectedAccount);
+      } else {
+        result = await authenticateWithEthereum(selectedAccount);
+      }
+      
+      // No DID creation result for skipped DIDs
+      setLoginResult(result);
+      setCurrentView('profile');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBackToChain = () => {
@@ -478,6 +569,53 @@ function App() {
         </button>
       </div>
 
+      {/* Debug section for testing */}
+      {selectedAccount && (
+        <div className="debug-section" style={{ marginTop: '20px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+          <h5 style={{ color: '#9ca3af', marginBottom: '10px' }}>Debug Tools:</h5>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button 
+              className="selection-button secondary"
+              onClick={() => {
+                const did = localStorage.getItem(`did_${selectedAccount.address}`);
+                console.log('Current DID for', selectedAccount.address, ':', did);
+                alert(`DID for ${selectedAccount.address}: ${did || 'None'}`);
+              }}
+              style={{ fontSize: '0.8rem', padding: '8px 12px' }}
+            >
+              Check DID
+            </button>
+            <button 
+              className="selection-button secondary"
+              onClick={() => {
+                localStorage.setItem(`did_${selectedAccount.address}`, 'did:key:test123');
+                localStorage.setItem(`did_data_${selectedAccount.address}`, JSON.stringify({
+                  did: 'did:key:test123',
+                  didDocument: {},
+                  options: { type: 'basic' },
+                  createdAt: new Date().toISOString()
+                }));
+                alert('Test DID created!');
+              }}
+              style={{ fontSize: '0.8rem', padding: '8px 12px' }}
+            >
+              Create Test DID
+            </button>
+            <button 
+              className="selection-button secondary"
+              onClick={() => {
+                localStorage.removeItem(`did_${selectedAccount.address}`);
+                localStorage.removeItem(`did_data_${selectedAccount.address}`);
+                alert('DID cleared!');
+              }}
+              style={{ fontSize: '0.8rem', padding: '8px 12px' }}
+            >
+              Clear DID
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="error">
           {error}
@@ -580,7 +718,49 @@ function App() {
       onComplete={handleDIDCreationComplete}
       onCancel={handleDIDCreationCancel}
       onBack={handleBackToWalletSelection}
+      onSkip={handleSkipDIDCreation}
     />
+  );
+
+  const renderDIDManagement = () => (
+    <div className="did-management-section">
+      <button className="back-button" onClick={handleBackToWalletSelection}>
+        ← Back to Wallet Selection
+      </button>
+      <h3>DID Management for {selectedAccount?.name || selectedAccount?.address}</h3>
+      <p>You have an existing DID for this account. Choose an option:</p>
+      
+      <div className="did-options">
+        <div className="did-option">
+          <h4>Use Existing DID</h4>
+          <p>Continue with your previously created DID</p>
+          <button 
+            className="selection-button primary"
+            onClick={handleUseExistingDID}
+            disabled={loading}
+          >
+            {loading ? 'Using Existing DID...' : 'Use Existing DID'}
+          </button>
+        </div>
+        
+        <div className="did-option">
+          <h4>Create New DID</h4>
+          <p>Create a new DID (will replace the existing one)</p>
+          <button 
+            className="selection-button secondary"
+            onClick={handleCreateNewDID}
+          >
+            Create New DID
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="error">
+          {error}
+        </div>
+      )}
+    </div>
   );
 
   return (
@@ -593,6 +773,7 @@ function App() {
         {currentView === 'wallet-selection' && renderWalletSelection()}
         {currentView === 'did-creation' && renderDIDCreation()}
         {currentView === 'profile' && renderProfile()}
+        {currentView === 'did-management' && renderDIDManagement()}
         
         <div className="footer">
           <p>

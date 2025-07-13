@@ -30,7 +30,6 @@ export const API_CONFIG = {
 
   // Known SBT registries and indexers
   sbtRegistries: {
-    gitcoinPassport: 'https://api.passport.gitcoin.co',
     ethereumFoundation: 'https://api.ethereum.org',
     // Add more SBT registries as they become available
   }
@@ -39,7 +38,6 @@ export const API_CONFIG = {
 // Real SBT contract addresses
 export const REAL_SBT_CONTRACTS = {
   ethereum: [
-    '0x2d9d94729448f6c9d0c26d3629f0d50b9b299264', // Gitcoin Passport SBT
     '0x4c8d2e60863e8d7e1033eda2b3d8d5c5d6b8b8b8', // Example SBT contract
     '0x1234567890123456789012345678901234567890', // Placeholder for testing
   ],

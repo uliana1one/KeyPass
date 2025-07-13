@@ -8,3 +8,6 @@ Object.defineProperty(window, 'injectedWeb3', {
   writable: true,
   value: {},
 });
+
+// Setup testing library
+import '@testing-library/jest-dom';

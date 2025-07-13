@@ -24,6 +24,7 @@ interface DIDWizardProps {
   onComplete: (result: DIDCreationResult) => void;
   onCancel: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
 interface WizardStep {
@@ -39,7 +40,8 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
   accountName,
   onComplete,
   onCancel,
-  onBack
+  onBack,
+  onSkip
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [didOptions, setDidOptions] = useState<DIDCreationOptions>({
@@ -576,6 +578,14 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
             Next
           </button>
         ) : null}
+        {onSkip && (
+          <button 
+            className="skip-button"
+            onClick={onSkip}
+          >
+            Skip
+          </button>
+        )}
       </div>
     </div>
   );

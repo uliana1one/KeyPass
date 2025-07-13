@@ -5,14 +5,7 @@ import '@testing-library/jest-dom';
 import { DIDDocumentViewer } from '../DIDDocumentViewer';
 import { DIDCreationResult } from '../DIDWizard';
 
-// Mock clipboard API
-Object.defineProperty(navigator, 'clipboard', {
-  value: {
-    writeText: jest.fn(() => Promise.resolve()),
-  },
-  writable: true,
-});
-
+// Mock clipboard API - removed redundant definition since it's in setupTests.ts
 const mockClipboard = navigator.clipboard as jest.Mocked<typeof navigator.clipboard>;
 
 // Mock data
@@ -82,8 +75,7 @@ describe('DIDDocumentViewer', () => {
   beforeEach(() => {
     user = userEvent.setup();
     jest.clearAllMocks();
-    // Re-setup clipboard mock after clearing
-    mockClipboard.writeText.mockResolvedValue(undefined);
+    // Clipboard mock is now handled in setupTests.ts
   });
 
   describe('Initial Render', () => {
@@ -92,7 +84,7 @@ describe('DIDDocumentViewer', () => {
       
       expect(screen.getByText('DID Details')).toBeInTheDocument();
       expect(screen.getByText('View and manage your Decentralized Identifier')).toBeInTheDocument();
-      expect(screen.getByText('🔽 Expand Details')).toBeInTheDocument();
+      expect(screen.getByText('Expand Details')).toBeInTheDocument();
     });
 
     it('starts in collapsed state', () => {
@@ -106,33 +98,33 @@ describe('DIDDocumentViewer', () => {
     it('expands when expand button is clicked', async () => {
       render(<DIDDocumentViewer {...mockProps} />);
       
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       
       expect(screen.getByText('Overview')).toBeInTheDocument();
       expect(screen.getByText('DID Document')).toBeInTheDocument();
       expect(screen.getByText('Verification')).toBeInTheDocument();
-      expect(screen.getByText('🔼 Collapse')).toBeInTheDocument();
+      expect(screen.getByText('Collapse')).toBeInTheDocument();
     });
 
     it('collapses when collapse button is clicked', async () => {
       render(<DIDDocumentViewer {...mockProps} />);
       
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       
-      const collapseButton = screen.getByText('🔼 Collapse');
+      const collapseButton = screen.getByText('Collapse');
       await user.click(collapseButton);
       
       expect(screen.queryByText('Overview')).not.toBeInTheDocument();
-      expect(screen.getByText('🔽 Expand Details')).toBeInTheDocument();
+      expect(screen.getByText('Expand Details')).toBeInTheDocument();
     });
   });
 
   describe('Tab Navigation', () => {
     beforeEach(async () => {
       render(<DIDDocumentViewer {...mockProps} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
     });
 
@@ -165,7 +157,7 @@ describe('DIDDocumentViewer', () => {
       // DID Document tab
       const documentTab = screen.getByText('DID Document');
       await user.click(documentTab);
-      expect(screen.getByText('📋 Copy Document')).toBeInTheDocument();
+      expect(screen.getByText('Copy Document')).toBeInTheDocument();
       
       // Verification tab
       const verificationTab = screen.getByText('Verification');
@@ -180,7 +172,7 @@ describe('DIDDocumentViewer', () => {
     beforeEach(async () => {
       jest.clearAllMocks();
       render(<DIDDocumentViewer {...mockProps} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
     });
 
@@ -194,7 +186,7 @@ describe('DIDDocumentViewer', () => {
 
     it('displays Ethereum chain type correctly', async () => {
       render(<DIDDocumentViewer {...mockEthereumProps} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       
       expect(screen.getByText('Ethereum')).toBeInTheDocument();
@@ -219,7 +211,7 @@ describe('DIDDocumentViewer', () => {
     it('has copy button for DID', async () => {
       const copyButton = screen.getByTitle('Copy DID');
       expect(copyButton).toBeInTheDocument();
-      expect(copyButton).toHaveTextContent('📋');
+      expect(copyButton).toHaveTextContent('Copy');
       
       // Click should not throw error
       await user.click(copyButton);
@@ -232,7 +224,7 @@ describe('DIDDocumentViewer', () => {
   describe('Overview Tab - Advanced DID', () => {
     beforeEach(async () => {
       render(<DIDDocumentViewer {...{ ...mockProps, didCreationResult: mockAdvancedDIDCreationResult }} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
     });
 
@@ -263,7 +255,7 @@ describe('DIDDocumentViewer', () => {
   describe('DID Document Tab', () => {
     beforeEach(async () => {
       render(<DIDDocumentViewer {...mockProps} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       const documentTab = screen.getByText('DID Document');
       await user.click(documentTab);
@@ -271,7 +263,7 @@ describe('DIDDocumentViewer', () => {
 
     it('displays DID document header', () => {
       expect(screen.getByRole('heading', { name: 'DID Document' })).toBeInTheDocument();
-      expect(screen.getByText('📋 Copy Document')).toBeInTheDocument();
+      expect(screen.getByText('Copy Document')).toBeInTheDocument();
     });
 
     it('shows formatted DID document JSON', () => {
@@ -281,7 +273,7 @@ describe('DIDDocumentViewer', () => {
     });
 
     it('has copy button for document', async () => {
-      const copyButton = screen.getByText('📋 Copy Document');
+      const copyButton = screen.getByText('Copy Document');
       expect(copyButton).toBeInTheDocument();
       
       // Click should not throw error
@@ -299,7 +291,7 @@ describe('DIDDocumentViewer', () => {
   describe('Verification Tab', () => {
     beforeEach(async () => {
       render(<DIDDocumentViewer {...mockProps} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       const verificationTab = screen.getByText('Verification');
       await user.click(verificationTab);
@@ -357,7 +349,7 @@ describe('DIDDocumentViewer', () => {
   describe('Clipboard Functionality', () => {
     beforeEach(async () => {
       render(<DIDDocumentViewer {...mockProps} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
     });
 
@@ -411,7 +403,7 @@ describe('DIDDocumentViewer', () => {
       
       render(<DIDDocumentViewer {...mockProps} />);
       
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       
       expect(screen.getByText('Overview')).toBeInTheDocument();
@@ -444,7 +436,7 @@ describe('DIDDocumentViewer', () => {
       };
       
       render(<DIDDocumentViewer {...{ ...mockProps, didCreationResult: emptyAttributesResult }} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       
       expect(screen.queryByText('Custom Attributes:')).not.toBeInTheDocument();
@@ -460,7 +452,7 @@ describe('DIDDocumentViewer', () => {
       };
       
       render(<DIDDocumentViewer {...{ ...mockProps, didCreationResult: noVerificationResult }} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       
       const verificationTab = screen.getByText('Verification');
@@ -480,7 +472,7 @@ describe('DIDDocumentViewer', () => {
     it('supports keyboard navigation', async () => {
       render(<DIDDocumentViewer {...mockProps} />);
       
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       expandButton.focus();
       
       await user.keyboard('{Enter}');
@@ -489,7 +481,7 @@ describe('DIDDocumentViewer', () => {
 
     it('has proper tab order', async () => {
       render(<DIDDocumentViewer {...mockProps} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       
       await user.tab();
@@ -525,7 +517,7 @@ describe('DIDDocumentViewer', () => {
       };
       
       render(<DIDDocumentViewer {...{ ...mockProps, didCreationResult: largeResult }} />);
-      const expandButton = screen.getByText('🔽 Expand Details');
+      const expandButton = screen.getByText('Expand Details');
       await user.click(expandButton);
       
       const documentTab = screen.getByText('DID Document');

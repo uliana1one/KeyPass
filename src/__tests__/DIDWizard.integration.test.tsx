@@ -78,7 +78,6 @@ describe('DID Wizard Integration Tests', () => {
     (window as any).injectedWeb3 = {
       'polkadot-js': mockExtension,
     };
-    localStorage.clear();
   });
 
   describe('Complete Authentication Flow with DID Creation', () => {

@@ -43,9 +43,27 @@ export class SBTService {
     this.config = {
       enableCaching: true,
       cacheTimeout: 5 * 60 * 1000, // 5 minutes
-      enableRealData: true, // Enable real data by default
+      enableTestMode: false,
+      enableRealData: true,
       ...config
     };
+  }
+
+  /**
+   * Detect if an address is Ethereum or Polkadot format
+   */
+  private detectAddressType(address: string): 'ethereum' | 'polkadot' | 'unknown' {
+    // Ethereum addresses start with 0x and are 42 characters long
+    if (address.startsWith('0x') && address.length === 42) {
+      return 'ethereum';
+    }
+    
+    // Polkadot addresses are typically 47-48 characters and don't start with 0x
+    if (address.length >= 47 && address.length <= 48 && !address.startsWith('0x')) {
+      return 'polkadot';
+    }
+    
+    return 'unknown';
   }
 
   /**
@@ -70,29 +88,36 @@ export class SBTService {
     try {
       console.log('Fetching real SBT data for wallet:', walletAddress);
       
-      // Fetch from multiple sources in parallel
-      const [ethereumTokens, polygonTokens, registryTokens] = await Promise.allSettled([
-        this.fetchEthereumTokens(walletAddress),
-        this.fetchPolygonTokens(walletAddress),
-        this.fetchFromRegistry(walletAddress)
-      ]);
+      // Detect address type to determine which APIs to call
+      const addressType = this.detectAddressType(walletAddress);
+      console.log('Detected address type:', addressType);
+      
+      let allTokens: SBTToken[] = [];
+      
+      if (addressType === 'ethereum') {
+        // For Ethereum addresses, fetch from Ethereum APIs
+        const [ethereumTokens, registryTokens] = await Promise.allSettled([
+          this.fetchEthereumTokens(walletAddress),
+          this.fetchFromRegistry(walletAddress)
+        ]);
 
-      // Combine and deduplicate tokens
-      const allTokens: SBTToken[] = [];
-      
-      if (ethereumTokens.status === 'fulfilled') {
-        allTokens.push(...ethereumTokens.value);
-        console.log('Ethereum tokens found:', ethereumTokens.value.length);
-      }
-      
-      if (polygonTokens.status === 'fulfilled') {
-        allTokens.push(...polygonTokens.value);
-        console.log('Polygon tokens found:', polygonTokens.value.length);
-      }
-      
-      if (registryTokens.status === 'fulfilled') {
-        allTokens.push(...registryTokens.value);
-        console.log('Registry tokens found:', registryTokens.value.length);
+        if (ethereumTokens.status === 'fulfilled') {
+          allTokens.push(...ethereumTokens.value);
+          console.log('Ethereum tokens found:', ethereumTokens.value.length);
+        }
+        
+        if (registryTokens.status === 'fulfilled') {
+          allTokens.push(...registryTokens.value);
+          console.log('Registry tokens found:', registryTokens.value.length);
+        }
+      } else if (addressType === 'polkadot') {
+        // For Polkadot addresses, only fetch from registry (no Ethereum APIs)
+        const registryTokens = await this.fetchFromRegistry(walletAddress);
+        allTokens.push(...registryTokens);
+        console.log('Registry tokens found:', registryTokens.length);
+      } else {
+        console.warn('Unknown address format, skipping API calls');
+        return [];
       }
 
       // Remove duplicates based on token ID
@@ -109,8 +134,8 @@ export class SBTService {
 
       return uniqueTokens;
     } catch (error) {
-      console.error('Error fetching SBT tokens:', error);
-      throw new Error('Failed to fetch Soulbound Tokens');
+      console.error('Error fetching tokens:', error);
+      return [];
     }
   }
 
@@ -119,6 +144,12 @@ export class SBTService {
    */
   private async fetchEthereumTokens(walletAddress: string): Promise<SBTToken[]> {
     try {
+      // Validate that this is an Ethereum address
+      if (this.detectAddressType(walletAddress) !== 'ethereum') {
+        console.log('Skipping Ethereum API calls for non-Ethereum address:', walletAddress);
+        return [];
+      }
+
       const tokens: SBTToken[] = [];
 
       // Method 1: Query known SBT contracts
@@ -163,9 +194,15 @@ export class SBTService {
    */
   private async fetchPolygonTokens(walletAddress: string): Promise<SBTToken[]> {
     try {
+      // Validate that this is an Ethereum address (Polygon uses same format)
+      if (this.detectAddressType(walletAddress) !== 'ethereum') {
+        console.log('Skipping Polygon API calls for non-Ethereum address:', walletAddress);
+        return [];
+      }
+
       const tokens: SBTToken[] = [];
 
-      // Query known SBT contracts
+      // Method 1: Query known SBT contracts
       for (const contractAddress of REAL_SBT_CONTRACTS.polygon) {
         try {
           const contractTokens = await this.queryERC721Contract(
@@ -175,11 +212,11 @@ export class SBTService {
           );
           tokens.push(...contractTokens);
         } catch (error) {
-          console.warn(`Failed to query Polygon contract ${contractAddress}:`, error);
+          console.warn(`Failed to query contract ${contractAddress}:`, error);
         }
       }
 
-      // Use Alchemy API for Polygon
+      // Method 2: Use Alchemy API for enhanced NFT data
       try {
         const alchemyTokens = await this.fetchFromAlchemy(walletAddress, 'polygon');
         tokens.push(...alchemyTokens);
@@ -209,60 +246,12 @@ export class SBTService {
       // const contract = new web3.eth.Contract(ERC721_ABI, contractAddress);
       
       console.log(`Querying contract ${contractAddress} for wallet ${walletAddress}`);
-      
-      // Simulate contract query for Gitcoin Passport
-      if (contractAddress.toLowerCase() === '0x2d9d94729448f6c9d0c26d3629f0d50b9b299264') {
-        // Check if this wallet has a Gitcoin Passport
-        const hasPassport = await this.checkGitcoinPassport(walletAddress);
-        if (hasPassport) {
-          return [{
-            id: `gitcoin_passport_${walletAddress.slice(-6)}`,
-            name: 'Gitcoin Passport',
-            description: 'Decentralized identity verification for the Gitcoin ecosystem. This SBT represents your verified credentials and contributions.',
-            image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=300&fit=crop',
-            issuer: '0x2d9d94729448f6c9d0c26d3629f0d50b9b299264',
-            issuerName: 'Gitcoin Foundation',
-            issuedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-            chainId: '1',
-            chainType: 'Ethereum',
-            contractAddress: '0x2d9d94729448f6c9d0c26d3629f0d50b9b299264',
-            tokenStandard: 'ERC-721',
-            verificationStatus: 'verified' as SBTVerificationStatus,
-            attributes: [
-              { trait_type: 'Score', value: Math.floor(Math.random() * 50) + 20 },
-              { trait_type: 'Stamps', value: Math.floor(Math.random() * 15) + 5 },
-              { trait_type: 'Level', value: ['Bronze', 'Silver', 'Gold'][Math.floor(Math.random() * 3)] }
-            ],
-            revocable: false,
-            tags: ['Identity', 'Gitcoin', 'Passport']
-          }];
-        }
-      }
-
+      // Remove Gitcoin Passport simulation
       return [];
     } catch (error) {
       console.error(`Error querying contract ${contractAddress}:`, error);
       return [];
     }
-  }
-
-  /**
-   * Check if wallet has a Gitcoin Passport
-   */
-  private async checkGitcoinPassport(walletAddress: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${API_CONFIG.sbtRegistries.gitcoinPassport}/registry/${walletAddress}`);
-      if (response.ok) {
-        const data = await response.json();
-        return data && data.items && data.items.length > 0;
-      }
-    } catch (error) {
-      console.warn('Failed to check Gitcoin Passport:', error);
-    }
-    
-    // Fallback: simulate based on wallet address
-    const walletHash = walletAddress.slice(-8);
-    return parseInt(walletHash, 16) % 3 === 0; // 33% chance of having a passport
   }
 
   /**
@@ -368,24 +357,23 @@ export class SBTService {
     try {
       const tokens: SBTToken[] = [];
 
-      // Try Gitcoin Passport registry
-      try {
-        const url = `${API_CONFIG.sbtRegistries.gitcoinPassport}/registry/${walletAddress}`;
-        console.log('[SBTService] Fetching Gitcoin Passport registry:', url);
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.items) {
-            const passportTokens = data.items.map((item: any) => this.buildTokenFromRegistry(item, 'gitcoin'));
-            tokens.push(...passportTokens);
-          }
-        } else {
-          console.warn(`[SBTService] Gitcoin registry fetch failed: HTTP ${response.status} ${response.statusText}`);
-        }
-      } catch (error) {
-        console.error('[SBTService] Failed to fetch from Gitcoin registry:', error);
-        // Optionally, you could throw or set a user-friendly error here
-      }
+      // Disabled: Gitcoin Passport registry fetch (endpoint down or not required)
+      // try {
+      //   const url = `${API_CONFIG.sbtRegistries.gitcoinPassport}/registry/${walletAddress}`;
+      //   console.log('[SBTService] Fetching Gitcoin Passport registry:', url);
+      //   const response = await fetch(url);
+      //   if (response.ok) {
+      //     const data = await response.json();
+      //     if (data && data.items) {
+      //       const passportTokens = data.items.map((item: any) => this.buildTokenFromRegistry(item, 'gitcoin'));
+      //       tokens.push(...passportTokens);
+      //     }
+      //   } else {
+      //     console.warn(`[SBTService] Gitcoin registry fetch failed: HTTP ${response.status} ${response.statusText}`);
+      //   }
+      // } catch (error) {
+      //   console.error('[SBTService] Failed to fetch from Gitcoin registry:', error);
+      // }
 
       return tokens;
     } catch (error) {
@@ -493,27 +481,7 @@ export class SBTService {
     return new Promise<SBTToken[]>(resolve => {
       setTimeout(() => {
         const testTokens: SBTToken[] = [
-          {
-            id: `test_1_${walletAddress.slice(-6)}`,
-            name: 'Gitcoin Passport',
-            description: 'Decentralized identity verification for the Gitcoin ecosystem. This SBT represents your verified credentials and contributions.',
-            image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=300&fit=crop',
-            issuer: '0x2d9d94729448f6c9d0c26d3629f0d50b9b299264',
-            issuerName: 'Gitcoin Foundation',
-            issuedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-            chainId: '1',
-            chainType: 'Ethereum',
-            contractAddress: '0x2d9d94729448f6c9d0c26d3629f0d50b9b299264',
-            tokenStandard: 'ERC-721',
-            verificationStatus: 'verified' as SBTVerificationStatus,
-            attributes: [
-              { trait_type: 'Score', value: Math.floor(Math.random() * 50) + 20 },
-              { trait_type: 'Stamps', value: Math.floor(Math.random() * 15) + 5 },
-              { trait_type: 'Level', value: ['Bronze', 'Silver', 'Gold'][Math.floor(Math.random() * 3)] }
-            ],
-            revocable: false,
-            tags: ['Identity', 'Gitcoin', 'Passport']
-          },
+          // Removed Gitcoin Passport SBT
           {
             id: `test_2_${walletAddress.slice(-6)}`,
             name: 'Ethereum Developer Certification',

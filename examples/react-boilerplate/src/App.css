@@ -1097,3 +1097,134 @@
   opacity: 0.5;
   cursor: not-allowed;
 } 
+
+/* DID Management Section */
+.did-management-section {
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+}
+
+.did-management-section h3 {
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+  color: #fff;
+}
+
+.did-management-section p {
+  font-size: 1.1rem;
+  margin-bottom: 30px;
+  color: #d1d5db;
+}
+
+.did-options {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.did-option {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  min-width: 250px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.did-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.did-option h4 {
+  font-size: 1.3rem;
+  margin-bottom: 10px;
+  color: #3b82f6;
+}
+
+.did-option p {
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  color: #9ca3af;
+}
+
+.did-option .selection-button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Back button styling */
+.back-button {
+  background: rgba(255, 255, 255, 0.05);
+  color: #9ca3af;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 20px;
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Selection button styling */
+.selection-button {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.selection-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.selection-button.primary {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.selection-button.primary:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.selection-button.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.selection-button.secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .did-options {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .did-option {
+    min-width: 100%;
+  }
+} 

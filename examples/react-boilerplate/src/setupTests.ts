@@ -38,11 +38,13 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
 }));
 
 // Mock clipboard API
-Object.assign(navigator, {
-  clipboard: {
+Object.defineProperty(navigator, 'clipboard', {
+  value: {
     writeText: jest.fn(() => Promise.resolve()),
     readText: jest.fn(() => Promise.resolve('')),
   },
+  writable: true,
+  configurable: true,
 });
 
 // Mock crypto API for DID generation

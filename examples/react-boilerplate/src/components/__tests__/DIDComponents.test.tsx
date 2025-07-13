@@ -5,14 +5,7 @@ import '@testing-library/jest-dom';
 import { DIDWizard } from '../DIDWizard';
 import { DIDDocumentViewer } from '../DIDDocumentViewer';
 
-// Mock clipboard API
-Object.defineProperty(navigator, 'clipboard', {
-  value: {
-    writeText: jest.fn(() => Promise.resolve()),
-  },
-  writable: true,
-});
-
+// Mock clipboard API - removed redundant definition since it's in setupTests.ts
 const mockClipboard = navigator.clipboard as jest.Mocked<typeof navigator.clipboard>;
 
 describe('DID Components Unit Tests', () => {
@@ -21,8 +14,7 @@ describe('DID Components Unit Tests', () => {
   beforeEach(() => {
     user = userEvent.setup();
     jest.clearAllMocks();
-    // Re-setup clipboard mock after clearing
-    mockClipboard.writeText.mockResolvedValue(undefined);
+    // Clipboard mock is now handled in setupTests.ts
   });
 
   describe('DIDWizard Core Functionality', () => {
@@ -208,11 +200,11 @@ describe('DID Components Unit Tests', () => {
       expect(screen.queryByText('Overview')).not.toBeInTheDocument();
       
       // Expand
-      await user.click(screen.getByText('🔽 Expand Details'));
+      await user.click(screen.getByText('Expand Details'));
       expect(screen.getByText('Overview')).toBeInTheDocument();
       
       // Collapse
-      await user.click(screen.getByText('🔼 Collapse'));
+      await user.click(screen.getByText('Collapse'));
       expect(screen.queryByText('Overview')).not.toBeInTheDocument();
     });
 
@@ -220,11 +212,11 @@ describe('DID Components Unit Tests', () => {
       render(<DIDDocumentViewer {...mockProps} />);
       
       // Expand first
-      await user.click(screen.getByText('🔽 Expand Details'));
+      await user.click(screen.getByText('Expand Details'));
       
       // Switch to DID Document tab
       await user.click(screen.getByText('DID Document'));
-      expect(screen.getByText('📋 Copy Document')).toBeInTheDocument();
+      expect(screen.getByText('Copy Document')).toBeInTheDocument();
       
       // Switch to Verification tab
       await user.click(screen.getByText('Verification'));
@@ -234,7 +226,7 @@ describe('DID Components Unit Tests', () => {
     it('has copy button for DID', async () => {
       render(<DIDDocumentViewer {...mockProps} />);
       
-      await user.click(screen.getByText('🔽 Expand Details'));
+      await user.click(screen.getByText('Expand Details'));
       
       const copyButton = screen.getByTitle('Copy DID');
       expect(copyButton).toBeInTheDocument();
@@ -247,10 +239,10 @@ describe('DID Components Unit Tests', () => {
     it('has copy button for document', async () => {
       render(<DIDDocumentViewer {...mockProps} />);
       
-      await user.click(screen.getByText('🔽 Expand Details'));
+      await user.click(screen.getByText('Expand Details'));
       await user.click(screen.getByText('DID Document'));
       
-      const copyButton = screen.getByText('📋 Copy Document');
+      const copyButton = screen.getByText('Copy Document');
       expect(copyButton).toBeInTheDocument();
       
       // Click should not throw error
@@ -261,7 +253,7 @@ describe('DID Components Unit Tests', () => {
     it('displays verification information correctly', async () => {
       render(<DIDDocumentViewer {...mockProps} />);
       
-      await user.click(screen.getByText('🔽 Expand Details'));
+      await user.click(screen.getByText('Expand Details'));
       await user.click(screen.getByText('Verification'));
       
       expect(screen.getByText('Verification Methods')).toBeInTheDocument();
@@ -281,7 +273,7 @@ describe('DID Components Unit Tests', () => {
       
       render(<DIDDocumentViewer {...{ ...mockProps, didCreationResult: advancedResult }} />);
       
-      await user.click(screen.getByText('🔽 Expand Details'));
+      await user.click(screen.getByText('Expand Details'));
       
       expect(screen.getByText('Advanced DID')).toBeInTheDocument();
       expect(screen.getByText('role:')).toBeInTheDocument();
@@ -303,7 +295,7 @@ describe('DID Components Unit Tests', () => {
     it('formats dates correctly', async () => {
       render(<DIDDocumentViewer {...mockProps} />);
       
-      await user.click(screen.getByText('🔽 Expand Details'));
+      await user.click(screen.getByText('Expand Details'));
       
       // Should show formatted date (may vary by timezone)
       expect(screen.getByText(/1\/15\/2024/)).toBeInTheDocument();
@@ -320,7 +312,7 @@ describe('DID Components Unit Tests', () => {
       
       render(<DIDDocumentViewer {...{ ...mockProps, didCreationResult: emptyVerificationResult }} />);
       
-      await user.click(screen.getByText('🔽 Expand Details'));
+      await user.click(screen.getByText('Expand Details'));
       await user.click(screen.getByText('Verification'));
       
       expect(screen.getByText('Verification Methods')).toBeInTheDocument();
@@ -357,7 +349,7 @@ describe('DID Components Unit Tests', () => {
         chainType="polkadot"
       />);
       
-      await user.click(screen.getByText('🔽 Expand Details'));
+      await user.click(screen.getByText('Expand Details'));
       
       const copyButton = screen.getByTitle('Copy DID');
       expect(copyButton).toBeInTheDocument();
