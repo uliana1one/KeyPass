@@ -1,6 +1,6 @@
 # API Reference
 
-This document provides a comprehensive reference for all APIs in the KeyPass Login SDK. **Important**: This documentation distinguishes between **Core SDK APIs** (available when you install the library) and **Example Implementation APIs** (available in the boilerplate examples).
+This document provides a comprehensive reference for all APIs in the KeyPass Login SDK and backend. **Important**: This documentation distinguishes between **Core SDK APIs** (available when you install the library), **Example Implementation APIs** (available in the boilerplate examples), and **Backend API Endpoints** (provided by the Express proxy server).
 
 ## Architecture Clarification
 
@@ -9,6 +9,9 @@ These functions are available when you install the library via npm. They provide
 
 ### **Example Implementation APIs** (Boilerplate Code)
 These functions and interfaces are implemented in the React and Vanilla JavaScript examples. They provide UI components and wallet selection workflows.
+
+### **Backend API Endpoints** (Express Proxy Server)
+The backend Express server proxies requests from the frontend to external blockchain APIs (e.g., Etherscan, Alchemy, Polkadot RPC) and provides endpoints for credential data and verification. The frontend is typically configured to proxy `/api` requests to this backend.
 
 ---
 
@@ -153,6 +156,98 @@ Retrieves all accounts from a connected Ethereum wallet.
 
 ---
 
+## Backend API Endpoints
+
+The backend Express server exposes the following endpoints, typically under the `/api` prefix. These endpoints are used by the frontend to fetch credential data, offers, requests, and to perform verification.
+
+### Credential Endpoints
+
+#### `GET /api/credentials`
+Returns an array of credentials for the authenticated user. In the default implementation, this returns an empty array or mock data.
+
+**Example Request:**
+```http
+GET /api/credentials
+```
+**Example Response:**
+```json
+[]
+```
+
+#### `GET /api/offers`
+Returns an array of credential offers available to the user.
+
+**Example Request:**
+```http
+GET /api/offers
+```
+**Example Response:**
+```json
+[]
+```
+
+#### `GET /api/requests`
+Returns an array of credential requests (i.e., proofs or information requested from the user).
+
+**Example Request:**
+```http
+GET /api/requests
+```
+**Example Response:**
+```json
+[]
+```
+
+### Verification Endpoint
+
+#### `POST /api/verify`
+Verifies a signature or credential. The backend uses the KeyPass SDK's server-side verification logic.
+
+**Example Request:**
+```http
+POST /api/verify
+Content-Type: application/json
+
+{
+  "signature": "0x...",
+  "message": "...",
+  "address": "0x...",
+  "chainType": "ethereum" // or "polkadot"
+}
+```
+**Example Response (success):**
+```json
+{
+  "success": true,
+  "verified": true
+}
+```
+**Example Response (failure):**
+```json
+{
+  "success": false,
+  "error": "Invalid signature"
+}
+```
+
+### Proxy Endpoints
+
+The backend also proxies requests to external blockchain APIs. For example:
+- `/api/eth/*` → Proxies to Etherscan or Alchemy
+- `/api/polkadot/*` → Proxies to Polkadot RPC endpoints
+
+**Note:** The exact proxy routes depend on your backend configuration. These are used by the frontend to fetch blockchain data without exposing API keys or CORS issues.
+
+---
+
+## Frontend/Backend Integration
+
+- The frontend is configured (e.g., via `vite.config.ts` or `package.json` proxy) to forward `/api` requests to the backend server (default: `localhost:5000` or `localhost:5001`).
+- The backend handles credential, offer, request, and verification endpoints, and proxies blockchain API calls.
+- If a route is not implemented, the backend returns a 404 or an empty array for credential-related endpoints.
+
+---
+
 ## Usage Examples
 
 ### Core SDK Only (Minimal Integration)
@@ -270,3 +365,5 @@ const result = await loginWithPolkadot({ wallet: selectedWallet, account: select
 ---
 
 **Note**: The wallet detection and account selection functions are implemented in the example boilerplates. Copy the relevant code from `examples/react-boilerplate/` or `examples/vanilla-boilerplate/` to use these features in your application. 
+
+**Backend Note**: To extend the backend, add new routes to `proxy-server.cjs` (or your backend entrypoint). You can implement custom logic for credential storage, issuance, or verification as needed for your application. 

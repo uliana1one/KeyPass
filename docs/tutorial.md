@@ -1,6 +1,6 @@
 # KeyPass Identity Platform Tutorial
 
-This comprehensive tutorial will guide you through integrating the KeyPass Identity Platform with **wallet authentication**, **DID creation**, **credential management**, and **privacy-preserving features** into your applications. We'll cover both React and vanilla JavaScript implementations with step-by-step examples.
+This comprehensive tutorial will guide you through integrating the KeyPass Identity Platform with **wallet authentication**, **DID creation**, **credential management**, **privacy-preserving features**, and **backend services** into your applications. We'll cover both React and vanilla JavaScript implementations with step-by-step examples.
 
 ## What is KeyPass?
 
@@ -11,6 +11,7 @@ KeyPass is a **self-sovereign login and identity system** that replaces "Sign in
 - **DID creation and management**: Create and manage decentralized identifiers
 - **Credential/SBT management**: Display and manage Soulbound Tokens and credentials
 - **zkProof generation**: Privacy-preserving credential verification
+- **Backend API services**: Express proxy server for external APIs and credential data
 - **Professional UI**: Dark theme with glassmorphism design and smooth animations
 - **Mobile-responsive**: Works perfectly on all devices
 
@@ -27,7 +28,9 @@ Before you begin, make sure you have:
 
 ## Server Setup (Required)
 
-The identity platform functionality requires the KeyPass server to be running:
+The identity platform functionality requires both the KeyPass server and backend proxy server to be running:
+
+### Main Server Setup
 
 ```bash
 # From the root KeyPass directory
@@ -41,14 +44,28 @@ Server running on port 3000
 Verification endpoint available at http://0.0.0.0:3000/api/verify
 ```
 
-**Troubleshooting**: If port 3000 is busy, kill the existing process:
+### Backend Proxy Server Setup
+
+```bash
+# From the root KeyPass directory (in a new terminal)
+node proxy-server.cjs
+```
+
+You should see:
+```
+Backend server running on port 5000
+API endpoints available at http://localhost:5000/api/*
+```
+
+**Troubleshooting**: If ports are busy, kill the existing processes:
 ```bash
 lsof -ti:3000 | xargs kill -9
+lsof -ti:5000 | xargs kill -9
 ```
 
 ## Quick Start with Interactive Examples
 
-The fastest way to get started is using our enhanced boilerplate projects with full identity features:
+The fastest way to get started is using our enhanced boilerplate projects with full identity features and backend integration:
 
 ### Option 1: React Boilerplate (Recommended for Production)
 
@@ -71,6 +88,7 @@ This includes:
 - ✅ **Professional UI with animations**
 - ✅ **Error handling and user feedback**
 - ✅ **Mobile-responsive design**
+- ✅ **Backend API integration** for credential data and verification
 
 ### Option 2: Vanilla JavaScript Boilerplate (Great for Learning)
 
@@ -105,15 +123,24 @@ your-project/
 │   ├── App.tsx                     # Your main app component
 │   ├── main.tsx                   # App entry point
 │   └── index.css                  # Styles
+├── proxy-server.cjs               # Backend proxy server
 ├── .env                           # Environment variables
 ├── package.json                   # Dependencies and scripts
 ├── vite.config.ts                # Build configuration
 └── tsconfig.json                 # TypeScript configuration
 ```
 
+### Backend Integration
+
+The backend provides API endpoints for:
+- **Credential data**: `/api/credentials`, `/api/offers`, `/api/requests`
+- **Verification**: `/api/verify` for signature verification
+- **Blockchain API proxying**: External service integration
+- **CORS handling**: Cross-origin request management
+
 ### The Main App Component
 
-Here's what `App.tsx` looks like with full identity features:
+Here's what `App.tsx` looks like with full identity features and backend integration:
 
 ```tsx
 import { useState, useEffect } from 'react';
@@ -200,11 +227,11 @@ function App() {
 export default App;
 ```
 
-> **Beginner Note**: This component manages the full identity flow: wallet connection → DID creation → credential management → zkProof generation. Each step depends on the previous one being completed.
+> **Beginner Note**: This component manages the full identity flow: wallet connection → DID creation → credential management → zkProof generation. Each step depends on the previous one being completed. The backend provides API endpoints for credential data and verification.
 
 ## Building Your Own Identity Components
 
-Now let's create identity components from scratch:
+Now let's create identity components from scratch with backend integration:
 
 ### Step 1: Basic DID Creation
 
@@ -268,13 +295,12 @@ export function SimpleDIDCreator({ walletAddress, onComplete, onError }: SimpleD
 }
 ```
 
-### Step 2: Credential Display Component
+### Step 2: Credential Display Component with Backend Integration
 
 Create `src/components/SimpleCredentialDisplay.tsx`:
 
 ```tsx
 import React, { useState, useEffect } from 'react';
-import { SBTService } from '@keypass/login-sdk';
 
 interface SimpleCredentialDisplayProps {
   address: string;
@@ -291,21 +317,15 @@ export function SimpleCredentialDisplay({ address, onCredentialsLoaded, onError 
       try {
         setIsLoading(true);
         
-        const sbtService = new SBTService({
-          providers: {
-            // Configure your blockchain providers
-          },
-          cache: {
-            enabled: true,
-            ttl: 300000,
-            maxSize: 100
-          },
-          defaultTimeout: 10000
-        });
-
-        const tokens = await sbtService.getTokens(address);
-        setCredentials(tokens);
-        onCredentialsLoaded(tokens);
+        // Fetch credentials from backend
+        const response = await fetch('/api/credentials');
+        if (!response.ok) {
+          throw new Error('Failed to fetch credentials');
+        }
+        
+        const credentials = await response.json();
+        setCredentials(credentials);
+        onCredentialsLoaded(credentials);
         
       } catch (err) {
         onError(err instanceof Error ? err : new Error('Failed to load credentials'));
@@ -441,19 +461,107 @@ export function SimpleZKProofGenerator({ credentials, onError }: SimpleZKProofGe
 }
 ```
 
+### Step 4: Backend Integration Component
+
+Create `src/components/BackendIntegration.tsx`:
+
+```tsx
+import React, { useState, useEffect } from 'react';
+
+interface BackendIntegrationProps {
+  onCredentialsLoaded: (credentials: any[]) => void;
+  onOffersLoaded: (offers: any[]) => void;
+  onRequestsLoaded: (requests: any[]) => void;
+  onError: (error: Error) => void;
+}
+
+export function BackendIntegration({ 
+  onCredentialsLoaded, 
+  onOffersLoaded, 
+  onRequestsLoaded, 
+  onError 
+}: BackendIntegrationProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchFromBackend = async (endpoint: string) => {
+    try {
+      const response = await fetch(`/api/${endpoint}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${endpoint}`);
+      }
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Backend error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const loadAllData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch all data from backend in parallel
+      const [credentials, offers, requests] = await Promise.all([
+        fetchFromBackend('credentials'),
+        fetchFromBackend('offers'),
+        fetchFromBackend('requests')
+      ]);
+      
+      onCredentialsLoaded(credentials);
+      onOffersLoaded(offers);
+      onRequestsLoaded(requests);
+      
+    } catch (err) {
+      onError(err instanceof Error ? err : new Error('Backend integration failed'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllData();
+  }, []);
+
+  return (
+    <div className="p-6 bg-white rounded-lg shadow-lg">
+      <h2 className="text-xl font-bold mb-4">Backend Integration</h2>
+      
+      {isLoading ? (
+        <div className="text-center">Loading data from backend...</div>
+      ) : (
+        <div className="space-y-4">
+          <button
+            onClick={loadAllData}
+            className="w-full py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Refresh Data
+          </button>
+          
+          <div className="text-sm text-gray-600">
+            <p>✅ Backend connected successfully</p>
+            <p>✅ API endpoints responding</p>
+            <p>✅ Data loaded from backend</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
 ## How the Identity Platform Works
 
-Here's what happens in a complete identity flow:
+Here's what happens in a complete identity flow with backend integration:
 
 1. **Wallet Connection**: User connects their wallet (Polkadot or Ethereum)
 2. **DID Creation**: System creates a decentralized identifier for the user
-3. **Credential Discovery**: Platform discovers user's SBTs and credentials
-4. **Proof Generation**: User can generate privacy-preserving proofs for credential verification
-5. **Verification**: Other parties can verify proofs without seeing the original credentials
+3. **Backend Integration**: Platform fetches credential data from backend APIs
+4. **Credential Discovery**: Platform discovers user's SBTs and credentials via backend
+5. **Proof Generation**: User can generate privacy-preserving proofs for credential verification
+6. **Verification**: Other parties can verify proofs without seeing the original credentials
 
 ## Advanced Identity Features
 
-Now let's explore some advanced features you can implement.
+Now let's explore some advanced features you can implement with backend integration.
 
 ### Adding DID Document Preview
 
@@ -548,9 +656,9 @@ export function AdvancedDIDCreator({ walletAddress, onComplete, onError }: Simpl
 }
 ```
 
-### Credential Request Wizard
+### Credential Request Wizard with Backend
 
-Create a component for requesting new credentials:
+Create a component for requesting new credentials with backend integration:
 
 ```tsx
 interface CredentialRequest {
@@ -568,9 +676,26 @@ export function CredentialRequestWizard({ onRequest }: { onRequest: (request: Cr
     requirements: []
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onRequest(request);
+    
+    try {
+      // Send request to backend
+      const response = await fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to submit credential request');
+      }
+      
+      onRequest(request);
+      
+    } catch (error) {
+      console.error('Credential request failed:', error);
+    }
   };
 
   return (
@@ -623,9 +748,9 @@ export function CredentialRequestWizard({ onRequest }: { onRequest: (request: Cr
 }
 ```
 
-### Privacy Controls for Credentials
+### Privacy Controls for Credentials with Backend
 
-Add privacy controls to credential display:
+Add privacy controls to credential display with backend integration:
 
 ```tsx
 interface CredentialPrivacyControlsProps {
@@ -639,16 +764,39 @@ export function CredentialPrivacyControls({ credential, onShare, onRevoke }: Cre
   const [shareProof, setShareProof] = useState(false);
 
   const handleShare = async () => {
-    if (shareProof) {
-      // Generate zkProof for sharing
-      const zkService = new ZKProofService();
-      const proof = await zkService.generateProof(credential, 'semaphore');
-      onShare(credential, proof);
-    } else {
-      // Share credential directly
-      onShare(credential, '');
+    try {
+      if (shareProof) {
+        // Generate zkProof for sharing
+        const zkService = new ZKProofService();
+        const proof = await zkService.generateProof(credential, 'semaphore');
+        onShare(credential, proof);
+      } else {
+        // Share credential directly
+        onShare(credential, '');
+      }
+      setShowShareDialog(false);
+    } catch (error) {
+      console.error('Sharing failed:', error);
     }
-    setShowShareDialog(false);
+  };
+
+  const handleRevoke = async () => {
+    try {
+      // Send revocation request to backend
+      const response = await fetch('/api/credentials/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credentialId: credential.id })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to revoke credential');
+      }
+      
+      onRevoke(credential);
+    } catch (error) {
+      console.error('Revocation failed:', error);
+    }
   };
 
   return (
@@ -664,7 +812,7 @@ export function CredentialPrivacyControls({ credential, onShare, onRevoke }: Cre
           Share
         </button>
         <button
-          onClick={() => onRevoke(credential)}
+          onClick={handleRevoke}
           className="py-1 px-3 bg-red-500 text-white text-sm rounded hover:bg-red-600"
         >
           Revoke
@@ -710,11 +858,55 @@ export function CredentialPrivacyControls({ credential, onShare, onRevoke }: Cre
 }
 ```
 
+## Backend Configuration
+
+### Environment Setup
+
+Create a `.env` file for backend configuration:
+
+```bash
+# Backend environment variables
+PORT=5000
+ETHEREUM_API_KEY=your_etherscan_api_key
+ALCHEMY_API_KEY=your_alchemy_api_key
+POLKADOT_RPC_URL=https://rpc.polkadot.io
+CORS_ORIGIN=http://localhost:3000
+```
+
+### Frontend Proxy Configuration
+
+For React (vite.config.ts):
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  }
+})
+```
+
+For Vanilla JavaScript (package.json):
+```json
+{
+  "proxy": "http://localhost:5000"
+}
+```
+
 ## Best Practices
 
 ### 1. **Start with Wallet Connection, Build Up**
 - Begin with basic wallet authentication
 - Add DID creation once wallet connection works
+- Add backend integration for credential data
 - Add credential management after DID creation
 - Add zkProof generation last
 
@@ -736,8 +928,8 @@ export function CredentialPrivacyControls({ credential, onShare, onRevoke }: Cre
 // ✅ Good: Specific error handling
 if (error.message.includes('DID creation failed')) {
   setError('Unable to create your digital identity. Please try again.');
-} else if (error.message.includes('No credentials found')) {
-  setError('No credentials found for this address.');
+} else if (error.message.includes('Backend error')) {
+  setError('Unable to connect to backend services. Please try again.');
 }
 
 // ❌ Bad: Generic error messages
@@ -746,6 +938,7 @@ setError(error.message);
 
 ### 4. **Test with Real Identity Flows**
 - Test DID creation with different wallet types
+- Test backend integration and API endpoints
 - Test credential loading with various SBTs
 - Test zkProof generation with different circuits
 - Test privacy controls and sharing features
@@ -755,6 +948,7 @@ The React boilerplate shows the recommended patterns:
 - Component structure for identity flows
 - Error handling for identity operations
 - State management for DID and credentials
+- Backend integration for API calls
 - User interface design for identity features
 
 ## Next Steps
@@ -772,6 +966,7 @@ The boilerplate includes:
 - Credential/SBT display and management
 - zkProof generation with multiple circuits
 - Privacy controls and sharing features
+- Backend API integration
 - Production-ready styling and animations
 
 ### 2. **Add Advanced Identity Features**
@@ -780,6 +975,7 @@ Once you have basic identity flows working:
 - Add multi-chain DID support
 - Build credential revocation flows
 - Create privacy-preserving sharing mechanisms
+- Extend backend with custom endpoints
 
 ### 3. **Customize for Your Use Case**
 Make it match your application:
@@ -787,6 +983,7 @@ Make it match your application:
 - Customize DID creation flows
 - Add your branding and styling
 - Integrate with your existing systems
+- Extend backend with your business logic
 
 ### 4. **Learn More**
 Check out the other documentation:
@@ -804,6 +1001,7 @@ Real identity applications often need:
 - Credential revocation and updates
 - Privacy-preserving sharing mechanisms
 - Integration with existing identity systems
+- Backend API extensions and custom endpoints
 
 ## Troubleshooting
 
@@ -814,9 +1012,14 @@ Real identity applications often need:
 - Check if the wallet address is valid
 - Verify server is running on port 3000
 
+**"Backend connection failed"**
+- Make sure backend server is running on port 5000
+- Check proxy configuration in vite.config.ts
+- Verify CORS settings in backend
+
 **"No credentials found"**
 - Make sure the address has SBTs or credentials
-- Check blockchain provider configuration
+- Check backend API endpoints are responding
 - Verify network connection
 
 **"Proof generation failed"**
@@ -828,6 +1031,12 @@ Real identity applications often need:
 - Check browser permissions for sharing
 - Verify zkProof generation is working
 - Test with different credential types
+
+**"API endpoints not responding"**
+- Check backend server is running
+- Verify proxy configuration
+- Check environment variables
+- Test backend endpoints directly
 
 ## Getting Help
 
@@ -859,8 +1068,9 @@ Congratulations! You now know how to:
 ✅ Display and manage credentials/SBTs  
 ✅ Generate privacy-preserving zkProofs  
 ✅ Implement privacy controls and sharing  
+✅ Integrate with backend API services  
 ✅ Handle identity errors gracefully  
-✅ Build production-ready identity applications  
+✅ Build production-ready identity applications with backend integration  
 
 You're ready to build amazing self-sovereign identity applications with KeyPass! 🚀
 
