@@ -7,7 +7,7 @@ const { Response } = jest.requireActual('node-fetch');
 
 let app;
 beforeAll(() => {
-  app = require('./proxy-server');
+  app = require('./proxy-server.cjs');
 });
 
 describe('Proxy Server API', () => {
