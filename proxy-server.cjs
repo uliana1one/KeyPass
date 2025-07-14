@@ -52,6 +52,19 @@ app.get('/api/polkadot/health', async (req, res) => {
   }
 });
 
+// Add endpoints for KeyPass demo compatibility
+app.get('/api/credentials/:did', (req, res) => {
+  res.json([]);
+});
+
+app.get('/api/credential-requests/:did', (req, res) => {
+  res.json([]);
+});
+
+app.get('/api/credential-offers/:did', (req, res) => {
+  res.json([]);
+});
+
 // Fallback for unknown API routes
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'API endpoint not implemented' });
