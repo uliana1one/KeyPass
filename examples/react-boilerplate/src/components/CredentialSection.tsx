@@ -165,24 +165,12 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
         <div className="empty-state">
           <div className="empty-icon" />
           <h3>No Credentials Yet</h3>
-          <p>You haven't received any verifiable credentials yet. Request one to get started!</p>
-          <button 
-            className="primary-button"
-            onClick={() => setShowRequestWizard(true)}
-          >
-            Request Credential
-          </button>
+          <p>You haven't received any verifiable credentials yet.</p>
         </div>
       ) : (
         <>
           <div className="section-header">
             <h3>Your Verifiable Credentials</h3>
-            <button 
-              className="secondary-button"
-              onClick={() => setShowRequestWizard(true)}
-            >
-              + Request New
-            </button>
           </div>
           <div className="cards-grid">
             {credentials.map(credential => (
