@@ -1,10 +1,10 @@
 import walletsConfig from '../config/wallets.json';
-import { validateWalletConfig } from './config/validator';
-import { WalletAdapter } from './adapters/types';
-import { ConfigurationError, WalletNotFoundError } from './errors/WalletErrors';
-import { PolkadotJsAdapter } from './adapters/PolkadotJsAdapter';
-import { TalismanAdapter } from './adapters/TalismanAdapter';
-import { WalletConnectAdapter, WalletConnectConfig } from './adapters/WalletConnectAdapter';
+import { validateWalletConfig } from './config/validator.js';
+import { WalletAdapter } from './adapters/types.js';
+import { ConfigurationError, WalletNotFoundError } from './errors/WalletErrors.js';
+import { PolkadotJsAdapter } from './adapters/PolkadotJsAdapter.js';
+import { TalismanAdapter } from './adapters/TalismanAdapter.js';
+import { WalletConnectAdapter, WalletConnectConfig } from './adapters/WalletConnectAdapter.js';
 
 // Validate wallet configuration at startup
 try {
@@ -18,7 +18,7 @@ try {
 
 // Default WalletConnect configuration
 const defaultWalletConnectConfig: WalletConnectConfig = {
-  infuraId: process.env.INFURA_PROJECT_ID || '',
+  projectId: process.env.WALLETCONNECT_PROJECT_ID || '',
   rpc: {
     0: 'wss://rpc.polkadot.io',  // Polkadot mainnet
     2: 'wss://kusama-rpc.polkadot.io',  // Kusama
@@ -42,9 +42,9 @@ export async function connectWallet(): Promise<WalletAdapter> {
   // Sort adapters by priority
   const sortedWallets = [...walletsConfig.wallets].sort((a, b) => a.priority - b.priority);
 
-  console.debug('Infura Project ID:', process.env.INFURA_PROJECT_ID ? '***' : 'not set');
+  console.debug('WalletConnect Project ID:', process.env.WALLETCONNECT_PROJECT_ID ? '***' : 'not set');
   console.debug('Default config:', {
-    infuraId: defaultWalletConnectConfig.infuraId ? '***' : undefined,
+    projectId: defaultWalletConnectConfig.projectId ? '***' : undefined,
     rpc: defaultWalletConnectConfig.rpc ? Object.keys(defaultWalletConnectConfig.rpc) : undefined,
   });
   console.debug(
@@ -65,14 +65,14 @@ export async function connectWallet(): Promise<WalletAdapter> {
           break;
         case 'WalletConnectAdapter':
           console.debug('Attempting WalletConnect adapter...');
-          if (!defaultWalletConnectConfig.infuraId && !defaultWalletConnectConfig.rpc) {
-            console.warn('Neither Infura ID nor RPC endpoints configured, skipping WalletConnect adapter');
+          if (!defaultWalletConnectConfig.projectId && !defaultWalletConnectConfig.rpc) {
+            console.warn('Neither WalletConnect Project ID nor RPC endpoints configured, skipping WalletConnect adapter');
             continue;
           }
           console.debug(
             'Creating WalletConnect adapter with config:',
             {
-              infuraId: defaultWalletConnectConfig.infuraId ? '***' : undefined,
+              projectId: defaultWalletConnectConfig.projectId ? '***' : undefined,
               rpc: defaultWalletConnectConfig.rpc ? Object.keys(defaultWalletConnectConfig.rpc) : undefined,
             }
           );

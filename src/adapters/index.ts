@@ -1,2 +1,2 @@
-export { PolkadotJsAdapter } from './PolkadotJsAdapter';
-export { TalismanAdapter } from './TalismanAdapter';
+export { PolkadotJsAdapter } from './PolkadotJsAdapter.js';
+export { TalismanAdapter } from './TalismanAdapter.js';

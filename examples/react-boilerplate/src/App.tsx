@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import './components/DIDWizard.css';
+import './components/DIDDocumentViewer.css';
+import './components/CredentialCard.css';
+import { SBTSection } from './components/SBTSection';
+import { DIDWizard, DIDCreationResult } from './components/DIDWizard';
+import { DIDDocumentViewer } from './components/DIDDocumentViewer';
+import { CredentialSection } from './components/CredentialSection';
 
 // Types
 interface Wallet {
@@ -28,6 +35,7 @@ interface LoginResult {
   issuedAt: string;
   nonce: string;
   accountName: string;
+  didCreationResult?: DIDCreationResult;
 }
 
 // Declare global types for wallet extensions
@@ -182,7 +190,7 @@ const authenticateWithPolkadot = async (account: Account): Promise<LoginResult> 
 
     return {
       address: account.address,
-      did: `did:key:${account.address}`,
+      did: `did:key:z${account.address}`,
       chainType: 'polkadot',
       signature: signature.signature,
       message: message,
@@ -226,7 +234,7 @@ const authenticateWithEthereum = async (account: Account): Promise<LoginResult> 
 
 function App() {
   // State management
-  const [currentView, setCurrentView] = useState<'login' | 'wallet-selection' | 'profile'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'wallet-selection' | 'did-creation' | 'profile' | 'did-management'>('login');
   const [currentChainType, setCurrentChainType] = useState<'polkadot' | 'ethereum' | null>(null);
   const [availableWallets, setAvailableWallets] = useState<Wallet[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
@@ -235,6 +243,7 @@ function App() {
   const [loginResult, setLoginResult] = useState<LoginResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDIDWizard, setShowDIDWizard] = useState(false);
 
   // Load wallets when chain type is selected
   useEffect(() => {
@@ -309,15 +318,48 @@ function App() {
       return;
     }
     
+    // Check if user has existing DID for this address
+    const existingDID = localStorage.getItem(`did_${selectedAccount.address}`);
+    console.log('Checking for existing DID:', selectedAccount.address, 'Found:', existingDID);
+    
+    if (existingDID) {
+      // User has existing DID, show options
+      console.log('Showing DID management view');
+      setCurrentView('did-management');
+      setError(null);
+    } else {
+      // No existing DID, go to creation wizard
+      console.log('No existing DID, going to creation wizard');
+      setCurrentView('did-creation');
+      setError(null);
+    }
+  };
+
+  const handleUseExistingDID = async () => {
+    if (!selectedWallet || !selectedAccount) {
+      setError('Please select a wallet and account');
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
+      
+      // Get existing DID from localStorage
+      const existingDID = localStorage.getItem(`did_${selectedAccount.address}`);
+      const existingDIDData = localStorage.getItem(`did_data_${selectedAccount.address}`);
       
       let result: LoginResult;
       if (currentChainType === 'polkadot') {
         result = await authenticateWithPolkadot(selectedAccount);
       } else {
         result = await authenticateWithEthereum(selectedAccount);
+      }
+      
+      // Use existing DID data
+      if (existingDID && existingDIDData) {
+        result.did = existingDID;
+        result.didCreationResult = JSON.parse(existingDIDData);
       }
       
       setLoginResult(result);
@@ -329,12 +371,106 @@ function App() {
     }
   };
 
+  const handleCreateNewDID = () => {
+    setCurrentView('did-creation');
+    setError(null);
+  };
+
+  const handleDIDCreationComplete = async (didCreationResult: DIDCreationResult) => {
+    if (!selectedWallet || !selectedAccount) {
+      setError('Please select a wallet and account');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      let result: LoginResult;
+      if (currentChainType === 'polkadot') {
+        result = await authenticateWithPolkadot(selectedAccount);
+      } else {
+        result = await authenticateWithEthereum(selectedAccount);
+      }
+      
+      // Store DID data in localStorage - use the DID from the DIDWizard, not the authentication result
+      const did = didCreationResult.did;
+      localStorage.setItem(`did_${selectedAccount.address}`, did);
+      localStorage.setItem(`did_data_${selectedAccount.address}`, JSON.stringify(didCreationResult));
+      
+      // Add DID creation result to login result and update the DID
+      result.didCreationResult = didCreationResult;
+      result.did = did; // Use the DID from the wizard
+      
+      setLoginResult(result);
+      setCurrentView('profile');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDIDCreationCancel = () => {
+    setCurrentView('wallet-selection');
+    setError(null);
+  };
+
+  const handleBackToWalletSelection = () => {
+    setCurrentView('wallet-selection');
+    setError(null);
+  };
+
   const handleLogout = () => {
+    // Don't clear DID data from localStorage - keep it for future logins
+    // This allows users to log in with existing wallet after logout
+    
     setLoginResult(null);
     setCurrentView('login');
     setCurrentChainType(null);
     resetSelection();
     setError(null);
+  };
+
+  const handleClearAllData = () => {
+    // Clear all DID data from localStorage
+    if (loginResult?.address) {
+      localStorage.removeItem(`did_${loginResult.address}`);
+      localStorage.removeItem(`did_data_${loginResult.address}`);
+    }
+    
+    setLoginResult(null);
+    setCurrentView('login');
+    setCurrentChainType(null);
+    resetSelection();
+    setError(null);
+  };
+
+  const handleSkipDIDCreation = async () => {
+    if (!selectedWallet || !selectedAccount) {
+      setError('Please select a wallet and account');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      let result: LoginResult;
+      if (currentChainType === 'polkadot') {
+        result = await authenticateWithPolkadot(selectedAccount);
+      } else {
+        result = await authenticateWithEthereum(selectedAccount);
+      }
+      
+      // No DID creation result for skipped DIDs
+      setLoginResult(result);
+      setCurrentView('profile');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBackToChain = () => {
@@ -445,6 +581,53 @@ function App() {
         </button>
       </div>
 
+      {/* Debug section for testing */}
+      {selectedAccount && (
+        <div className="debug-section" style={{ marginTop: '20px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+          <h5 style={{ color: '#9ca3af', marginBottom: '10px' }}>Debug Tools:</h5>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button 
+              className="selection-button secondary"
+              onClick={() => {
+                const did = localStorage.getItem(`did_${selectedAccount.address}`);
+                console.log('Current DID for', selectedAccount.address, ':', did);
+                alert(`DID for ${selectedAccount.address}: ${did || 'None'}`);
+              }}
+              style={{ fontSize: '0.8rem', padding: '8px 12px' }}
+            >
+              Check DID
+            </button>
+            <button 
+              className="selection-button secondary"
+              onClick={() => {
+                localStorage.setItem(`did_${selectedAccount.address}`, 'did:key:test123');
+                localStorage.setItem(`did_data_${selectedAccount.address}`, JSON.stringify({
+                  did: 'did:key:test123',
+                  didDocument: {},
+                  options: { type: 'basic' },
+                  createdAt: new Date().toISOString()
+                }));
+                alert('Test DID created!');
+              }}
+              style={{ fontSize: '0.8rem', padding: '8px 12px' }}
+            >
+              Create Test DID
+            </button>
+            <button 
+              className="selection-button secondary"
+              onClick={() => {
+                localStorage.removeItem(`did_${selectedAccount.address}`);
+                localStorage.removeItem(`did_data_${selectedAccount.address}`);
+                alert('DID cleared!');
+              }}
+              style={{ fontSize: '0.8rem', padding: '8px 12px' }}
+            >
+              Clear DID
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="error">
           {error}
@@ -486,12 +669,115 @@ function App() {
             <strong>Logged in at:</strong>
             <span>{loginResult ? new Date(loginResult.issuedAt).toLocaleString() : ''}</span>
           </div>
+          
+          {loginResult?.didCreationResult && (
+            <>
+              <div className="info-row">
+                <strong>DID Type:</strong>
+                <span>{loginResult.didCreationResult.options.type === 'basic' ? 'Basic DID' : 'Advanced DID'}</span>
+              </div>
+              
+              {loginResult.didCreationResult.options.purpose && (
+                <div className="info-row">
+                  <strong>DID Purpose:</strong>
+                  <span>{loginResult.didCreationResult.options.purpose}</span>
+                </div>
+              )}
+              
+              <div className="info-row">
+                <strong>DID Created:</strong>
+                <span>{new Date(loginResult.didCreationResult.createdAt).toLocaleString()}</span>
+              </div>
+            </>
+          )}
         </div>
         
-        <button className="logout-button" onClick={handleLogout}>
-          Logout
-        </button>
+        <div className="profile-buttons">
+          <button className="logout-button" onClick={handleLogout}>
+            Logout
+          </button>
+          <button className="clear-data-button" onClick={handleClearAllData}>
+            Clear All Data
+          </button>
+        </div>
       </div>
+      {/* SBT Section */}
+      {loginResult?.address && (
+        <SBTSection walletAddress={loginResult.address} />
+      )}
+      
+      {/* DID Document Viewer */}
+      {loginResult?.didCreationResult && (
+        <DIDDocumentViewer
+          didCreationResult={loginResult.didCreationResult}
+          did={loginResult.did}
+          address={loginResult.address}
+          chainType={loginResult.chainType}
+        />
+      )}
+      
+      {/* Credential Section */}
+      {loginResult?.did && (
+        <CredentialSection
+          did={loginResult.did}
+          walletAddress={loginResult.address}
+          chainType={loginResult.chainType as 'polkadot' | 'ethereum'}
+          useRealData={true} // Set to true to enable real data fetching
+        />
+      )}
+    </div>
+  );
+
+  const renderDIDCreation = () => (
+    <DIDWizard
+      walletAddress={selectedAccount?.address || ''}
+      chainType={currentChainType || 'polkadot'}
+      accountName={selectedAccount?.name || 'Unknown Account'}
+      onComplete={handleDIDCreationComplete}
+      onCancel={handleDIDCreationCancel}
+      onBack={handleBackToWalletSelection}
+      onSkip={handleSkipDIDCreation}
+    />
+  );
+
+  const renderDIDManagement = () => (
+    <div className="did-management-section">
+      <button className="back-button" onClick={handleBackToWalletSelection}>
+        ← Back to Wallet Selection
+      </button>
+      <h3>DID Management for {selectedAccount?.name || selectedAccount?.address}</h3>
+      <p>You have an existing DID for this account. Choose an option:</p>
+      
+      <div className="did-options">
+        <div className="did-option">
+          <h4>Use Existing DID</h4>
+          <p>Continue with your previously created DID</p>
+          <button 
+            className="selection-button primary"
+            onClick={handleUseExistingDID}
+            disabled={loading}
+          >
+            {loading ? 'Using Existing DID...' : 'Use Existing DID'}
+          </button>
+        </div>
+        
+        <div className="did-option">
+          <h4>Create New DID</h4>
+          <p>Create a new DID (will replace the existing one)</p>
+          <button 
+            className="selection-button secondary"
+            onClick={handleCreateNewDID}
+          >
+            Create New DID
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="error">
+          {error}
+        </div>
+      )}
     </div>
   );
 
@@ -503,7 +789,9 @@ function App() {
         
         {currentView === 'login' && renderLogin()}
         {currentView === 'wallet-selection' && renderWalletSelection()}
+        {currentView === 'did-creation' && renderDIDCreation()}
         {currentView === 'profile' && renderProfile()}
+        {currentView === 'did-management' && renderDIDManagement()}
         
         <div className="footer">
           <p>

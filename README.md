@@ -93,6 +93,144 @@ In your project's `package.json`:
 
 > **Important**: While the package is in development, we recommend using Method 1 (npm link) for testing as it's the most reliable method at this stage. Other methods will be fully supported in future updates.
 
+## Docker & AWS ECR Deployment
+
+KeyPass includes Docker support for containerized deployment to AWS ECR and other container platforms.
+
+### Prerequisites
+
+1. **AWS CLI** - Install and configure with your credentials
+   ```bash
+   # Install AWS CLI (macOS)
+   brew install awscli
+   
+   # Install AWS CLI (Ubuntu/Debian)
+   sudo apt-get update && sudo apt-get install awscli
+   
+   # Configure AWS CLI
+   aws configure
+   ```
+
+2. **Docker** - Install Docker Desktop or Docker Engine
+   ```bash
+   # Install Docker Desktop (macOS/Windows)
+   # Download from https://www.docker.com/products/docker-desktop/
+   
+   # Install Docker Engine (Ubuntu)
+   curl -fsSL https://get.docker.com -o get-docker.sh
+   sudo sh get-docker.sh
+   ```
+
+3. **AWS ECR Repository** - Create the repository in AWS ECR
+   ```bash
+   # Create ECR repository (if not already created)
+   aws ecr create-repository --repository-name keypass --region us-east-2
+   ```
+
+### Deployment Options
+
+#### Option 1: Automated Deployment Script (Recommended)
+
+Use the provided deployment script for a streamlined experience:
+
+```bash
+# Make the script executable
+chmod +x scripts/deploy-to-ecr.sh
+
+# Deploy with latest version
+./scripts/deploy-to-ecr.sh
+
+# Deploy with specific version
+./scripts/deploy-to-ecr.sh v1.0.0
+```
+
+#### Option 2: Manual Deployment Commands
+
+If you prefer manual control, follow these steps:
+
+1. **Authenticate with AWS ECR:**
+   ```bash
+   aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 887637206351.dkr.ecr.us-east-2.amazonaws.com
+   ```
+
+2. **Build the Docker image:**
+   ```bash
+   docker build -t keypass .
+   ```
+
+3. **Tag the image for ECR:**
+   ```bash
+   docker tag keypass:latest 887637206351.dkr.ecr.us-east-2.amazonaws.com/keypass:latest
+   ```
+
+4. **Push to ECR:**
+   ```bash
+   docker push 887637206351.dkr.ecr.us-east-2.amazonaws.com/keypass:latest
+   ```
+
+### Docker Configuration
+
+The project includes:
+
+- **`Dockerfile`** - Multi-stage build optimized for production
+- **`.dockerignore`** - Excludes unnecessary files to reduce build size
+- **`scripts/deploy-to-ecr.sh`** - Automated deployment script
+
+### Running the Container
+
+After deployment, you can run the container locally:
+
+```bash
+# Pull the image from ECR
+docker pull 887637206351.dkr.ecr.us-east-2.amazonaws.com/keypass:latest
+
+# Run the container
+docker run -p 3000:3000 887637206351.dkr.ecr.us-east-2.amazonaws.com/keypass:latest
+
+# Run with environment variables
+docker run -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e PORT=3000 \
+  887637206351.dkr.ecr.us-east-2.amazonaws.com/keypass:latest
+```
+
+### AWS ECS/Fargate Deployment
+
+Use the ECR image URI for deployment to AWS ECS or Fargate:
+
+```
+Image URI: 887637206351.dkr.ecr.us-east-2.amazonaws.com/keypass:latest
+```
+
+### Troubleshooting
+
+**AWS Authentication Issues:**
+```bash
+# Check AWS credentials
+aws sts get-caller-identity
+
+# Reconfigure AWS CLI
+aws configure
+```
+
+**Docker Build Issues:**
+```bash
+# Clean Docker cache
+docker system prune -a
+
+# Rebuild without cache
+docker build --no-cache -t keypass .
+```
+
+**ECR Push Issues:**
+```bash
+# Re-authenticate with ECR
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 887637206351.dkr.ecr.us-east-2.amazonaws.com
+
+# Check ECR repository exists
+aws ecr describe-repositories --repository-names keypass --region us-east-2
+```
+
 ## Quick Start
 
 Here are examples of how to use KeyPass with different blockchain networks:

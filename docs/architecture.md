@@ -1,15 +1,17 @@
 # Architecture Overview
 
-The KeyPass Login SDK follows a **two-layer architecture** that separates core authentication logic from user interface implementations, providing flexibility for developers to choose their integration approach.
+The KeyPass Login SDK follows a **three-layer architecture** that separates core authentication logic from user interface implementations and backend services, providing flexibility for developers to choose their integration approach.
 
-##  Architectural Layers
+## Architectural Layers
 
 ### **Layer 1: Core SDK** (`src/`)
-**Purpose**: Provides the fundamental authentication and wallet connection logic
+**Purpose**: Provides the fundamental authentication logic and identity primitives
 - **Wallet connection and management**
-- **Message signing and verification** 
+- **Message signing and verification**
 - **DID (Decentralized Identifier) creation and management**
 - **Multi-chain support** (Polkadot and Ethereum)
+- **Credential and SBT support**
+- **zkProof generation and verification**
 - **Error handling and validation**
 
 ### **Layer 2: Frontend Examples** (`examples/`)
@@ -17,12 +19,47 @@ The KeyPass Login SDK follows a **two-layer architecture** that separates core a
 - **Interactive wallet selection interfaces**
 - **Account selection workflows**
 - **Chain selection UI components**
+- **DID Explorer dashboard with multi-step wizard**
+- **Credential/SBT display and management**
+- **zkProof credential demo and privacy controls**
 - **Professional styling and animations**
 - **Comprehensive error handling UI**
 
+### **Layer 3: Backend Services** (`proxy-server.cjs`)
+**Purpose**: Provides API endpoints and proxies external blockchain services
+- **Express proxy server for external APIs**
+- **Credential data endpoints** (`/api/credentials`, `/api/offers`, `/api/requests`)
+- **Verification endpoint** (`/api/verify`)
+- **Blockchain API proxying** (Etherscan, Alchemy, Polkadot RPC)
+- **CORS handling and security headers**
+- **Error handling and logging**
+
+## 🧩 New Additions: DID Explorer, Credential Dashboard, zkProof Demo, Backend Integration
+
+### **DID Explorer Dashboard (React Boilerplate)**
+- Implements a **multi-step wizard** for DID creation:
+  1. **DID Type**: Choose between Basic and Advanced DID
+  2. **Configuration**: (Advanced only) Set purpose, attributes, endpoints
+  3. **Preview**: Review DID document and features
+  4. **Create**: Confirm and generate DID
+- **Fixed-stepper UI**: Always shows all steps for clarity, even if some are skipped in navigation (e.g., Basic DID skips Configuration but step is still visible and inactive)
+- **Componentized logic**: Each step is a separate render function, with state managed in the wizard parent
+- **Integration with core SDK**: Calls DID creation and preview logic from the SDK layer
+
+### **Credential & SBT Dashboard**
+- **Credential display**: Grid and card components for issued credentials and SBTs
+- **Credential request wizard**: Multi-step flow for requesting new credentials, selecting claims, and privacy settings
+- **SBT display**: Grid and card UI for badges and SBTs, with support for demo/test/real data modes
+- **Integration with core SDK**: Uses credential and SBT service APIs for fetching, issuing, and revoking credentials
+
+### **zkProof Credential Demo**
+- **Proof generation UI**: Stepper for selecting credential, circuit, and generating proof (Semaphore, PLONK, Groth16)
+- **Privacy controls**: Selective disclosure, proof sharing, and verification
+- **Integration with core SDK**: Calls zkProof service for proof generation and verification
+
 ## 🔧 Core SDK Architecture (7-Layer System)
 
-The core SDK implements a clean 7-layer architecture focused on authentication logic:
+The core SDK implements a clean 7-layer architecture focused on authentication and identity logic:
 
 ### 1. Config Layer (`src/config/`)
 - **Purpose**: Configuration management and validation
@@ -106,118 +143,193 @@ The core SDK implements a clean 7-layer architecture focused on authentication l
   - **Chain-specific security headers**
   - **Unified rate limiting**
 
+## 🔧 Backend Architecture (Express Proxy Server)
+
+The backend implements a **proxy-based architecture** that serves as a bridge between the frontend and external blockchain services:
+
+### **Proxy Server Layer** (`proxy-server.cjs`)
+- **Purpose**: API gateway and external service proxy
+- **Components**:
+  - Express server with middleware
+  - Route handlers for credential endpoints
+  - Proxy middleware for blockchain APIs
+  - Verification service integration
+- **Key Features**:
+  - **Credential endpoints**: `/api/credentials`, `/api/offers`, `/api/requests`
+  - **Verification endpoint**: `/api/verify` (integrates with core SDK)
+  - **Blockchain API proxying**: Etherscan, Alchemy, Polkadot RPC
+  - **CORS support**: Handles cross-origin requests
+  - **Error handling**: Consistent error responses
+  - **Security headers**: Rate limiting and security measures
+
+### **Backend Integration Points**
+
+#### **Frontend → Backend**
+- **Proxy configuration**: Frontend configured to forward `/api/*` requests to backend
+- **Credential data**: Frontend fetches credentials, offers, requests from backend
+- **Verification**: Frontend sends signatures for verification
+- **Blockchain data**: Frontend requests blockchain data through backend proxy
+
+#### **Backend → External Services**
+- **Etherscan API**: For Ethereum blockchain data
+- **Alchemy API**: For Ethereum RPC calls
+- **Polkadot RPC**: For Polkadot blockchain data
+- **Core SDK verification**: Uses server-side verification functions
+
+#### **Backend → Core SDK**
+- **Verification service**: Backend uses core SDK's `verifySignature` function
+- **DID validation**: Backend can validate DIDs using core SDK
+- **Credential verification**: Backend can verify credentials using core SDK
+
+### **Backend Data Flow**
+
+```
+Frontend Request
+    ↓
+Backend Proxy Server
+    ↓
+Route Handler (credentials/verification)
+    ↓
+External API (Etherscan/Alchemy/Polkadot) OR Core SDK
+    ↓
+Response to Frontend
+```
+
+### **Backend Security Features**
+- **API key management**: Backend handles API keys for external services
+- **CORS configuration**: Proper cross-origin request handling
+- **Rate limiting**: Prevents abuse of external APIs
+- **Error sanitization**: Safe error responses without exposing internals
+- **Request validation**: Validates incoming requests before processing
+
 ## Example Implementation Architecture
 
 The examples demonstrate how to build complete user experiences on top of the core SDK:
 
 ### **React Boilerplate Architecture** (`examples/react-boilerplate/`)
 ```
-┌─────────────────────────────────────┐
-│            App Component            │
-├─────────────────────────────────────┤
-│  State Management:                  │
-│  • Chain selection state           │
-│  • Wallet detection results        │
-│  • Account selection state         │
-│  • Authentication state            │
-├─────────────────────────────────────┤
-│  UI Flow Management:                │
-│  • Chain Selection View            │
-│  • Wallet Selection View           │
-│  • Account Selection View          │
-│  • Authentication Success View     │
-├─────────────────────────────────────┤
-│  Core SDK Integration:              │
-│  • connectWallet()                  │
-│  • loginWithPolkadot()             │
-│  • loginWithEthereum()             │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│                App Component                │
+├──────────────────────────────────────────────┤
+│  State Management:                          │
+│  • Chain selection state                    │
+│  • Wallet detection results                 │
+│  • Account selection state                  │
+│  • Authentication state                     │
+│  • DID wizard state (step, options, preview)│
+│  • Credential/SBT/zkProof dashboard state   │
+├──────────────────────────────────────────────┤
+│  UI Flow Management:                        │
+│  • Chain Selection View                     │
+│  • Wallet Selection View                    │
+│  • Account Selection View                   │
+│  • DID Creation Wizard (multi-step)         │
+│  • Credential Dashboard                     │
+│  • SBT Display                              │
+│  • zkProof Generation/Verification          │
+│  • Authentication Success View              │
+├──────────────────────────────────────────────┤
+│  Core SDK Integration:                      │
+│  • connectWallet()                          │
+│  • loginWithPolkadot()/loginWithEthereum()  │
+│  • createDID(), previewDID()                │
+│  • getCredentials(), requestCredential()     │
+│  • generateZKProof()                        │
+└──────────────────────────────────────────────┘
 ```
 
-### **Vanilla Boilerplate Architecture** (`examples/vanilla-boilerplate/`)
+### **Multi-Step Wizard Pattern**
+- **Fixed stepper**: UI always shows all steps (DID Type, Configuration, Preview, Create)
+- **Conditional navigation**: For Basic DID, Configuration step is skipped in logic but shown as inactive in UI
+- **Extensible**: New steps or flows (e.g., credential issuance, proof generation) can be added with minimal changes
+
+### **Component Interactions**
+- **DIDWizard**: Manages step state, options, and preview; interacts with core SDK for DID logic
+- **CredentialSection/SBTSection**: Fetches and displays credentials/SBTs; handles requests and revocations
+- **ZKProofGenerator**: Handles proof configuration, generation, and verification
+- **All dashboard components**: Share state via parent App or context, and call core SDK APIs for all blockchain/identity operations
+
+## Data Flow Patterns
+
+### **Complete System Flow**
 ```
-┌─────────────────────────────────────┐
-│           Single HTML File          │
-├─────────────────────────────────────┤
-│  JavaScript Functions:              │
-│  • detectPolkadotWallets()         │
-│  • detectEthereumWallets()          │
-│  • getPolkadotAccounts()           │
-│  • getEthereumAccounts()           │
-│  • authenticateWith*()             │
-├─────────────────────────────────────┤
-│  UI Management:                     │
-│  • showWalletSelection()           │
-│  • Dynamic DOM manipulation        │
-│  • Event handling                  │
-├─────────────────────────────────────┤
-│  Core Logic:                        │
-│  • Direct wallet API calls         │
-│  • Message signing                 │
-│  • Server verification             │
-└─────────────────────────────────────┘
+User Interface (Frontend)
+    ↓
+API Requests (/api/*)
+    ↓
+Backend Proxy Server
+    ↓
+External APIs OR Core SDK
+    ↓
+Response to Frontend
+    ↓
+UI Update
 ```
 
-##  Data Flow Patterns
-
-### **Core SDK Flow** (Basic Authentication)
+### **DID Creation Flow**
 ```
-Client App
-    ↓
-loginWithPolkadot() / loginWithEthereum()
-    ↓
-connectWallet() (Auto-detects available wallets)
-    ↓
-WalletAdapter.enable() → WalletAdapter.getAccounts()
-    ↓
-WalletAdapter.signMessage()
-    ↓
-Server Verification (/api/verify)
-    ↓
-DID Creation
-    ↓
-LoginResult
+User
+  ↓
+DIDWizard (stepper UI)
+  ↓
+User selects type/options
+  ↓
+DIDWizard calls previewDID()/createDID() from core SDK
+  ↓
+DID document preview/generated
+  ↓
+Result passed to dashboard/profile
 ```
 
-### **Example Implementation Flow** (Full UI Experience)
+### **Credential/zkProof Flow**
 ```
-Client App
-    ↓
-Chain Selection UI (Polkadot vs Ethereum)
-    ↓
-detectPolkadotWallets() / detectEthereumWallets()
-    ↓
-Wallet Selection UI (List available wallets)
-    ↓
-getPolkadotAccounts() / getEthereumAccounts()
-    ↓
-Account Selection UI (Choose specific account)
-    ↓
-authenticateWithPolkadot() / authenticateWithEthereum()
-    ↓
-Core SDK Authentication Flow
-    ↓
-Authentication Success UI
+User
+  ↓
+CredentialRequestWizard / ZKProofGenerator
+  ↓
+User selects credential, claims, privacy
+  ↓
+Component calls core SDK (requestCredential, generateZKProof)
+  ↓
+Credential/proof issued or verified
+  ↓
+Result displayed in dashboard
 ```
 
-##  Architecture Benefits
+### **Backend-Integrated Flow**
+```
+User
+  ↓
+Frontend requests credentials (/api/credentials)
+  ↓
+Backend proxy server
+  ↓
+Backend returns credential data (or empty array)
+  ↓
+Frontend displays credentials
+```
+
+## Architecture Benefits
 
 ### **Separation of Concerns**
 - **Core SDK**: Focuses purely on authentication logic
 - **Examples**: Handle all UI/UX considerations
+- **Backend**: Manages API endpoints and external service integration
 - **Clear boundaries**: Easy to understand what belongs where
 
 ### **Flexibility**
 - **Use core SDK only**: For custom UI implementations
 - **Use examples as base**: For rapid development
+- **Use backend for API management**: For production deployments
 - **Mix and match**: Copy specific components from examples
 
 ### **Maintainability**
-- **Independent testing**: Core logic and UI tested separately
+- **Independent testing**: Core logic, UI, and backend tested separately
 - **Framework agnostic**: Core SDK works with any frontend framework
-- **Clear dependencies**: Examples depend on core SDK, not vice versa
+- **Scalable backend**: Easy to add new endpoints or external services
+- **Clear dependencies**: Examples depend on core SDK, backend provides APIs
 
-##  Component Interactions
+## Component Interactions
 
 ### **Within Core SDK**
 The layers interact in a strict hierarchy:
@@ -232,7 +344,21 @@ Examples use core SDK functions as building blocks:
 - **Add UI layer**: Implement wallet detection, selection interfaces
 - **Handle user interaction**: Convert UI events to core SDK function calls
 
-##  Security Considerations
+### **Between Frontend and Backend**
+Frontend communicates with backend through HTTP APIs:
+- **Proxy configuration**: Frontend forwards `/api/*` requests to backend
+- **Credential data**: Frontend fetches from backend endpoints
+- **Verification**: Frontend sends signatures to backend for verification
+- **Error handling**: Backend provides consistent error responses
+
+### **Between Backend and Core SDK**
+Backend uses core SDK for verification and validation:
+- **Import server functions**: `import { verifySignature } from '@keypass/login-sdk/server'`
+- **Verification endpoints**: Backend uses core SDK verification logic
+- **DID validation**: Backend can validate DIDs using core SDK
+- **Error handling**: Backend uses core SDK error types
+
+## Security Considerations
 
 ### **Core SDK Security**
 - Each layer implements its own security measures
@@ -247,7 +373,14 @@ Examples use core SDK functions as building blocks:
 - Proper error display without exposing internals
 - Safe wallet extension interaction
 
-##  Testing Strategy
+### **Backend Security**
+- API key management for external services
+- CORS configuration for web3 applications
+- Rate limiting to prevent abuse
+- Request validation and sanitization
+- Secure error responses without exposing internals
+
+## Testing Strategy
 
 ### **Core SDK Testing**
 - **Unit tests**: Each layer tested independently
@@ -258,6 +391,12 @@ Examples use core SDK functions as building blocks:
 - **UI component tests**: Interface behavior validation
 - **Integration tests**: Core SDK integration verification
 - **User experience tests**: Complete workflow validation
+
+### **Backend Testing**
+- **API endpoint tests**: Each endpoint tested independently
+- **Proxy tests**: External API proxying validated
+- **Integration tests**: Backend with core SDK integration
+- **Security tests**: CORS, rate limiting, validation
 
 ## Deployment Patterns
 
@@ -271,9 +410,39 @@ Your App → @keypass/login-sdk → KeyPass Server
 Your App → Example UI Components → Core SDK → KeyPass Server
 ```
 
-### **Hybrid** (Customized)
+### **With Backend** (Production)
 ```
-Your App → Custom UI + Example Components → Core SDK → KeyPass Server
+Your App → Example UI Components → Backend Proxy → External APIs
+Your App → Example UI Components → Backend Proxy → Core SDK
 ```
 
-This architecture provides maximum flexibility while maintaining clear separation between authentication logic and user interface implementation. 
+### **Hybrid** (Customized)
+```
+Your App → Custom UI + Example Components → Backend Proxy → Core SDK → External APIs
+```
+
+## Backend Configuration
+
+### **Environment Variables**
+- `PORT`: Backend server port (default: 5000)
+- `ETHEREUM_API_KEY`: Etherscan API key
+- `ALCHEMY_API_KEY`: Alchemy API key
+- `POLKADOT_RPC_URL`: Polkadot RPC endpoint
+
+### **Proxy Configuration**
+- **Ethereum**: Proxies to Etherscan and Alchemy APIs
+- **Polkadot**: Proxies to Polkadot RPC endpoints
+- **CORS**: Configured for web3 applications
+- **Rate limiting**: Prevents API abuse
+
+### **Endpoint Structure**
+```
+/api/credentials    → Returns user credentials
+/api/offers         → Returns credential offers
+/api/requests       → Returns credential requests
+/api/verify         → Verifies signatures
+/api/eth/*          → Proxies to Ethereum APIs
+/api/polkadot/*     → Proxies to Polkadot APIs
+```
+
+This architecture provides maximum flexibility while maintaining clear separation between authentication logic, user interface implementation, and backend services. 

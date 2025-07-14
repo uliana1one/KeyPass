@@ -16,16 +16,17 @@ describe('UnifiedVerificationService', () => {
   const ETHEREUM_ADDRESS = '0x742d35Cc6634C0532925a3b8D0e9C56A56b1c45b';
   const VALID_SIGNATURE = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1b';
   const VALID_DID = 'did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH';
+  const FIXED_TIMESTAMP = '2025-07-10T21:17:51.307Z';
 
   const createValidPolkadotRequest = (): VerificationRequest => ({
-    message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc123\nAddress: ${POLKADOT_ADDRESS}`,
+    message: `KeyPass Login\nIssued At: ${FIXED_TIMESTAMP}\nNonce: abc123\nAddress: ${POLKADOT_ADDRESS}`,
     signature: VALID_SIGNATURE,
     address: POLKADOT_ADDRESS,
     chainType: 'polkadot',
   });
 
   const createValidEthereumRequest = (): VerificationRequest => ({
-    message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc123\nAddress: ${ETHEREUM_ADDRESS}`,
+    message: `KeyPass Login\nIssued At: ${FIXED_TIMESTAMP}\nNonce: abc123\nAddress: ${ETHEREUM_ADDRESS}`,
     signature: VALID_SIGNATURE,
     address: ETHEREUM_ADDRESS,
     chainType: 'ethereum',
@@ -233,7 +234,7 @@ describe('UnifiedVerificationService', () => {
 
         for (const address of ss58Addresses) {
           const request = {
-            message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc123\nAddress: ${address}`,
+            message: `KeyPass Login\nIssued At: ${FIXED_TIMESTAMP}\nNonce: abc123\nAddress: ${address}`,
             signature: VALID_SIGNATURE,
             address,
           };
@@ -255,7 +256,7 @@ describe('UnifiedVerificationService', () => {
         for (let i = 0; i < ethereumAddresses.length; i++) {
           const address = ethereumAddresses[i];
           const request = {
-            message: `KeyPass Login\nIssued At: ${new Date().toISOString()}\nNonce: abc123\nAddress: ${address}`,
+            message: `KeyPass Login\nIssued At: ${FIXED_TIMESTAMP}\nNonce: abc123\nAddress: ${address}`,
             signature: VALID_SIGNATURE,
             address,
           };

@@ -1,29 +1,63 @@
 # Integration Guide
 
-This guide covers two main integration approaches: **using the Core SDK** for custom implementations and **using the Examples** for complete UI experiences.
+This guide covers four main integration approaches: **using the Core SDK** for custom implementations, **using the Examples** for complete UI experiences, **backend integration** for API management, and **hybrid integration** for maximum flexibility. It now also covers advanced features like the DID Explorer dashboard, credential/SBT display, zkProof demo, and backend services.
 
-##  Integration Overview
+## Integration Overview
 
 ### **Option A: Core SDK Integration** 
-Use the authentication functions directly with your own UI
+Use the authentication and identity functions directly with your own UI
 - **Best for**: Custom UIs, specific design requirements, existing component libraries
-- **What you get**: Authentication logic, wallet connections, server verification
-- **What you build**: Wallet selection UI, account selection UI, error handling UI
+- **What you get**: Authentication logic, wallet connections, server verification, DID creation, credential/SBT and zkProof APIs
+- **What you build**: Wallet selection UI, account selection UI, error handling UI, custom dashboards
 
 ### **Option B: Example-Based Integration**
 Use the complete examples as a starting point
 - **Best for**: Rapid development, getting started quickly, proof of concepts
-- **What you get**: Complete UI experience, wallet selection, account selection, styling
-- **What you customize**: Branding, styling, specific workflows
+- **What you get**: Complete UI experience, wallet selection, account selection, DID Explorer wizard, credential/SBT dashboard, zkProof generator, styling
+- **What you customize**: Branding, styling, specific workflows, privacy controls
 
-### **Option C: Hybrid Integration**
-Mix core SDK functions with example UI components
-- **Best for**: Balanced approach, selective customization
-- **What you do**: Pick specific components from examples, build custom logic around them
+### **Option C: Backend Integration**
+Use the Express proxy server for API management and external service integration
+- **Best for**: Production deployments, external API management, credential data handling
+- **What you get**: API endpoints for credentials, offers, requests, verification, blockchain API proxying
+- **What you customize**: Endpoint logic, external service integration, data storage
+
+### **Option D: Hybrid Integration**
+Mix core SDK functions with example UI components and backend services
+- **Best for**: Balanced approach, selective customization, production-ready applications
+- **What you do**: Pick specific components from examples, use backend for APIs, build custom logic around them
 
 ---
 
-##  Option A: Core SDK Integration
+## New Additions: DID Explorer, Credential Dashboard, zkProof Demo, Backend Integration
+
+### **DID Explorer Dashboard Integration**
+- **Component**: `DIDWizard` (React)
+- **Features**: Multi-step wizard for DID creation (Type → Configuration → Preview → Create), fixed-stepper UI, supports both Basic and Advanced DIDs
+- **How to use**: Import and render `DIDWizard` in your app, pass wallet/account props, handle `onComplete` for DID creation result
+- **Customization**: Style the wizard, add branding, extend steps as needed
+
+### **Credential & SBT Dashboard Integration**
+- **Components**: `CredentialSection`, `SBTSection`, `CredentialRequestWizard`
+- **Features**: Credential/SBT grid and card display, request wizard, privacy controls, revocation, sharing
+- **How to use**: Import and render dashboard components, connect to core SDK credential APIs, handle credential requests and offers
+- **Customization**: Adjust UI, add new credential types, extend privacy features
+
+### **zkProof Credential Demo Integration**
+- **Component**: `ZKProofGenerator`
+- **Features**: Stepper for selecting credential, circuit, generating and verifying zkProofs (Semaphore, PLONK, Groth16), privacy controls
+- **How to use**: Import and render `ZKProofGenerator`, connect to credential/zkProof APIs, handle proof generation and verification
+- **Customization**: Add new circuits, integrate with custom credential flows, style proof UI
+
+### **Backend Integration**
+- **Server**: Express proxy server (`proxy-server.cjs`)
+- **Features**: API endpoints for credentials, verification, blockchain API proxying, CORS handling
+- **How to use**: Start backend server, configure frontend proxy, use `/api/*` endpoints
+- **Customization**: Add new endpoints, integrate with external services, implement custom logic
+
+---
+
+## Option A: Core SDK Integration
 
 ### Prerequisites
 
@@ -266,7 +300,15 @@ npm install
 npm start
 ```
 
-#### 2. Customize the React Example
+#### 2. Integrate Advanced Features
+
+- **DID Creation Wizard**: Use `<DIDWizard ... />` for onboarding and identity setup
+- **Credential Dashboard**: Use `<CredentialSection ... />` and `<SBTSection ... />` for displaying credentials and badges
+- **zkProof Generator**: Use `<ZKProofGenerator ... />` for privacy-preserving proof flows
+- **Fixed-stepper UI**: All wizards use a consistent, accessible stepper for user guidance
+- **Privacy Controls**: Credential and proof flows include selective disclosure and sharing options
+
+#### 3. Customize the React Example
 
 ```typescript
 // Customize the App.tsx component
@@ -314,7 +356,7 @@ function YourApp() {
 }
 ```
 
-#### 3. Customize Styling
+#### 4. Customize Styling
 
 ```css
 /* Copy base styles from examples/react-boilerplate/src/App.css */
@@ -390,63 +432,201 @@ python3 -m http.server 8000
 
 ---
 
-## Option C: Hybrid Integration
+## Option C: Backend Integration
 
-### Use Core SDK + Selected Example Components
+### Backend Setup
 
-#### 1. Extract Wallet Detection from Examples
+#### 1. Start the Backend Server
 
-```typescript
-// Copy this function from examples/react-boilerplate/src/App.tsx
-export const detectPolkadotWallets = async (): Promise<Wallet[]> => {
-  const wallets: Wallet[] = [];
-  
-  await new Promise(resolve => setTimeout(resolve, 200));
-  
-  if (window.injectedWeb3) {
-    const extensions = Object.keys(window.injectedWeb3);
-    
-    for (const extensionName of extensions) {
-      const extension = window.injectedWeb3[extensionName];
-      let displayName = extensionName;
-      
-      if (extensionName === 'polkadot-js') {
-        displayName = 'Polkadot.js Extension';
-      } else if (extensionName === 'talisman') {
-        displayName = 'Talisman';
-      }
-      
-      wallets.push({
-        id: extensionName,
-        name: displayName,
-        status: extension.enable ? 'Available' : 'Not Compatible',
-        available: extension.enable !== undefined,
-        extension: extension
-      });
-    }
-  }
-  
-  return wallets;
-};
+```bash
+# From the KeyPass repository root
+node proxy-server.cjs
+# Server runs on http://localhost:5000
 ```
 
-#### 2. Use Core SDK for Authentication
+#### 2. Configure Frontend Proxy
+
+**For React (vite.config.ts):**
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  }
+})
+```
+
+**For Vanilla JavaScript (package.json):**
+```json
+{
+  "proxy": "http://localhost:5000"
+}
+```
+
+#### 3. Use Backend Endpoints
 
 ```typescript
-import { loginWithPolkadot } from '@keypass/login-sdk';
-import { detectPolkadotWallets } from './walletDetection';
+// Fetch credentials from backend
+async function fetchCredentials() {
+  try {
+    const response = await fetch('/api/credentials');
+    const credentials = await response.json();
+    return credentials;
+  } catch (error) {
+    console.error('Failed to fetch credentials:', error);
+    return [];
+  }
+}
 
-async function hybridAuth() {
-  // Use example implementation for wallet detection
-  const wallets = await detectPolkadotWallets();
+// Fetch credential offers
+async function fetchOffers() {
+  try {
+    const response = await fetch('/api/offers');
+    const offers = await response.json();
+    return offers;
+  } catch (error) {
+    console.error('Failed to fetch offers:', error);
+    return [];
+  }
+}
+
+// Fetch credential requests
+async function fetchRequests() {
+  try {
+    const response = await fetch('/api/requests');
+    const requests = await response.json();
+    return requests;
+  } catch (error) {
+    console.error('Failed to fetch requests:', error);
+    return [];
+  }
+}
+
+// Verify signature with backend
+async function verifySignature(signature: string, message: string, address: string) {
+  try {
+    const response = await fetch('/api/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signature, message, address })
+    });
+    
+    const result = await response.json();
+    return result.verified;
+  } catch (error) {
+    console.error('Verification failed:', error);
+    return false;
+  }
+}
+```
+
+### Backend Customization
+
+#### 1. Add Custom Endpoints
+
+```javascript
+// In proxy-server.cjs
+app.get('/api/custom-endpoint', (req, res) => {
+  res.json({ message: 'Custom endpoint response' });
+});
+
+app.post('/api/custom-action', (req, res) => {
+  const { data } = req.body;
+  // Your custom logic here
+  res.json({ success: true, result: 'Custom action completed' });
+});
+```
+
+#### 2. Integrate with External Services
+
+```javascript
+// Add new proxy routes
+app.use('/api/external-service', createProxyMiddleware({
+  target: 'https://api.external-service.com',
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/external-service': ''
+  }
+}));
+```
+
+#### 3. Add Database Integration
+
+```javascript
+// Example with a simple database
+const credentials = [];
+
+app.get('/api/credentials', (req, res) => {
+  res.json(credentials);
+});
+
+app.post('/api/credentials', (req, res) => {
+  const newCredential = req.body;
+  credentials.push(newCredential);
+  res.json({ success: true, credential: newCredential });
+});
+```
+
+### Backend Environment Configuration
+
+```bash
+# .env file for backend
+PORT=5000
+ETHEREUM_API_KEY=your_etherscan_api_key
+ALCHEMY_API_KEY=your_alchemy_api_key
+POLKADOT_RPC_URL=https://rpc.polkadot.io
+CORS_ORIGIN=http://localhost:3000
+```
+
+---
+
+## Option D: Hybrid Integration
+
+### Use Core SDK + Selected Example Components + Backend
+
+#### 1. Extract and Use Advanced Components
+- **DIDWizard**: For multi-step DID creation
+- **CredentialSection/SBTSection**: For credential and badge display
+- **ZKProofGenerator**: For privacy-preserving proof generation
+
+#### 2. Compose with Custom Logic and Backend
+- Use your own state management, routing, or UI framework
+- Connect example components to your backend or custom flows
+- Extend or override steps, privacy settings, or credential types as needed
+- Use backend for API management and external service integration
+
+#### 3. Example Hybrid Setup
+
+```typescript
+// Custom app with backend integration
+import { DIDWizard } from './components/DIDWizard';
+import { CredentialSection } from './components/CredentialSection';
+
+function HybridApp() {
+  const [credentials, setCredentials] = useState([]);
   
-  // Show your custom wallet selection UI
-  const selectedWallet = await showWalletPicker(wallets);
+  // Use backend for credential data
+  useEffect(() => {
+    fetch('/api/credentials')
+      .then(res => res.json())
+      .then(setCredentials);
+  }, []);
   
-  // Use core SDK for authentication
-  const result = await loginWithPolkadot();
-  
-  return result;
+  return (
+    <div>
+      <DIDWizard onComplete={handleDIDCreation} />
+      <CredentialSection credentials={credentials} />
+    </div>
+  );
 }
 ```
 
@@ -469,6 +649,19 @@ npm start
 # Server available at http://localhost:3000
 ```
 
+### Backend Development Setup
+
+```bash
+# Start the backend proxy server
+node proxy-server.cjs
+# Backend available at http://localhost:5000
+
+# In another terminal, start the frontend
+cd examples/react-boilerplate
+npm start
+# Frontend available at http://localhost:3000
+```
+
 ### Production Setup
 
 ```bash
@@ -479,21 +672,41 @@ npm run build
 NODE_ENV=production npm start
 ```
 
+### Backend Production Setup
+
+```bash
+# Start backend in production
+NODE_ENV=production PORT=5000 node proxy-server.cjs
+
+# Or use PM2 for process management
+pm2 start proxy-server.cjs --name keypass-backend
+```
+
 ### Docker Setup
 
 ```bash
 # Build and run with Docker
 docker build -t keypass-server .
 docker run -p 3000:3000 keypass-server
+
+# For backend
+docker build -f Dockerfile.server -t keypass-backend .
+docker run -p 5000:5000 keypass-backend
 ```
 
 ### Environment Variables
 
 ```bash
-# .env file
+# .env file for main server
 PORT=3000
 NODE_ENV=production
 CORS_ORIGIN=https://your-app.com
+
+# .env file for backend
+PORT=5000
+ETHEREUM_API_KEY=your_etherscan_api_key
+ALCHEMY_API_KEY=your_alchemy_api_key
+POLKADOT_RPC_URL=https://rpc.polkadot.io
 ```
 
 ---
@@ -552,6 +765,32 @@ async function testAuth() {
 }
 ```
 
+### Test Backend Integration
+
+```typescript
+// Test backend endpoints
+async function testBackend() {
+  try {
+    // Test credentials endpoint
+    const credentials = await fetch('/api/credentials');
+    console.log('✅ Credentials endpoint:', await credentials.json());
+    
+    // Test offers endpoint
+    const offers = await fetch('/api/offers');
+    console.log('✅ Offers endpoint:', await offers.json());
+    
+    // Test requests endpoint
+    const requests = await fetch('/api/requests');
+    console.log('✅ Requests endpoint:', await requests.json());
+    
+  } catch (error) {
+    console.error('❌ Backend test failed:', error);
+  }
+}
+
+testBackend();
+```
+
 ---
 
 ## Deployment Checklist
@@ -564,6 +803,17 @@ async function testAuth() {
 - [ ] **Test error scenarios** (no wallet, user rejection, etc.)
 - [ ] **Verify server endpoint** is accessible from your domain
 - [ ] **Check CORS configuration** for your domain
+- [ ] **Test backend endpoints** and proxy configuration
+- [ ] **Verify external API keys** are configured correctly
+
+### Backend Deployment Checklist
+
+- [ ] **Configure environment variables** for production
+- [ ] **Set up API keys** for external services
+- [ ] **Test proxy routes** and external service integration
+- [ ] **Configure CORS** for your frontend domain
+- [ ] **Set up monitoring** and logging
+- [ ] **Test rate limiting** and security measures
 
 ### Security Considerations
 
@@ -573,6 +823,8 @@ async function testAuth() {
 - [ ] **Implement rate limiting** on verification endpoint
 - [ ] **Use secure headers** (already included in server)
 - [ ] **Monitor for suspicious activity**
+- [ ] **Secure API keys** and sensitive configuration
+- [ ] **Validate backend requests** and responses
 
 ### Performance Optimization
 
@@ -580,5 +832,7 @@ async function testAuth() {
 - [ ] **Implement loading states** for better UX
 - [ ] **Add retry logic** for network failures
 - [ ] **Cache wallet detection** results where appropriate
+- [ ] **Optimize backend responses** and caching
+- [ ] **Monitor API response times** and external service performance
 
-This integration guide provides multiple paths to implement KeyPass authentication based on your specific needs and technical requirements. 
+This integration guide now covers advanced identity, credential, and privacy flows, backend integration, and provides multiple paths to implement KeyPass authentication and credential management based on your specific needs and technical requirements. 

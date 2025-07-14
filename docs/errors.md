@@ -1,82 +1,25 @@
 # Error Handling Guide
 
-This guide provides comprehensive documentation for error handling in the KeyPass Login SDK, including **wallet and account selection** error scenarios and best practices for creating robust user experiences.
-
-##  New Wallet Selection Error Types
-
-### **Enhanced WalletError Interface**
-
-```typescript
-interface WalletError extends Error {
-  code: WalletErrorCode;
-  walletId?: WalletId;
-  chainType?: ChainType;
-  details?: any;
-}
-
-type WalletErrorCode = 
-  | 'WALLET_NOT_FOUND'
-  | 'WALLET_NOT_INSTALLED'
-  | 'WALLET_CONNECTION_FAILED'
-  | 'WALLET_LOCKED'
-  | 'USER_REJECTED_CONNECTION'
-  | 'USER_REJECTED_SIGNING'
-  | 'NO_ACCOUNTS_AVAILABLE'
-  | 'ACCOUNT_ACCESS_DENIED'
-  | 'NETWORK_ERROR'
-  | 'TIMEOUT_ERROR'
-  | 'INVALID_SIGNATURE'
-  | 'UNSUPPORTED_CHAIN'
-  | 'WALLET_DISCONNECTED'
-  | 'SELECTION_CANCELLED'
-  | 'SELECTION_TIMEOUT';
-```
-
-### **Wallet Selection Error Handling**
-
-```typescript
-import { WalletError, loginWithWalletSelection } from '@keypass/login-sdk';
-
-try {
-  const result = await loginWithWalletSelection();
-  console.log('Login successful:', result);
-} catch (error) {
-  if (error instanceof WalletError) {
-    handleWalletError(error);
-  } else {
-    console.error('Unexpected error:', error);
-  }
-}
-
-function handleWalletError(error: WalletError) {
-  switch (error.code) {
-    case 'WALLET_NOT_INSTALLED':
-      showInstallWalletDialog(error.walletId);
-      break;
-    case 'USER_REJECTED_CONNECTION':
-      showUserRejectionMessage();
-      break;
-    case 'NO_ACCOUNTS_AVAILABLE':
-      showNoAccountsMessage();
-      break;
-    case 'WALLET_LOCKED':
-      showUnlockWalletMessage();
-      break;
-    default:
-      showGenericErrorMessage(error.message);
-  }
-}
-```
+This guide provides comprehensive documentation for error handling in the KeyPass Login SDK, including **wallet and account selection** error scenarios, **multi-chain support**, **SBT/credential flows**, and best practices for creating robust user experiences.
 
 ## Error Types
 
 ### SDK Errors
 
+#### `WalletError` (Base Class)
+Base error class for all wallet-related errors.
+
+```typescript
+class WalletError extends Error {
+  constructor(message: string, code: string);
+}
+```
+
 #### `WalletNotFoundError`
 Thrown when the requested wallet extension is not found.
 
 ```typescript
-class WalletNotFoundError extends Error {
+class WalletNotFoundError extends WalletError {
   constructor(walletName: string);
 }
 ```
@@ -97,9 +40,11 @@ try {
 Thrown when the user rejects a wallet operation.
 
 ```typescript
-class UserRejectedError extends Error {
-  constructor(operation: string);
+class UserRejectedError extends WalletError {
+  constructor(operation: WalletOperation);
 }
+
+type WalletOperation = 'connection' | 'signing' | 'account_access' | 'wallet_connection' | 'message_signing';
 ```
 
 **Example:**
@@ -118,8 +63,8 @@ try {
 Thrown when a wallet operation times out.
 
 ```typescript
-class TimeoutError extends Error {
-  constructor(operation: string);
+class TimeoutError extends WalletError {
+  constructor(operation: WalletOperation);
 }
 ```
 
@@ -135,11 +80,95 @@ try {
 }
 ```
 
+#### `InvalidSignatureError`
+Thrown when signature validation fails.
+
+```typescript
+class InvalidSignatureError extends WalletError {
+  constructor(message?: string);
+}
+```
+
+**Example:**
+```typescript
+try {
+  await loginWithPolkadot();
+} catch (error) {
+  if (error instanceof InvalidSignatureError) {
+    console.error(`Signature validation failed: ${error.message}`);
+    // Handle signature error
+  }
+}
+```
+
+#### `InvalidAddressError`
+Thrown when an address format is invalid.
+
+```typescript
+class InvalidAddressError extends WalletError {
+  constructor(address: string);
+}
+```
+
+**Example:**
+```typescript
+try {
+  await loginWithPolkadot();
+} catch (error) {
+  if (error instanceof InvalidAddressError) {
+    console.error(`Invalid address format: ${error.address}`);
+    // Handle invalid address
+  }
+}
+```
+
+#### `ConfigurationError`
+Thrown when there's an issue with SDK configuration.
+
+```typescript
+class ConfigurationError extends WalletError {
+  constructor(message: string);
+}
+```
+
+**Example:**
+```typescript
+try {
+  await initializeSDK(config);
+} catch (error) {
+  if (error instanceof ConfigurationError) {
+    console.error(`Configuration error: ${error.message}`);
+    // Handle configuration issue
+  }
+}
+```
+
+#### `WalletConnectionError`
+Thrown when there's a failure in wallet connection.
+
+```typescript
+class WalletConnectionError extends WalletError {
+  constructor(message: string);
+}
+```
+
+**Example:**
+```typescript
+try {
+  await connectWallet();
+} catch (error) {
+  if (error instanceof WalletConnectionError) {
+    console.error(`Wallet connection failed: ${error.message}`);
+    // Handle connection failure
+  }
+}
+```
+
 #### `MessageValidationError`
 Thrown when message validation fails.
 
 ```typescript
-class MessageValidationError extends Error {
+class MessageValidationError extends WalletError {
   constructor(message: string);
 }
 ```
@@ -160,7 +189,7 @@ try {
 Thrown when address validation fails.
 
 ```typescript
-class AddressValidationError extends Error {
+class AddressValidationError extends WalletError {
   constructor(message: string);
 }
 ```
@@ -177,68 +206,65 @@ try {
 }
 ```
 
-#### `InvalidAddressError`
-Thrown when an address format is invalid.
+#### `SBTServiceError`
+Thrown for errors in SBT/credential service operations.
 
 ```typescript
-class InvalidAddressError extends Error {
-  constructor(address: string);
+class SBTServiceError extends Error {
+  public readonly code: string;
+  public readonly chainType?: SBTChainType;
+  public readonly contractAddress?: string;
+
+  constructor(
+    message: string,
+    code: string,
+    chainType?: SBTChainType,
+    contractAddress?: string
+  );
 }
 ```
 
 **Example:**
 ```typescript
 try {
-  await loginWithPolkadot();
+  const tokens = await sbtService.getTokens(address);
 } catch (error) {
-  if (error instanceof InvalidAddressError) {
-    console.error(`Invalid address format: ${error.address}`);
-    // Handle invalid address
+  if (error instanceof SBTServiceError) {
+    console.error(`SBT error: ${error.message}`);
+    console.error(`Chain: ${error.chainType}`);
+    console.error(`Contract: ${error.contractAddress}`);
+    // Handle SBT service error
   }
 }
 ```
 
-#### `WalletConnectionError`
-Thrown when there's a failure in wallet connection.
+### SDK Error Codes
 
-```typescript
-class WalletConnectionError extends Error {
-  constructor(message: string);
-}
-```
+| Error Class                | Error Code                  | Description                                 |
+|----------------------------|-----------------------------|---------------------------------------------|
+| WalletNotFoundError        | WALLET_NOT_FOUND            | Wallet extension not found                  |
+| UserRejectedError          | USER_REJECTED               | User rejected wallet operation              |
+| TimeoutError               | OPERATION_TIMEOUT           | Operation timed out                         |
+| InvalidSignatureError      | INVALID_SIGNATURE           | Signature is invalid                        |
+| InvalidAddressError        | ADDRESS_VALIDATION_ERROR    | Address format is invalid                   |
+| ConfigurationError         | INVALID_CONFIG              | SDK configuration error                     |
+| WalletConnectionError      | CONNECTION_FAILED           | Wallet connection failed                    |
+| MessageValidationError     | INVALID_MESSAGE             | Message validation failed                   |
+| AddressValidationError     | INVALID_ADDRESS             | Address validation failed                   |
+| SBTServiceError            | (varies, see below)         | SBT/credential service error                |
 
-**Example:**
-```typescript
-try {
-  await connectWallet();
-} catch (error) {
-  if (error instanceof WalletConnectionError) {
-    console.error(`Wallet connection failed: ${error.message}`);
-    // Handle connection failure
-  }
-}
-```
+### SBT Service Error Codes
 
-#### `ConfigurationError`
-Thrown when there's an issue with SDK configuration.
-
-```typescript
-class ConfigurationError extends Error {
-  constructor(message: string);
-}
-```
-
-**Example:**
-```typescript
-try {
-  await initializeSDK(config);
-} catch (error) {
-  if (error instanceof ConfigurationError) {
-    console.error(`Configuration error: ${error.message}`);
-    // Handle configuration issue
-  }
-}
-```
+| Code                      | Description                                      |
+|---------------------------|--------------------------------------------------|
+| MOONBEAM_FETCH_ERROR      | Failed to fetch tokens from Moonbeam            |
+| MOONBEAM_COLLECTIONS_ERROR| Failed to fetch collections from Moonbeam        |
+| MOONBEAM_METADATA_ERROR   | Failed to fetch token metadata from Moonbeam    |
+| MOONBEAM_OWNERSHIP_ERROR  | Failed to verify token ownership on Moonbeam    |
+| ETHEREUM_FETCH_ERROR      | Failed to fetch tokens from Ethereum            |
+| ETHEREUM_COLLECTIONS_ERROR| Failed to fetch collections from Ethereum        |
+| ETHEREUM_METADATA_ERROR   | Failed to fetch token metadata from Ethereum    |
+| ETHEREUM_OWNERSHIP_ERROR  | Failed to verify token ownership on Ethereum    |
 
 ### API Errors
 
@@ -246,17 +272,34 @@ try {
 
 ```typescript
 const ERROR_CODES = {
-  VERIFICATION_FAILED: 'VERIFICATION_FAILED',
+  // Message validation errors
   INVALID_MESSAGE_FORMAT: 'INVALID_MESSAGE_FORMAT',
-  INVALID_REQUEST: 'INVALID_REQUEST',
-  INVALID_JSON: 'INVALID_JSON',
-  MESSAGE_TOO_LONG: 'MESSAGE_TOO_LONG',
-  INVALID_SIGNATURE_FORMAT: 'INVALID_SIGNATURE_FORMAT',
-  INVALID_SIGNATURE_LENGTH: 'INVALID_SIGNATURE_LENGTH',
-  INVALID_ADDRESS: 'INVALID_ADDRESS',
   MESSAGE_EXPIRED: 'MESSAGE_EXPIRED',
   MESSAGE_FUTURE: 'MESSAGE_FUTURE',
-  DID_CREATION_FAILED: 'DID_CREATION_FAILED'
+  MESSAGE_TOO_LONG: 'MESSAGE_TOO_LONG',
+
+  // Signature validation errors
+  INVALID_SIGNATURE_FORMAT: 'INVALID_SIGNATURE_FORMAT',
+  INVALID_SIGNATURE_LENGTH: 'INVALID_SIGNATURE_LENGTH',
+  VERIFICATION_FAILED: 'VERIFICATION_FAILED',
+
+  // Request validation errors
+  INVALID_REQUEST: 'INVALID_REQUEST',
+  INVALID_JSON: 'INVALID_JSON',
+  INVALID_ADDRESS: 'INVALID_ADDRESS',
+
+  // Multi-chain support errors
+  UNSUPPORTED_CHAIN_TYPE: 'UNSUPPORTED_CHAIN_TYPE',
+  UNKNOWN_ADDRESS_FORMAT: 'UNKNOWN_ADDRESS_FORMAT',
+
+  // DID creation errors
+  DID_CREATION_FAILED: 'DID_CREATION_FAILED',
+
+  // Internal errors
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+
+  // Success code
+  SUCCESS: 'SUCCESS',
 } as const;
 ```
 
@@ -286,6 +329,40 @@ interface ErrorResponse {
 }
 ```
 
+### Multi-Chain Error Handling
+
+#### Chain Type Detection Errors
+
+```typescript
+// Unsupported chain type
+{
+  status: 'error',
+  message: 'Unsupported chain type: bitcoin',
+  code: 'UNSUPPORTED_CHAIN_TYPE'
+}
+
+// Unknown address format
+{
+  status: 'error',
+  message: 'Unable to determine chain type from address format',
+  code: 'UNKNOWN_ADDRESS_FORMAT'
+}
+```
+
+#### Chain-Specific Validation
+
+```typescript
+// Ethereum address validation
+if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+  throw new AddressValidationError('Invalid Ethereum address format');
+}
+
+// Polkadot address validation
+if (!/^[1-9A-HJ-NP-Za-km-z]{47,48}$/.test(address)) {
+  throw new AddressValidationError('Invalid Polkadot address format');
+}
+```
+
 ## Error Handling Patterns
 
 ### 1. Client-Side Error Handling
@@ -307,6 +384,8 @@ class KeyPassErrorHandler {
       await this.handleConnectionError(error);
     } else if (error instanceof ConfigurationError) {
       await this.handleConfigurationError(error);
+    } else if (error instanceof SBTServiceError) {
+      await this.handleSBTServiceError(error);
     } else {
       await this.handleUnknownError(error);
     }
@@ -347,6 +426,11 @@ class KeyPassErrorHandler {
     await showConfigurationErrorMessage(error.message);
   }
 
+  private static async handleSBTServiceError(error: SBTServiceError): Promise<void> {
+    // Show SBT service error with context
+    await showSBTServiceError(error.message, error.chainType, error.contractAddress);
+  }
+
   private static async handleUnknownError(error: unknown): Promise<void> {
     // Log error and show generic error message
     console.error('Unknown error:', error);
@@ -364,6 +448,8 @@ class VerificationErrorHandler {
       return this.handleValidationError(error);
     } else if (error instanceof VerificationError) {
       return this.handleVerificationError(error);
+    } else if (error instanceof SBTServiceError) {
+      return this.handleSBTServiceError(error);
     } else {
       return this.handleUnknownError(error);
     }
@@ -389,6 +475,18 @@ class VerificationErrorHandler {
     };
   }
 
+  private static handleSBTServiceError(error: SBTServiceError): ErrorResponse {
+    return {
+      status: 'error',
+      message: error.message,
+      code: error.code,
+      details: {
+        chainType: error.chainType,
+        contractAddress: error.contractAddress
+      }
+    };
+  }
+
   private static handleUnknownError(error: unknown): ErrorResponse {
     console.error('Unknown error:', error);
     return {
@@ -396,6 +494,48 @@ class VerificationErrorHandler {
       message: 'Internal server error',
       code: 'INTERNAL_ERROR'
     };
+  }
+}
+```
+
+### 3. Multi-Chain Error Handling
+
+```typescript
+class MultiChainErrorHandler {
+  static async handleVerificationError(response: VerificationResponse): Promise<void> {
+    switch (response.code) {
+      case 'UNSUPPORTED_CHAIN_TYPE':
+        await this.handleUnsupportedChain(response.message);
+        break;
+      case 'UNKNOWN_ADDRESS_FORMAT':
+        await this.handleUnknownAddressFormat(response.message);
+        break;
+      case 'VERIFICATION_FAILED':
+        await this.handleVerificationFailed(response.message);
+        break;
+      default:
+        await this.handleGenericError(response.message);
+    }
+  }
+
+  private static async handleUnsupportedChain(message: string): Promise<void> {
+    // Show chain selection dialog or error message
+    await showChainSelectionDialog();
+  }
+
+  private static async handleUnknownAddressFormat(message: string): Promise<void> {
+    // Show address format help or validation error
+    await showAddressFormatHelp();
+  }
+
+  private static async handleVerificationFailed(message: string): Promise<void> {
+    // Show verification failed message with retry option
+    await showVerificationFailedMessage(message);
+  }
+
+  private static async handleGenericError(message: string): Promise<void> {
+    // Show generic error message
+    await showGenericErrorMessage(message);
   }
 }
 ```
@@ -449,6 +589,8 @@ const ERROR_MESSAGES = {
   [ERROR_CODES.INVALID_REQUEST]: 'Invalid request. Please check your input.',
   [ERROR_CODES.MESSAGE_EXPIRED]: 'Your login session has expired. Please try again.',
   [ERROR_CODES.DID_CREATION_FAILED]: 'Unable to create your digital identity. Please try again.',
+  [ERROR_CODES.UNSUPPORTED_CHAIN_TYPE]: 'This blockchain is not supported. Please use a supported chain.',
+  [ERROR_CODES.UNKNOWN_ADDRESS_FORMAT]: 'Unable to recognize this address format. Please check your address.',
   // ... other error messages
 } as const;
 
@@ -502,6 +644,34 @@ class ErrorRecovery {
 }
 ```
 
+### 4. Chain-Specific Error Handling
+
+```typescript
+class ChainSpecificErrorHandler {
+  static async handleChainError(error: unknown, chainType: 'polkadot' | 'ethereum'): Promise<void> {
+    if (chainType === 'polkadot') {
+      await this.handlePolkadotError(error);
+    } else if (chainType === 'ethereum') {
+      await this.handleEthereumError(error);
+    }
+  }
+
+  private static async handlePolkadotError(error: unknown): Promise<void> {
+    // Handle Polkadot-specific errors
+    if (error instanceof AddressValidationError) {
+      await showPolkadotAddressHelp();
+    }
+  }
+
+  private static async handleEthereumError(error: unknown): Promise<void> {
+    // Handle Ethereum-specific errors
+    if (error instanceof AddressValidationError) {
+      await showEthereumAddressHelp();
+    }
+  }
+}
+```
+
 ## Testing Error Handling
 
 ### 1. Unit Tests
@@ -515,14 +685,29 @@ describe('Error Handling', () => {
   });
 
   test('handles user rejection error', async () => {
-    const error = new UserRejectedError('sign');
+    const error = new UserRejectedError('signing');
     await expect(KeyPassErrorHandler.handleLoginError(error))
       .resolves.not.toThrow();
   });
 
-  test('handles validation error', async () => {
-    const error = new MessageValidationError('Invalid message format');
+  test('handles SBT service error', async () => {
+    const error = new SBTServiceError(
+      'Failed to fetch tokens',
+      'MOONBEAM_FETCH_ERROR',
+      'MOONBEAM',
+      '0x123...'
+    );
     await expect(KeyPassErrorHandler.handleLoginError(error))
+      .resolves.not.toThrow();
+  });
+
+  test('handles multi-chain errors', async () => {
+    const response = {
+      status: 'error',
+      message: 'Unsupported chain type: bitcoin',
+      code: 'UNSUPPORTED_CHAIN_TYPE'
+    };
+    await expect(MultiChainErrorHandler.handleVerificationError(response))
       .resolves.not.toThrow();
   });
 });
@@ -549,6 +734,20 @@ describe('Error Recovery', () => {
     await expect(ErrorRecovery.retryOperation(operation))
       .rejects.toThrow(error);
     expect(operation).toHaveBeenCalledTimes(3);
+  });
+
+  test('handles SBT service errors', async () => {
+    const sbtService = new SBTService(config);
+    const error = new SBTServiceError(
+      'Network error',
+      'MOONBEAM_FETCH_ERROR',
+      'MOONBEAM'
+    );
+
+    jest.spyOn(sbtService, 'getTokens').mockRejectedValue(error);
+    
+    await expect(sbtService.getTokens('0x123...'))
+      .rejects.toThrow(SBTServiceError);
   });
 });
 ```

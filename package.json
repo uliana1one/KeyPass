@@ -16,7 +16,10 @@
     "start": "node dist/server/index.js",
     "start:dev": "nodemon --exec ts-node --esm src/server/index.ts",
     "test:docker": "docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test",
-    "test:docker:cleanup": "docker-compose -f docker-compose.test.yml down -v"
+    "test:docker:cleanup": "docker-compose -f docker-compose.test.yml down -v",
+    "verify:production": "node scripts/production-verification.js",
+    "test:e2e": "jest --testPathPattern=e2e",
+    "test:integration": "jest --testPathPattern=integration"
   },
   "keywords": [
     "polkadot",
@@ -55,19 +58,26 @@
   ],
   "devDependencies": {
     "@babel/preset-env": "^7.27.2",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@polkadot/types-augment": "^10.11.2",
     "@polkadot/types-codec": "^10.11.2",
-    "@types/express": "^4.17.21",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/express": "^4.17.23",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.15.29",
     "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^8.32.1",
     "eslint": "^9.27.0",
     "eslint-plugin-prettier": "^5.4.0",
+    "identity-obj-proxy": "^3.0.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "nodemon": "^3.1.0",
+    "rimraf": "^6.0.1",
     "supertest": "^6.3.4",
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2"
@@ -77,10 +87,26 @@
     "@polkadot/extension-dapp": "^0.45.3",
     "@polkadot/types": "^10.11.2",
     "@polkadot/util-crypto": "^12.6.2",
-    "@walletconnect/types": "^1.8.0",
-    "@walletconnect/web3-provider": "^1.8.0",
+    "@semaphore-protocol/group": "^4.11.1",
+    "@semaphore-protocol/identity": "^4.11.1",
+    "@semaphore-protocol/proof": "^4.11.1",
+    "@walletconnect/core": "^2.21.4",
+    "@walletconnect/ethereum-provider": "^2.21.4",
+    "@walletconnect/types": "^2.21.4",
+    "@walletconnect/universal-provider": "^2.21.4",
+    "@walletconnect/utils": "^2.21.4",
+    "circomlib": "^2.0.5",
+    "dotenv": "^17.2.0",
     "ethers": "^6.14.4",
-    "express": "^4.18.2",
-    "uuid": "^11.1.0"
+    "express": "^4.21.2",
+    "node-fetch": "^2.7.0",
+    "react": "^19.1.0",
+    "snarkjs": "^0.7.5",
+    "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "semver": "^7.5.4",
+    "ws": "^8.18.0",
+    "tough-cookie": "^4.1.3"
   }
 }

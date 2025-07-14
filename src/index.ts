@@ -1,17 +1,20 @@
-import { connectWallet } from './walletConnector';
-import { selectAccount } from './accounts/AccountSelector';
-import { buildLoginMessage } from './message/messageBuilder';
-import { v4 as uuidv4 } from 'uuid';
+import { connectWallet } from './walletConnector.js';
+import { buildLoginMessage } from './message/messageBuilder.js';
 import messageFormat from '../config/messageFormat.json';
-import { WalletConnectionError } from './errors/WalletErrors';
-import { PolkadotDIDProvider } from './did/UUIDProvider';
-import { WalletAccount } from './adapters/types';
-import { VerificationService } from './server/verificationService';
-import { PolkadotJsAdapter } from './adapters/PolkadotJsAdapter';
-import { TalismanAdapter } from './adapters/TalismanAdapter';
-import { WalletConnectAdapter } from './adapters/WalletConnectAdapter';
-import { EthereumAdapter } from './adapters/EthereumAdapter';
-import { EthereumDIDProvider } from './did/EthereumDIDProvider';
+import { WalletConnectionError } from './errors/WalletErrors.js';
+import { PolkadotDIDProvider } from './did/UUIDProvider.js';
+import { VerificationService } from './server/verificationService.js';
+import { EthereumAdapter } from './adapters/EthereumAdapter.js';
+import { EthereumDIDProvider } from './did/EthereumDIDProvider.js';
+
+// Simple UUID generator for browser compatibility
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 // Re-export connectWallet
 export { connectWallet };
@@ -80,7 +83,7 @@ export async function loginWithPolkadot(retryCount = 1): Promise<LoginResult> {
         throw new WalletConnectionError('No accounts found');
       }
       const address = accounts[0].address;
-      const nonce = uuidv4();
+      const nonce = generateUUID();
       const issuedAt = new Date().toISOString();
       const message = await buildLoginMessage({
         template: messageFormat.template,
@@ -155,7 +158,7 @@ export async function loginWithEthereum(): Promise<LoginResult> {
 
     // Generate login message data
     const issuedAt = new Date().toISOString();
-    const nonce = uuidv4();
+    const nonce = generateUUID();
 
     // Build the message
     const message = await buildLoginMessage({

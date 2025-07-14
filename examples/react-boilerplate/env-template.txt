@@ -1,0 +1,19 @@
+# API Keys for Real SBT Data Fetching
+# Copy this content to a .env file and add your actual API keys
+
+# Etherscan API Key (for Ethereum ERC-721 transfers)
+# Get free key at: https://etherscan.io/apis
+REACT_APP_ETHERSCAN_API_KEY=YourEtherscanApiKey
+
+# Alchemy API Keys (for enhanced NFT data)
+# Get free keys at: https://www.alchemy.com/
+REACT_APP_ALCHEMY_ETHEREUM_API_KEY=YourAlchemyEthereumKey
+REACT_APP_ALCHEMY_POLYGON_API_KEY=YourAlchemyPolygonKey
+
+# Optional: The Graph API (for indexed blockchain data)
+# Get free access at: https://thegraph.com/
+REACT_APP_THEGRAPH_API_KEY=YourTheGraphApiKey
+
+# SBT Registry URLs (these are public endpoints)
+REACT_APP_GITCOIN_PASSPORT_URL=https://api.passport.gitcoin.co
+REACT_APP_ETHEREUM_FOUNDATION_URL=https://api.ethereum.org 
