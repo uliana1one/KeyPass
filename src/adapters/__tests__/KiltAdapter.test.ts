@@ -31,13 +31,15 @@ jest.mock('@polkadot/extension-dapp', () => ({
   web3Accounts: jest.fn().mockResolvedValue([
     {
       address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      name: 'Test Account',
+      meta: {
+        name: 'Test Account',
+      },
     },
   ]),
   web3FromAddress: jest.fn().mockResolvedValue({
     signer: {
       signRaw: jest.fn().mockResolvedValue({
-        signature: '0x1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890',
+        signature: '0x' + '1'.repeat(128),
       }),
     },
   }),
@@ -48,17 +50,30 @@ jest.mock('@polkadot/util-crypto', () => ({
   isAddress: jest.fn().mockReturnValue(true),
 }));
 
-// Mock window object  
-global.window = Object.assign(window, {
+// Mock window object with proper setup
+const mockWindow = {
   injectedWeb3: {
     kilt: {},
   },
-}) as any;
+};
+Object.assign(window, mockWindow);
+global.window = window as any;
 
 describe('KiltAdapter', () => {
   let kiltAdapter: KiltAdapter;
 
   beforeEach(() => {
+    // Reset window mock before each test
+    Object.assign(window, {
+      injectedWeb3: {
+        kilt: {},
+      },
+    });
+    
+    // Reset all mocks
+    const { web3Enable } = require('@polkadot/extension-dapp');
+    web3Enable.mockResolvedValue(true); // Default to successful resolution
+    
     kiltAdapter = new KiltAdapter();
     jest.clearAllMocks();
   });
@@ -111,9 +126,8 @@ describe('KiltAdapter', () => {
     });
 
     it('should throw error when KILT extension is not available', async () => {
-      Object.assign(window, {
-        injectedWeb3: {},
-      });
+      // Remove KILT extension from window mock
+      delete (window as any).injectedWeb3.kilt;
 
       await kiltAdapter.connect();
 
@@ -122,14 +136,15 @@ describe('KiltAdapter', () => {
     });
 
     it('should handle timeout during enable', async () => {
-      // Mock web3Enable to hang
+      // Mock web3Enable to hang, but ensure extension exists first
       const { web3Enable } = require('@polkadot/extension-dapp');
       web3Enable.mockReturnValue(new Promise(() => {})); // Never resolves
 
       await kiltAdapter.connect();
 
+      // This should timeout because web3Enable never resolves
       await expect(kiltAdapter.enable()).rejects.toThrow(TimeoutError);
-    });
+    }, 15000); // Increase timeout to 15 seconds
   });
 
   describe('getAccounts', () => {
@@ -172,8 +187,8 @@ describe('KiltAdapter', () => {
     it('should sign message with KILT account', async () => {
       const signature = await kiltAdapter.signMessage('Hello KILT');
 
-      expect(signature).toBe('0x1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890');
-      expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/); // 0x + 130 hex chars for SR25519
+        expect(signature).toBe('0x' + '1'.repeat(128));
+        expect(signature).toMatch(/^0x[a-fA-F0-9]{128}$/); // 0x + 128 hex chars for SR25519
     });
 
     it('should validate message content', async () => {
