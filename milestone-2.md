@@ -2,8 +2,10 @@
 
 **The delivery is according to the official [milestone delivery guidelines](https://github.com/w3f/Grants-Program/blob/master/docs/Support%20Docs/milestone-deliverables-guidelines.md).**  
 
-* **Application Document:** [KeyPass Application](https://github.com/uliana1one/KeyPass/blob/main/applications/keypass.md)
-* **Milestone Number:** 2
+* **Application Document:** [KeyPass Application](https://github.com/Polkadot-Fast-Grants/apply/blob/master/applications/PassKey.md)
+* **DOT Payment Address:** 1mxZH584ubA4fEthzUN1KgcZXYsU1quJ5ywfdcEdgDVSr27
+ 
+* **Live Demo:** [KeyPass Demo](https://drive.google.com/file/d/1hWCDIVX0wPtIc8Vs5VPCTBub7u8C9xap/view?usp=sharing)
 
 **Context**
 This milestone delivers the next phase of KeyPass: a full-featured DID Explorer dashboard, credential/SBT display, and zkProof credential demo, all integrated with the Polkadot ecosystem. The implementation demonstrates seamless wallet-based login, DID issuance, SBT minting, credential management, and private credential verification, with a focus on privacy, user control, and developer integration. The architecture and documentation have been expanded to support advanced identity, credential, and privacy flows, and to provide clear guidance for multiple integration approaches.
@@ -12,17 +14,17 @@ This milestone delivers the next phase of KeyPass: a full-featured DID Explorer 
 
 | Number | Deliverable | Notes |
 | ------ | ----------- | ----- |
-| 2.1 | [React Example](examples/react-boilerplate) | Full-featured dashboard for DID creation, credential/SBT display, and zkProof demo. |
-| 2.1a | [DID Wizard Guide](examples/react-boilerplate/DID_WIZARD_README.md) | Usage and implementation details for the DID creation wizard component. |
-| 2.2 | [zkProof Demo](examples/react-boilerplate/ZK_PROOF_IMPLEMENTATION.md) | Implementation and usage of zero-knowledge proof credential flows. |
-| 2.2a | [Credential Guide](examples/react-boilerplate/CREDENTIAL_IMPLEMENTATION_GUIDE.md) | Credential management, issuance, and display flows. |
-| 2.3 | [Documentation Home](docs/README.md) | Entry point for all project documentation. |
-| 2.3a | [API Reference](docs/api.md) | Detailed API documentation for SDK and backend services. |
-| 2.3b | [Integration Guide](docs/integration.md) | Integration approaches, including advanced flows and hybrid usage. |
-| 2.3c | [Architecture Guide](docs/architecture.md) | System architecture, design patterns, and component interactions. |
-| 2.3d | [Testing Guide](docs/testing.md) | Testing strategy, coverage, and CI/CD for all features. |
-| 2.3e | [Tutorial](docs/tutorial.md) | Step-by-step guide for implementing and customizing KeyPass. |
-| 2.3f | [Error Handling](docs/errors.md) | Error types, handling patterns, and troubleshooting. |
+| 2.1 | [React Example](https://github.com/uliana1one/KeyPass/tree/main/examples/react-boilerplate) | Full-featured dashboard for DID creation, credential/SBT display, and zkProof demo. |
+| 2.1a | [DID Wizard Guide](https://github.com/uliana1one/KeyPass/blob/main/examples/react-boilerplate/DID_WIZARD_README.md) | Usage and implementation details for the DID creation wizard component. |
+| 2.2 | [zkProof Demo](https://github.com/uliana1one/KeyPass/blob/main/examples/react-boilerplate/ZK_PROOF_IMPLEMENTATION.md) | Implementation and usage of zero-knowledge proof credential flows. |
+| 2.2a | [Credential Guide](https://github.com/uliana1one/KeyPass/blob/main/examples/react-boilerplate/CREDENTIAL_IMPLEMENTATION_GUIDE.md) | Credential management, issuance, and display flows. |
+| 2.3 | [Documentation Home](https://github.com/uliana1one/KeyPass/blob/main/docs/README.md) | Entry point for all project documentation. |
+| 2.3a | [API Reference](https://github.com/uliana1one/KeyPass/blob/main/docs/api.md) | Detailed API documentation for SDK and backend services. |
+| 2.3b | [Integration Guide](https://github.com/uliana1one/KeyPass/blob/main/docs/integration.md) | Integration approaches, including advanced flows and hybrid usage. |
+| 2.3c | [Architecture Guide](https://github.com/uliana1one/KeyPass/blob/main/docs/architecture.md) | System architecture, design patterns, and component interactions. |
+| 2.3d | [Docker Testing Guide](https://github.com/uliana1one/KeyPass/blob/main/docs/docker-testing.md) | Testing strategy, coverage, and CI/CD for all features. |
+| 2.3e | [Tutorial](https://github.com/uliana1one/KeyPass/blob/main/docs/tutorial.md) | Step-by-step guide for implementing and customizing KeyPass. |
+| 2.3f | [Error Handling](https://github.com/uliana1one/KeyPass/blob/main/docs/errors.md) | Error types, handling patterns, and troubleshooting. |
 
 **Architecture Achievement**
 
@@ -51,5 +53,3 @@ This milestone successfully delivers:
 3. **zkProof Credential Demo**: Private, verifiable credential proofs with user-friendly UI
 4. **Comprehensive Documentation**: All guides updated for new features and integration patterns
 5. **Production Readiness**: Security, testing, and deployment guidance for all new flows
-
-> Any further comments on the milestone that you would like to share with us.

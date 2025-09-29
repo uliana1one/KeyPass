@@ -33,7 +33,30 @@ KeyPass is a secure authentication SDK for blockchain-based applications. It pro
 
 ## Installation
 
-Currently, this package is in development and not yet published to npm. There are several ways to test it in your project:
+[![npm version](https://badge.fury.io/js/keypass-login-sdk.svg)](https://badge.fury.io/js/keypass-login-sdk)
+[![npm](https://img.shields.io/npm/dt/keypass-login-sdk.svg)](https://www.npmjs.com/package/keypass-login-sdk)
+
+**KeyPass is now available on npm!** 🎉
+
+### Method 1: Install from npm (Recommended)
+
+```bash
+npm install keypass-login-sdk
+```
+
+Or with yarn:
+```bash
+yarn add keypass-login-sdk
+```
+
+**Package Links:**
+- 📦 [npm Package](https://www.npmjs.com/package/keypass-login-sdk)
+- 📊 [Package Stats](https://npm-stat.com/charts.html?package=keypass-login-sdk)
+- 🔍 [Package Info](https://npmjs.com/package/keypass-login-sdk)
+
+### Method 2: Local Development Testing
+
+For local development and testing, there are several alternative ways to use the package:
 
 ### Method 1: Using npm link (Recommended for local development)
 
@@ -62,36 +85,36 @@ npm link
 
 5. In your project directory:
 ```bash
-npm link @keypass/login-sdk
+npm link keypass-login-sdk
 ```
 
-### Method 2: Using Git URL (For testing in other projects)
+### Method 3: Using Git URL (For testing in other projects)
 
-> **Note**: This method is currently being set up. For now, please use Method 1 (npm link) for testing.
+> **Note**: Alternative method for testing with the latest development version.
 
 In your project's `package.json`:
 ```json
 {
   "dependencies": {
-    "@keypass/login-sdk": "github:uliana1one/keypass"
+    "keypass-login-sdk": "github:uliana1one/keypass"
   }
 }
 ```
 
-### Method 3: Using Local Path (For testing in other projects)
+### Method 4: Using Local Path (For testing in other projects)
 
-> **Note**: This method is currently being set up. For now, please use Method 1 (npm link) for testing.
+> **Note**: Alternative method for testing with local development version.
 
 In your project's `package.json`:
 ```json
 {
   "dependencies": {
-    "@keypass/login-sdk": "file:../path/to/keypass"
+    "keypass-login-sdk": "file:../path/to/keypass"
   }
 }
 ```
 
-> **Important**: While the package is in development, we recommend using Method 1 (npm link) for testing as it's the most reliable method at this stage. Other methods will be fully supported in future updates.
+> **Recommendation**: For production use, install directly from npm (Method 1). For local development and testing of unreleased features, use npm link (Method 2) or other development methods.
 
 ## Docker & AWS ECR Deployment
 
@@ -238,7 +261,7 @@ Here are examples of how to use KeyPass with different blockchain networks:
 ### Polkadot Authentication
 
 ```typescript
-import { loginWithPolkadot } from '@keypass/login-sdk';
+import { loginWithPolkadot } from 'keypass-login-sdk';
 
 async function handlePolkadotLogin() {
   try {
@@ -263,7 +286,7 @@ async function handlePolkadotLogin() {
 ### Ethereum Authentication
 
 ```typescript
-import { loginWithEthereum } from '@keypass/login-sdk';
+import { loginWithEthereum } from 'keypass-login-sdk';
 
 async function handleEthereumLogin() {
   try {
@@ -291,7 +314,7 @@ The SDK provides a unified verification endpoint that automatically detects the 
 
 ```typescript
 // Server-side verification (Node.js/Express)
-import { UnifiedVerificationService } from '@keypass/login-sdk/server';
+import { UnifiedVerificationService } from 'keypass-login-sdk/server';
 
 const verificationService = new UnifiedVerificationService();
 
