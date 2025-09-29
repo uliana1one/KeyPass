@@ -6,3 +6,6 @@ export { KILTDIDProvider } from './KILTDIDProvider.js';
 export type { DIDDocument, DIDProvider, DIDResolver, Service } from './types.js';
 export type { VerificationMethod } from './types.js';
 export { VERIFICATION_METHOD_TYPES, MULTIBASE_PREFIXES } from './verification.js';
+
+// Export KILT-specific types
+export * from './types/KILTTypes.js';
