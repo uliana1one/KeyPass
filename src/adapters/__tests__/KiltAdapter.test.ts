@@ -108,9 +108,9 @@ describe('KiltAdapter', () => {
     });
 
     it('should clean up on connection failure', async () => {
-      // Mock API creation to throw error
+      // Mock API creation to throw error for all attempts
       const { ApiPromise } = require('@polkadot/api');
-      ApiPromise.create.mockRejectedValueOnce(new Error('Connection failed'));
+      ApiPromise.create.mockRejectedValue(new Error('Connection failed'));
 
       await expect(kiltAdapter.connect()).rejects.toThrow(WalletConnectionError);
       expect(kiltAdapter.getChainInfo()).toBeNull();

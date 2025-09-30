@@ -22,10 +22,41 @@ import {
   AddressValidationError,
 } from '../errors/WalletErrors';
 import { EventEmitter } from 'events';
+import { KILT_NETWORKS, KILTNetwork } from '../config/kiltConfig.js';
 
-// Kilt spiritnet endpoint
-const KILT_SPIRITNET_ENDPOINT = 'wss://spiritnet.kilt.io';
+// KILT network endpoints with fallbacks
+const KILT_ENDPOINTS = {
+  [KILTNetwork.SPIRITNET]: [
+    'wss://spiritnet.kilt.io',
+    'wss://spiritnet.api.onfinality.io/public-ws',
+    'wss://spiritnet-rpc.kilt.io'
+  ],
+  [KILTNetwork.MAINNET]: [
+    'wss://kilt-rpc.dwellir.com',
+    'wss://kilt.api.onfinality.io/public-ws',
+    'wss://rpc.kilt.io'
+  ],
+  [KILTNetwork.PEREGRINE]: [
+    'wss://peregrine.kilt.io',
+    'wss://peregrine.api.onfinality.io/public-ws'
+  ],
+  [KILTNetwork.DEVNET]: [
+    'wss://devnet.kilt.io'
+  ]
+};
+
 const KILT_EXTENSION_NAME = 'kilt';
+
+// Connection configuration
+const CONNECTION_CONFIG = {
+  maxRetries: 5,
+  baseRetryDelay: 1000, // 1 second
+  maxRetryDelay: 30000, // 30 seconds
+  retryBackoffMultiplier: 2,
+  connectionTimeout: 15000, // 15 seconds
+  healthCheckInterval: 30000, // 30 seconds
+  reconnectOnHealthFailure: true,
+};
 
 // Chain info interface
 export interface KiltChainInfo {
@@ -50,64 +81,157 @@ export class KiltAdapter implements WalletAdapter {
   private api: ApiPromise | null = null;
   private wsProvider: WsProvider | null = null;
   private chainInfo: KiltChainInfo | null = null;
+  
+  // Connection management
+  private currentNetwork: KILTNetwork = KILTNetwork.SPIRITNET;
+  private connectionRetryCount = 0;
+  private healthCheckInterval: NodeJS.Timeout | null = null;
+  private isConnecting = false;
+  private lastHealthCheck: Date | null = null;
+  private connectionState: 'disconnected' | 'connecting' | 'connected' | 'reconnecting' = 'disconnected';
 
-  constructor() {
+  constructor(network: KILTNetwork = KILTNetwork.SPIRITNET) {
     this.injectedWindow = window as Window & InjectedWindow;
     this.eventEmitter = new EventEmitter();
+    this.currentNetwork = network;
   }
 
   /**
-   * Connects to KILT spiritnet and retrieves chain information.
+   * Connects to KILT network with retry logic and health checking.
+   * @param network - The KILT network to connect to (defaults to current network)
    * @returns Promise resolving to KiltChainInfo
-   * @throws {WalletConnectionError} If connection fails
+   * @throws {WalletConnectionError} If connection fails after all retries
    */
-  public async connect(): Promise<KiltChainInfo> {
-    try {
-      // Create WebSocket provider
-      this.wsProvider = new WsProvider(KILT_SPIRITNET_ENDPOINT);
-      
-      // Create API instance
-      this.api = await ApiPromise.create({
-        provider: this.wsProvider,
-        rpc: {
-          // Add any custom RPC methods if needed
-        },
-      });
+  public async connect(network?: KILTNetwork): Promise<KiltChainInfo> {
+    if (network) {
+      this.currentNetwork = network;
+    }
 
-      // Wait for API to be ready
-      await this.api.isReady;
+    if (this.isConnecting) {
+      throw new WalletConnectionError('Connection already in progress');
+    }
 
-      // Retrieve chain information
-      const chainName = this.api.runtimeChain.toString();
-      const version = this.api.runtimeVersion.specVersion.toString();
-      const runtime = this.api.runtimeVersion.specName.toString();
-      const genesisHash = this.api.genesisHash.toString();
-      
-      // KILT uses SS58 format 38
-      const ss58Format = 38;
-
-      this.chainInfo = {
-        name: chainName,
-        network: 'spiritnet',
-        version,
-        runtime,
-        ss58Format,
-        genesisHash,
-      };
-
-      this.eventEmitter.emit('chainConnected', this.chainInfo);
+    if (this.connectionState === 'connected' && this.chainInfo) {
       return this.chainInfo;
+    }
+
+    this.isConnecting = true;
+    this.connectionState = 'connecting';
+    this.connectionRetryCount = 0;
+
+    try {
+      const chainInfo = await this.connectWithRetry();
+      
+      this.connectionState = 'connected';
+      this.connectionRetryCount = 0;
+      this.lastHealthCheck = new Date();
+      
+      // Start health checking
+      this.startHealthCheck();
+      
+      this.eventEmitter.emit('chainConnected', chainInfo);
+      return chainInfo;
 
     } catch (error) {
-      console.error('KILT connection failed:', error);
+      this.connectionState = 'disconnected';
+      this.isConnecting = false;
+      
+      console.error('KILT connection failed after all retries:', error);
       
       // Clean up on failure
       await this.cleanup();
       
       throw new WalletConnectionError(
-        `Failed to connect to KILT parachain: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to connect to KILT parachain after ${CONNECTION_CONFIG.maxRetries} retries: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  /**
+   * Connects to KILT network with exponential backoff retry logic.
+   * @returns Promise resolving to KiltChainInfo
+   * @private
+   */
+  private async connectWithRetry(): Promise<KiltChainInfo> {
+    const endpoints = KILT_ENDPOINTS[this.currentNetwork];
+    
+    for (let attempt = 0; attempt < CONNECTION_CONFIG.maxRetries; attempt++) {
+      this.connectionRetryCount = attempt;
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Attempting to connect to ${endpoint} (attempt ${attempt + 1}/${CONNECTION_CONFIG.maxRetries})`);
+          
+          // Clean up previous connection
+          await this.cleanup();
+          
+          // Create WebSocket provider with timeout
+          this.wsProvider = new WsProvider(endpoint);
+          
+          // Create API instance with connection timeout
+          const connectionPromise = ApiPromise.create({
+            provider: this.wsProvider,
+            rpc: {
+              // Add any custom RPC methods if needed
+            },
+          });
+
+          // Add timeout to connection
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Connection timeout')), CONNECTION_CONFIG.connectionTimeout);
+          });
+
+          this.api = await Promise.race([connectionPromise, timeoutPromise]) as ApiPromise;
+
+          // Wait for API to be ready with timeout
+          const readyPromise = this.api.isReady;
+          await Promise.race([readyPromise, timeoutPromise]);
+
+          // Retrieve chain information
+          const chainName = this.api.runtimeChain.toString();
+          const version = this.api.runtimeVersion.specVersion.toString();
+          const runtime = this.api.runtimeVersion.specName.toString();
+          const genesisHash = this.api.genesisHash.toString();
+          
+          // Get SS58 format from network config
+          const networkConfig = KILT_NETWORKS[this.currentNetwork];
+          const ss58Format = networkConfig.ss58Format;
+
+          this.chainInfo = {
+            name: chainName,
+            network: this.currentNetwork,
+            version,
+            runtime,
+            ss58Format,
+            genesisHash,
+          };
+
+          console.log(`Successfully connected to ${endpoint}`);
+          return this.chainInfo;
+
+        } catch (error) {
+          console.warn(`Failed to connect to ${endpoint}:`, error);
+          
+          // Clean up failed connection
+          await this.cleanup();
+          
+          // If this is the last endpoint for this attempt, wait before retrying
+          if (endpoint === endpoints[endpoints.length - 1]) {
+            if (attempt < CONNECTION_CONFIG.maxRetries - 1) {
+              const delay = Math.min(
+                CONNECTION_CONFIG.baseRetryDelay * Math.pow(CONNECTION_CONFIG.retryBackoffMultiplier, attempt),
+                CONNECTION_CONFIG.maxRetryDelay
+              );
+              
+              console.log(`Waiting ${delay}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          }
+        }
+      }
+    }
+    
+    throw new Error(`Failed to connect to any endpoint for network ${this.currentNetwork}`);
   }
 
   /**
@@ -306,6 +430,125 @@ export class KiltAdapter implements WalletAdapter {
   }
 
   /**
+   * Gets the current connection state.
+   * @returns Connection state string
+   */
+  public getConnectionState(): string {
+    return this.connectionState;
+  }
+
+  /**
+   * Gets the current network being used.
+   * @returns Current KILT network
+   */
+  public getCurrentNetwork(): KILTNetwork {
+    return this.currentNetwork;
+  }
+
+  /**
+   * Sets the network to connect to.
+   * @param network - The KILT network to use
+   */
+  public setNetwork(network: KILTNetwork): void {
+    if (this.currentNetwork !== network) {
+      this.currentNetwork = network;
+      // If already connected, reconnect to new network
+      if (this.connectionState === 'connected') {
+        this.reconnect();
+      }
+    }
+  }
+
+  /**
+   * Performs a health check on the current connection.
+   * @returns Promise resolving to true if healthy, false otherwise
+   */
+  public async performHealthCheck(): Promise<boolean> {
+    if (!this.api || !this.chainInfo) {
+      return false;
+    }
+
+    try {
+      // Check if API is still connected and responsive
+      const isConnected = this.api.isConnected;
+      if (!isConnected) {
+        console.warn('KILT API is not connected');
+        return false;
+      }
+
+      // Try to get basic chain info to verify responsiveness
+      await Promise.race([
+        this.api.rpc.system.chain(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Health check timeout')), 5000)
+        )
+      ]);
+
+      this.lastHealthCheck = new Date();
+      return true;
+
+    } catch (error) {
+      console.warn('KILT health check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Starts periodic health checking.
+   * @private
+   */
+  private startHealthCheck(): void {
+    this.stopHealthCheck(); // Clear any existing interval
+
+    this.healthCheckInterval = setInterval(async () => {
+      if (this.connectionState === 'connected') {
+        const isHealthy = await this.performHealthCheck();
+        
+        if (!isHealthy && CONNECTION_CONFIG.reconnectOnHealthFailure) {
+          console.warn('Health check failed, attempting to reconnect...');
+          this.eventEmitter.emit('healthCheckFailed');
+          await this.reconnect();
+        }
+      }
+    }, CONNECTION_CONFIG.healthCheckInterval);
+  }
+
+  /**
+   * Stops periodic health checking.
+   * @private
+   */
+  private stopHealthCheck(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
+  }
+
+  /**
+   * Reconnects to the current network.
+   * @returns Promise resolving when reconnection is complete
+   */
+  public async reconnect(): Promise<KiltChainInfo> {
+    if (this.connectionState === 'reconnecting') {
+      throw new WalletConnectionError('Reconnection already in progress');
+    }
+
+    this.connectionState = 'reconnecting';
+    this.eventEmitter.emit('reconnecting');
+
+    try {
+      await this.cleanup();
+      const chainInfo = await this.connect();
+      this.eventEmitter.emit('reconnected', chainInfo);
+      return chainInfo;
+    } catch (error) {
+      this.connectionState = 'disconnected';
+      this.eventEmitter.emit('reconnectionFailed', error);
+      throw error;
+    }
+  }
+
+  /**
    * Validates a KILT address with SS58 format 38.
    * @param address - The address to validate
    * @returns Promise resolving to true if valid
@@ -328,6 +571,7 @@ export class KiltAdapter implements WalletAdapter {
    */
   public async disconnect(): Promise<void> {
     try {
+      this.connectionState = 'disconnected';
       await this.cleanup();
       this.eventEmitter.emit('disconnected');
     } catch (error) {
@@ -341,7 +585,10 @@ export class KiltAdapter implements WalletAdapter {
   private async cleanup(): Promise<void> {
     this.enabled = false;
     this.provider = null;
-    this.chainInfo = null;
+    this.isConnecting = false;
+
+    // Stop health checking
+    this.stopHealthCheck();
 
     // Clear connection timeout
     if (this.connectionTimeout) {
@@ -367,6 +614,14 @@ export class KiltAdapter implements WalletAdapter {
         console.warn('Error disconnecting KILT WebSocket provider:', error);
       }
       this.wsProvider = null;
+    }
+
+    // Reset connection state (but keep chainInfo for potential reuse)
+    // Only clear chainInfo if we're fully disconnecting
+    if (this.connectionState === 'disconnected') {
+      this.chainInfo = null;
+      this.lastHealthCheck = null;
+      this.connectionRetryCount = 0;
     }
   }
 
