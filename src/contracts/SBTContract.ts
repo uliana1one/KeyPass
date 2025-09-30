@@ -588,7 +588,7 @@ export class SBTContract {
    * Update contract signer
    */
   public updateSigner(signer: ethers.Signer): void {
-    this.contract = this.contract.connect(signer);
+    this.contract = this.contract.connect(signer) as any;
   }
 }
 
