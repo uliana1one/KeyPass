@@ -19,7 +19,8 @@
     "test:docker:cleanup": "docker-compose -f docker-compose.test.yml down -v",
     "verify:production": "node scripts/production-verification.js",
     "test:e2e": "jest --testPathPattern=e2e",
-    "test:integration": "jest --testPathPattern=integration"
+    "test:integration": "jest --testPathPattern=integration",
+    "test:integration:kilt": "jest --testPathPattern=KILTDIDProvider.live"
   },
   "keywords": [
     "polkadot",
