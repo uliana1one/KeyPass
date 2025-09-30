@@ -9,9 +9,46 @@ import { MoonbeamAdapter, MoonbeamAdapterError } from '../MoonbeamAdapter.js';
 import { MoonbeamNetwork, MoonbeamErrorCode } from '../../config/moonbeamConfig.js';
 
 // Mock ethers.js
-jest.mock('ethers', () => ({
-  ethers: {
-    JsonRpcProvider: jest.fn(),
+const mockProvider = {
+  getNetwork: jest.fn(),
+  getBlockNumber: jest.fn(),
+  getBlock: jest.fn(),
+  getFeeData: jest.fn(),
+  getBalance: jest.fn(),
+  getTransaction: jest.fn(),
+  waitForTransaction: jest.fn(),
+  removeAllListeners: jest.fn(),
+};
+
+jest.mock('ethers', () => {
+  const MockJsonRpcProvider = jest.fn().mockImplementation(() => mockProvider);
+  
+  return {
+    ethers: {
+      JsonRpcProvider: MockJsonRpcProvider,
+      formatUnits: jest.fn((value: any, unit: string) => {
+        if (unit === 'gwei') {
+          return (Number(value) / 1e9).toFixed(2);
+        }
+        return value.toString();
+      }),
+      parseUnits: jest.fn((value: string, unit: string) => {
+        if (unit === 'gwei') {
+          return BigInt(Math.floor(Number(value) * 1e9));
+        }
+        if (unit === 'ether') {
+          return BigInt(Math.floor(Number(value) * 1e18));
+        }
+        return BigInt(value);
+      }),
+      parseEther: jest.fn((value: string) => {
+        return BigInt(Math.floor(Number(value) * 1e18));
+      }),
+      isAddress: jest.fn((address: string) => {
+        return /^0x[a-fA-F0-9]{40}$/.test(address);
+      }),
+    },
+    JsonRpcProvider: MockJsonRpcProvider,
     formatUnits: jest.fn((value: any, unit: string) => {
       if (unit === 'gwei') {
         return (Number(value) / 1e9).toFixed(2);
@@ -30,27 +67,11 @@ jest.mock('ethers', () => ({
     parseEther: jest.fn((value: string) => {
       return BigInt(Math.floor(Number(value) * 1e18));
     }),
-  },
-  JsonRpcProvider: jest.fn(),
-  formatUnits: jest.fn((value: any, unit: string) => {
-    if (unit === 'gwei') {
-      return (Number(value) / 1e9).toFixed(2);
-    }
-    return value.toString();
-  }),
-  parseUnits: jest.fn((value: string, unit: string) => {
-    if (unit === 'gwei') {
-      return BigInt(Math.floor(Number(value) * 1e9));
-    }
-    if (unit === 'ether') {
-      return BigInt(Math.floor(Number(value) * 1e18));
-    }
-    return BigInt(value);
-  }),
-  parseEther: jest.fn((value: string) => {
-    return BigInt(Math.floor(Number(value) * 1e18));
-  }),
-}));
+    isAddress: jest.fn((address: string) => {
+      return /^0x[a-fA-F0-9]{40}$/.test(address);
+    }),
+  };
+});
 
 // Mock the config manager
 jest.mock('../../config/moonbeamConfig.js', () => ({
@@ -96,24 +117,20 @@ jest.mock('../../config/moonbeamConfig.js', () => ({
 
 describe('MoonbeamAdapter', () => {
   let adapter: MoonbeamAdapter;
-  let mockProvider: any;
 
   beforeEach(() => {
-    // Create mock provider
-    mockProvider = {
-      getNetwork: jest.fn(),
-      getBlockNumber: jest.fn(),
-      getBlock: jest.fn(),
-      getGasPrice: jest.fn(),
-      getBalance: jest.fn(),
-      getTransaction: jest.fn(),
-      waitForTransaction: jest.fn(),
-      getFeeData: jest.fn(),
-      removeAllListeners: jest.fn(),
-    };
-
-    // Mock JsonRpcProvider constructor
-    (ethers.JsonRpcProvider as jest.Mock).mockImplementation(() => mockProvider);
+    // Reset all mocks
+    jest.clearAllMocks();
+    
+    // Reset mock provider methods
+    mockProvider.getNetwork.mockReset();
+    mockProvider.getBlockNumber.mockReset();
+    mockProvider.getBlock.mockReset();
+    mockProvider.getFeeData.mockReset();
+    mockProvider.getBalance.mockReset();
+    mockProvider.getTransaction.mockReset();
+    mockProvider.waitForTransaction.mockReset();
+    mockProvider.removeAllListeners.mockReset();
 
     adapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
     adapter.setDebug(true);
@@ -152,7 +169,11 @@ describe('MoonbeamAdapter', () => {
         hash: '0x1234567890abcdef',
         number: 12345,
       });
-      mockProvider.getGasPrice.mockResolvedValue(ethers.parseUnits('1', 'gwei'));
+      mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1', 'gwei'),
+        maxPriorityFeePerGas: ethers.parseUnits('0.1', 'gwei'),
+        maxFeePerGas: ethers.parseUnits('1.1', 'gwei'),
+      });
 
       const networkInfo = await adapter.connect();
 
@@ -173,6 +194,20 @@ describe('MoonbeamAdapter', () => {
     });
 
     it('should disconnect successfully', async () => {
+      // Mock successful connection first
+      mockProvider.getNetwork.mockResolvedValue({
+        chainId: 1287n,
+        name: 'moonbase-alpha',
+      });
+      mockProvider.getBlockNumber.mockResolvedValue(12345);
+      mockProvider.getBlock.mockResolvedValue({
+        hash: '0x1234567890abcdef',
+        number: 12345,
+      });
+      mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1', 'gwei'),
+      });
+
       await adapter.connect();
       expect(adapter.isConnected()).toBe(true);
 
@@ -182,11 +217,27 @@ describe('MoonbeamAdapter', () => {
     });
 
     it('should handle disconnect errors gracefully', async () => {
+      // Mock successful connection first
+      mockProvider.getNetwork.mockResolvedValue({
+        chainId: 1287n,
+        name: 'moonbase-alpha',
+      });
+      mockProvider.getBlockNumber.mockResolvedValue(12345);
+      mockProvider.getBlock.mockResolvedValue({
+        hash: '0x1234567890abcdef',
+        number: 12345,
+      });
+      mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1', 'gwei'),
+      });
+
+      await adapter.connect();
+      
+      // Mock disconnect error
       mockProvider.removeAllListeners.mockImplementation(() => {
         throw new Error('Disconnect error');
       });
 
-      await adapter.connect();
       await expect(adapter.disconnect()).resolves.not.toThrow();
     });
   });
@@ -202,7 +253,9 @@ describe('MoonbeamAdapter', () => {
         hash: '0x1234567890abcdef',
         number: 12345,
       });
-      mockProvider.getGasPrice.mockResolvedValue(ethers.parseUnits('1', 'gwei'));
+      mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1', 'gwei'),
+      });
 
       await adapter.connect();
     });
@@ -236,8 +289,8 @@ describe('MoonbeamAdapter', () => {
         hash: '0x1234567890abcdef',
         number: 12345,
       });
-      mockProvider.getGasPrice.mockResolvedValue(ethers.parseUnits('1', 'gwei'));
       mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1', 'gwei'),
         maxPriorityFeePerGas: ethers.parseUnits('0.1', 'gwei'),
         maxFeePerGas: ethers.parseUnits('1.1', 'gwei'),
       });
@@ -257,7 +310,12 @@ describe('MoonbeamAdapter', () => {
     });
 
     it('should handle EIP-1559 not supported', async () => {
-      mockProvider.getFeeData.mockRejectedValue(new Error('EIP-1559 not supported'));
+      // Mock getFeeData to return data without EIP-1559 fields
+      mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1', 'gwei'),
+        maxPriorityFeePerGas: null,
+        maxFeePerGas: null,
+      });
 
       const gasInfo = await adapter.getGasPrice();
 
@@ -285,7 +343,9 @@ describe('MoonbeamAdapter', () => {
         hash: '0x1234567890abcdef',
         number: 12345,
       });
-      mockProvider.getGasPrice.mockResolvedValue(ethers.parseUnits('1', 'gwei'));
+      mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1', 'gwei'),
+      });
 
       await adapter.connect();
     });
@@ -350,7 +410,9 @@ describe('MoonbeamAdapter', () => {
         hash: '0x1234567890abcdef',
         number: 12345,
       });
-      mockProvider.getGasPrice.mockResolvedValue(ethers.parseUnits('1', 'gwei'));
+      mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1', 'gwei'),
+      });
 
       await adapter.connect();
 
@@ -363,6 +425,9 @@ describe('MoonbeamAdapter', () => {
       mockProvider.getBlock.mockResolvedValue({
         hash: '0xfedcba0987654321',
         number: 54321,
+      });
+      mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1.5', 'gwei'),
       });
 
       const networkInfo = await adapter.switchNetwork(MoonbeamNetwork.MAINNET);
@@ -397,13 +462,10 @@ describe('MoonbeamAdapter', () => {
   });
 
   describe('Utility Methods', () => {
-    it('should get underlying provider', () => {
+    it('should get underlying provider', async () => {
       expect(adapter.getProvider()).toBeNull();
 
-      // Mock provider creation
-      (ethers.JsonRpcProvider as jest.Mock).mockImplementation(() => mockProvider);
-      
-      // Connect to get provider
+      // Mock successful connection
       mockProvider.getNetwork.mockResolvedValue({
         chainId: 1287n,
         name: 'moonbase-alpha',
@@ -413,11 +475,12 @@ describe('MoonbeamAdapter', () => {
         hash: '0x1234567890abcdef',
         number: 12345,
       });
-      mockProvider.getGasPrice.mockResolvedValue(ethers.parseUnits('1', 'gwei'));
-
-      adapter.connect().then(() => {
-        expect(adapter.getProvider()).toBe(mockProvider);
+      mockProvider.getFeeData.mockResolvedValue({
+        gasPrice: ethers.parseUnits('1', 'gwei'),
       });
+
+      await adapter.connect();
+      expect(adapter.getProvider()).toBe(mockProvider);
     });
 
     it('should get current network', () => {
