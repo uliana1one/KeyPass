@@ -172,7 +172,7 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
   describe('DID Creation and Format Tests', () => {
     it('should create valid KILT DIDs for test addresses', async () => {
       for (const address of TEST_CONFIG.testAddresses) {
-        const did = kiltDidProvider.createDid(address);
+        const did = await kiltDidProvider.createDid(address);
         
         expect(did).toMatch(/^did:kilt:[5][1-9A-HJ-NP-Za-km-z]{47}$/);
         expect(did).toBe(`did:kilt:${address}`);
@@ -185,7 +185,7 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
 
     it('should create valid KILT DID documents', async () => {
       for (const address of TEST_CONFIG.testAddresses) {
-        const didDocument = kiltDidProvider.createDIDDocument(address);
+        const didDocument = await kiltDidProvider.createDIDDocument(address);
         
         expect(didDocument).toBeDefined();
         expect(didDocument.id).toBe(`did:kilt:${address}`);
@@ -241,7 +241,7 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
   describe('DID Document Structure Tests', () => {
     it('should create DID documents with proper KILT context', async () => {
       const address = TEST_CONFIG.testAddresses[0];
-      const didDocument = kiltDidProvider.createDIDDocument(address);
+      const didDocument = await kiltDidProvider.createDIDDocument(address);
       
       expect(didDocument['@context']).toContain('https://www.w3.org/ns/did/v1');
       expect(didDocument['@context']).toContain('https://w3id.org/security/suites/sr25519-2020/v1');
@@ -252,7 +252,7 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
 
     it('should create verification methods with correct types', async () => {
       const address = TEST_CONFIG.testAddresses[0];
-      const didDocument = kiltDidProvider.createDIDDocument(address);
+      const didDocument = await kiltDidProvider.createDIDDocument(address);
       
       expect(didDocument.verificationMethod).toBeDefined();
       expect(didDocument.verificationMethod?.length).toBeGreaterThan(0);
@@ -305,7 +305,7 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
       const malformedAddress = 'invalid-address';
       
       try {
-        kiltDidProvider.createDid(malformedAddress);
+        await kiltDidProvider.createDid(malformedAddress);
         fail('Expected error for malformed address');
       } catch (error) {
         expect(error).toBeDefined();
@@ -412,11 +412,11 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
       const address = TEST_CONFIG.testAddresses[0];
       
       // 1. Create DID
-      const did = kiltDidProvider.createDid(address);
+      const did = await kiltDidProvider.createDid(address);
       testData.createdDIDs.push(did);
       
       // 2. Create DID document
-      const didDocument = kiltDidProvider.createDIDDocument(address);
+      const didDocument = await kiltDidProvider.createDIDDocument(address);
       
       // 3. Resolve DID
       const resolved = await kiltDidProvider.resolve(did);
@@ -437,7 +437,7 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
       const address = TEST_CONFIG.testAddresses[0];
       
       // Create initial DID document
-      const initialDocument = kiltDidProvider.createDIDDocument(address);
+      const initialDocument = await kiltDidProvider.createDIDDocument(address);
       const initialVerificationMethods = initialDocument.verificationMethod?.length || 0;
       
       // Add additional verification method
@@ -470,7 +470,7 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
       const longAddress = '5' + 'A'.repeat(47); // 48 character address
       
       try {
-        const did = kiltDidProvider.createDid(longAddress);
+        const did = await kiltDidProvider.createDid(longAddress);
         expect(did).toBe(`did:kilt:${longAddress}`);
         console.log('✅ Long address handling passed');
       } catch (error) {
@@ -490,7 +490,7 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
       };
       
       // This should not cause issues in DID document creation
-      const didDocument = kiltDidProvider.createDIDDocument(address);
+      const didDocument = await kiltDidProvider.createDIDDocument(address);
       
       expect(didDocument).toBeDefined();
       console.log('✅ Special character handling passed');
@@ -502,8 +502,8 @@ describeLive('KILTDIDProvider Live Integration Tests', () => {
       
       // Perform same operation multiple times
       for (let i = 0; i < 5; i++) {
-        const did = kiltDidProvider.createDid(address);
-        const didDocument = kiltDidProvider.createDIDDocument(address);
+        const did = await kiltDidProvider.createDid(address);
+        const didDocument = await kiltDidProvider.createDIDDocument(address);
         const resolved = await kiltDidProvider.resolve(did);
         
         results.push({
