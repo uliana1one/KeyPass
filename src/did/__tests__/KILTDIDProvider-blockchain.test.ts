@@ -37,6 +37,30 @@ jest.mock('../../adapters/KiltAdapter.js', () => ({
           batchAll: jest.fn().mockReturnValue({ method: 'utility.batchAll' }),
         },
       },
+      rpc: {
+        system: {
+          accountNextIndex: jest.fn().mockResolvedValue({ toNumber: () => 1 }),
+          account: jest.fn().mockResolvedValue({ data: { free: 1000000000 } }),
+        },
+        chain: {
+          getBlock: jest.fn().mockResolvedValue({
+            block: {
+              extrinsics: [
+                {
+                  hash: { toString: () => '0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0' },
+                  method: { toString: () => 'system.remark' },
+                  isSigned: true,
+                  signer: { toString: () => '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY' },
+                }
+              ],
+              header: {
+                number: { toNumber: () => 12345 },
+                hash: { toString: () => '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' },
+              },
+            },
+          }),
+        },
+      },
     },
   })),
 }));
@@ -102,10 +126,72 @@ describe('KILTDIDProvider Blockchain Registration', () => {
         isConnected: true,
         tx: {
           system: {
-            remark: jest.fn().mockReturnValue({ method: 'system.remark' }),
+            remark: jest.fn().mockReturnValue({ 
+              method: 'system.remark',
+              signAsync: jest.fn().mockResolvedValue({
+                hash: {
+                  toHex: () => '0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0',
+                },
+                send: jest.fn().mockResolvedValue({
+                  hash: '0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0',
+                }),
+              }),
+              paymentInfo: jest.fn().mockResolvedValue({
+                partialFee: { 
+                  toBigInt: () => 1000000000n,
+                  toBn: () => ({ toNumber: () => 1000000000 }),
+                },
+                weight: { toBigInt: () => 1000000n },
+              }),
+            }),
           },
           utility: {
-            batchAll: jest.fn().mockReturnValue({ method: 'utility.batchAll' }),
+            batchAll: jest.fn().mockReturnValue({ 
+              method: 'utility.batchAll',
+              signAsync: jest.fn().mockResolvedValue({
+                hash: {
+                  toHex: () => '0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0',
+                },
+                send: jest.fn().mockResolvedValue({
+                  hash: '0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0',
+                }),
+              }),
+              paymentInfo: jest.fn().mockResolvedValue({
+                partialFee: { 
+                  toBigInt: () => 1000000000n,
+                  toBn: () => ({ toNumber: () => 1000000000 }),
+                },
+                weight: { toBigInt: () => 1000000n },
+              }),
+            }),
+          },
+        },
+        rpc: {
+          system: {
+            accountNextIndex: jest.fn().mockResolvedValue({ toNumber: () => 1 }),
+            account: jest.fn().mockResolvedValue({ data: { free: 1000000000 } }),
+          },
+          chain: {
+            getBlock: jest.fn().mockResolvedValue({
+              block: {
+                extrinsics: [
+                  {
+                    hash: { toString: () => '0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0' },
+                    method: { toString: () => 'system.remark' },
+                    isSigned: true,
+                    signer: { toString: () => '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY' },
+                  }
+                ],
+                header: {
+                  number: { toNumber: () => 12345 },
+                  hash: { toString: () => '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' },
+                },
+              },
+            }),
+            getBlockHash: jest.fn().mockResolvedValue('0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'),
+          },
+          author: {
+            pendingExtrinsics: jest.fn().mockResolvedValue([]),
           },
         },
       },

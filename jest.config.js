@@ -35,11 +35,14 @@ export default {
     // Handle specific ESM packages
     '^@walletconnect/(.*)$': '<rootDir>/node_modules/@walletconnect/$1',
     '^preact/(.*)$': '<rootDir>/node_modules/preact/$1',
+    // Handle IPFS modules
+    '^helia$': '<rootDir>/node_modules/helia/dist/src/index.js',
+    '^ipfs-unixfs$': '<rootDir>/node_modules/ipfs-unixfs/dist/src/index.js',
     // Handle CSS imports
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/mocks/', '/__mocks__/'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node', 'mjs'],
   // Add this to handle ESM modules
   globals: {

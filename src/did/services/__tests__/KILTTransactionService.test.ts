@@ -48,6 +48,17 @@ const mockApiPromise: jest.Mocked<ApiPromise> = {
     author: {
       pendingExtrinsics: jest.fn().mockResolvedValue([]),
     },
+    chain: {
+      getBlock: jest.fn().mockResolvedValue({
+        block: {
+          header: {
+            hash: { toHex: () => '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' }
+          },
+          extrinsics: []
+        }
+      }),
+      getBlockHash: jest.fn().mockResolvedValue('0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'),
+    },
   },
 } as any;
 
@@ -68,6 +79,18 @@ describe('KILTTransactionService', () => {
         },
         author: {
           pendingExtrinsics: jest.fn().mockResolvedValue([]),
+        },
+        chain: {
+          getBlock: jest.fn().mockResolvedValue({
+            block: {
+              header: {
+                number: { toNumber: () => 12345 },
+                hash: { toHex: () => '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' }
+              },
+              extrinsics: []
+            }
+          }),
+          getBlockHash: jest.fn().mockResolvedValue('0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'),
         },
       },
     } as any;
@@ -193,7 +216,7 @@ describe('KILTTransactionService', () => {
   describe('submitTransaction', () => {
     const mockOptions: KILTTransactionOptions = {
       signer: mockKeyringPair,
-      waitForConfirmation: false,
+      waitForConfirmation: true,
     };
 
     it('should submit transaction successfully', async () => {
@@ -201,7 +224,35 @@ describe('KILTTransactionService', () => {
         ...mockExtrinsic,
         signAsync: jest.fn().mockResolvedValue({
           hash: { toHex: () => '0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0' },
-          send: jest.fn().mockResolvedValue(undefined),
+          send: jest.fn().mockImplementation((callback) => {
+            // Simulate the callback being called with proper status sequence
+            setTimeout(() => {
+              // First call: inBlock status
+              callback({
+                status: {
+                  type: 'InBlock',
+                  asInBlock: { toHex: () => '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' }
+                },
+                isInBlock: true,
+                isFinalized: false,
+                events: []
+              });
+              
+              // Second call: finalized status
+              setTimeout(() => {
+                callback({
+                  status: {
+                    type: 'Finalized',
+                    asFinalized: { toHex: () => '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' }
+                  },
+                  isFinalized: true,
+                  isInBlock: false,
+                  events: []
+                });
+              }, 10);
+            }, 0);
+            return jest.fn(); // Return unsubscribe function
+          }),
         }),
       };
 
@@ -369,14 +420,42 @@ describe('KILTTransactionService', () => {
         ...mockExtrinsic,
         signAsync: jest.fn().mockResolvedValue({
           hash: { toHex: () => '0xnewhash' },
-          send: jest.fn().mockResolvedValue(undefined),
+          send: jest.fn().mockImplementation((callback) => {
+            // Simulate the callback being called with proper status sequence
+            setTimeout(() => {
+              // First call: inBlock status
+              callback({
+                status: {
+                  type: 'InBlock',
+                  asInBlock: { toHex: () => '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' }
+                },
+                isInBlock: true,
+                isFinalized: false,
+                events: []
+              });
+              
+              // Second call: finalized status
+              setTimeout(() => {
+                callback({
+                  status: {
+                    type: 'Finalized',
+                    asFinalized: { toHex: () => '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' }
+                  },
+                  isFinalized: true,
+                  isInBlock: false,
+                  events: []
+                });
+              }, 10);
+            }, 0);
+            return jest.fn(); // Return unsubscribe function
+          }),
         }),
       };
 
       const result = await transactionService.retryTransaction(
         txHash,
         testExtrinsic,
-        { signer: mockKeyringPair, waitForConfirmation: false }
+        { signer: mockKeyringPair, waitForConfirmation: true }
       );
 
       expect(result.success).toBe(true);

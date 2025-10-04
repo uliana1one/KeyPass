@@ -7,23 +7,27 @@ import {
 } from '../../errors/WalletErrors.js';
 
 // Mock the API and providers for testing
-jest.mock('@polkadot/api', () => ({
-  ApiPromise: {
-    create: jest.fn().mockResolvedValue({
-      isReady: Promise.resolve(),
-      runtimeChain: { toString: () => 'KILT Spiritnet' },
-      runtimeVersion: {
-        specVersion: { toString: () => '5' },
-        specName: { toString: () => 'kilt' },
-      },
-      genesisHash: { toString: () => '0x1234567890123456789012345678901234567890' },
-      disconnect: jest.fn(),
-    }),
-  },
-  WsProvider: jest.fn().mockImplementation(() => ({
+jest.mock('@polkadot/api', () => {
+  const mockApi = {
+    isReady: Promise.resolve(),
+    runtimeChain: { toString: () => 'KILT Spiritnet' },
+    runtimeVersion: {
+      specVersion: { toString: () => '5' },
+      specName: { toString: () => 'kilt' },
+    },
+    genesisHash: { toString: () => '0x1234567890123456789012345678901234567890' },
     disconnect: jest.fn(),
-  })),
-}));
+  };
+
+  return {
+    ApiPromise: {
+      create: jest.fn().mockResolvedValue(mockApi),
+    },
+    WsProvider: jest.fn().mockImplementation(() => ({
+      disconnect: jest.fn(),
+    })),
+  };
+});
 
 // Mock extension dapp
 jest.mock('@polkadot/extension-dapp', () => ({
@@ -71,11 +75,42 @@ describe('KiltAdapter', () => {
     });
     
     // Reset all mocks
-    const { web3Enable } = require('@polkadot/extension-dapp');
-    web3Enable.mockResolvedValue(true); // Default to successful resolution
+    jest.clearAllMocks();
+    
+    // Reset extension dapp mocks
+    const { web3Enable, web3Accounts, web3FromAddress } = require('@polkadot/extension-dapp');
+    web3Enable.mockResolvedValue(true);
+    web3Accounts.mockResolvedValue([
+      {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account' },
+      },
+    ]);
+    web3FromAddress.mockResolvedValue({
+      signer: {
+        signRaw: jest.fn().mockResolvedValue({
+          signature: '0x' + '1'.repeat(128),
+        }),
+      },
+    });
+    
+    // Reset API mocks
+    const { ApiPromise, WsProvider } = require('@polkadot/api');
+    ApiPromise.create.mockResolvedValue({
+      isReady: Promise.resolve(),
+      runtimeChain: { toString: () => 'KILT Spiritnet' },
+      runtimeVersion: {
+        specVersion: { toString: () => '5' },
+        specName: { toString: () => 'kilt' },
+      },
+      genesisHash: { toString: () => '0x1234567890123456789012345678901234567890' },
+      disconnect: jest.fn(),
+    });
+    WsProvider.mockImplementation(() => ({
+      disconnect: jest.fn(),
+    }));
     
     kiltAdapter = new KiltAdapter();
-    jest.clearAllMocks();
   });
 
   afterEach(async () => {
@@ -114,7 +149,7 @@ describe('KiltAdapter', () => {
 
       await expect(kiltAdapter.connect()).rejects.toThrow(WalletConnectionError);
       expect(kiltAdapter.getChainInfo()).toBeNull();
-    });
+    }, 20000); // Increase timeout for retry logic
   });
 
   describe('enable', () => {
