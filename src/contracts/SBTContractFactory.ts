@@ -71,7 +71,7 @@ export interface NetworkContractAddresses {
  */
 export interface ABIVersion {
   version: string;
-  abi: SBTContractABI;
+  abi: any[];
   contractName: string;
   compilerVersion: string;
   createdAt: string;
@@ -148,7 +148,7 @@ export class SBTContractFactory {
   /**
    * Get default SBT ABI
    */
-  private getDefaultSBTABI(): SBTContractABI {
+  private getDefaultSBTABI(): any[] {
     return [
       // ERC-721 Standard Methods
       {
@@ -208,7 +208,7 @@ export class SBTContractFactory {
         stateMutability: 'nonpayable',
         type: 'constructor',
       },
-    ] as SBTContractABI;
+    ] as any[];
   }
 
   /**
@@ -354,7 +354,6 @@ export class SBTContractFactory {
         deploymentCost: receipt.gasUsed * (receipt.gasPrice || BigInt(0)),
         creationCodeHash: this.calculateCodeHash(bytecode),
         runtimeCodeHash: await this.getRuntimeCodeHash(contractAddress, provider),
-        verificationResult,
       };
 
       if (this.debugMode) {
@@ -427,7 +426,7 @@ export class SBTContractFactory {
         }
 
         const contract = await factory.deploy(...deploymentParams, deploymentOptions);
-        return contract;
+        return contract as Contract;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error');
         
@@ -476,7 +475,7 @@ export class SBTContractFactory {
    */
   public async verifyContract(
     contractAddress: string,
-    abi: SBTContractABI,
+    abi: any[],
     constructorArgs: any[],
     network?: string
   ): Promise<ContractVerificationResult> {
@@ -750,7 +749,7 @@ contract SBTSimple is ERC721, Ownable {
    */
   public addABIVersion(
     version: string,
-    abi: SBTContractABI,
+    abi: any[],
     contractName: string,
     compilerVersion: string,
     setActive: boolean = false

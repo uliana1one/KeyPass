@@ -257,7 +257,7 @@ export class SBTMintingService {
         name: config.constructorArgs.name,
         symbol: config.constructorArgs.symbol,
         baseURI: config.constructorArgs.baseURI,
-        owner: await signer.getAddress(),
+        owner: await signer.getAddress() as `0x${string}`,
         gasLimit: config.gasLimit,
         gasPrice: config.gasPrice,
         maxFeePerGas: config.maxFeePerGas,
@@ -732,7 +732,7 @@ export class SBTMintingService {
         }
 
         // Execute minting transaction
-        const txResponse = await contract.mint(recipient, tokenURI, txOptions);
+        const txResponse = await contract.mint(recipient, tokenURI);
         
         if (this.debugMode) {
           console.log('[SBTMintingService] Transaction submitted:', txResponse.hash);
@@ -1358,8 +1358,6 @@ export class SBTMintingService {
     name: string;
     symbol: string;
     totalSupply: bigint;
-    owner: string;
-    baseURI: string;
   } | null> {
     try {
       if (!await this.isContractDeployed(contractAddress)) {
@@ -1368,20 +1366,16 @@ export class SBTMintingService {
 
       const contract = new SBTContract(contractAddress, this.adapter);
       
-      const [name, symbol, totalSupply, owner, baseURI] = await Promise.all([
+      const [name, symbol, totalSupply] = await Promise.all([
         contract.name(),
         contract.symbol(),
         contract.totalSupply(),
-        contract.owner(),
-        contract.baseURI(),
       ]);
 
       return {
         name,
         symbol,
         totalSupply,
-        owner,
-        baseURI,
       };
     } catch (error) {
       if (this.debugMode) {

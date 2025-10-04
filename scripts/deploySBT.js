@@ -19,13 +19,21 @@
  *   MAX_PRIORITY_FEE_PER_GAS - EIP-1559 priority fee (optional)
  */
 
-const { ethers } = require('ethers');
-const { readFileSync, writeFileSync, existsSync } = require('fs');
-const { join, dirname } = require('path');
+import { ethers } from 'ethers';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
 // Import local modules (assuming they're compiled to JavaScript)
-const { MoonbeamAdapter } = require('../dist/adapters/MoonbeamAdapter.js');
-const { SBTContractFactory } = require('../dist/contracts/SBTContractFactory.js');
+import { MoonbeamAdapter } from '../dist/adapters/MoonbeamAdapter.js';
+import { SBTContractFactory } from '../dist/contracts/SBTContractFactory.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from .env file
+dotenv.config();
 
 /**
  * Load environment variables
@@ -366,11 +374,11 @@ process.on('uncaughtException', (error) => {
 });
 
 // Run main function if this script is executed directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
     console.error('💥 Script execution failed:', error);
     process.exit(1);
   });
 }
 
-module.exports = { deploySBTContract };
+export { deploySBTContract };

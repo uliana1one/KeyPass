@@ -6,10 +6,12 @@
  */
 
 // Contract artifacts
-export { default as SBTSimpleArtifact } from './SBTSimple.json';
-export { default as bytecodeData } from './bytecode.json';
-export { default as deploymentConfigs } from './deployment-configs.json';
-export { default as verificationData } from './verification-data.json';
+import SBTSimpleArtifact from './SBTSimple.json';
+import bytecodeData from './bytecode.json';
+import deploymentConfigs from './deployment-configs.json';
+import verificationData from './verification-data.json';
+
+export { SBTSimpleArtifact, bytecodeData, deploymentConfigs, verificationData };
 
 // Type definitions for artifacts
 export interface ContractArtifact {
@@ -176,43 +178,43 @@ export interface VerificationData {
 
 // Utility functions
 export const getNetworkConfig = (network: string): NetworkConfig | undefined => {
-  return deploymentConfigs.networks[network];
+  return (deploymentConfigs.networks as any)[network];
 };
 
 export const getContractBytecode = (contractName: string = 'SBTSimple'): string => {
-  return bytecodeData[contractName]?.bytecode || '';
+  return (bytecodeData as any)[contractName]?.bytecode || '';
 };
 
 export const getDeployedBytecode = (contractName: string = 'SBTSimple'): string => {
-  return bytecodeData[contractName]?.deployedBytecode || '';
+  return (bytecodeData as any)[contractName]?.deployedBytecode || '';
 };
 
 export const getGasEstimate = (contractName: string = 'SBTSimple', operation: string): string => {
-  return bytecodeData[contractName]?.gasEstimate[operation] || '0';
+  return (bytecodeData as any)[contractName]?.gasEstimate[operation] || '0';
 };
 
 export const getVerificationTemplate = (network: string): VerificationTemplate | undefined => {
-  return verificationData.verificationTemplates[network];
+  return (verificationData.verificationTemplates as any)[network];
 };
 
 export const getContractSourceCode = (contractName: string = 'SBTSimple'): string => {
-  return verificationData.sourceCode[contractName]?.source || '';
+  return (verificationData.sourceCode as any)[contractName]?.source || '';
 };
 
 export const getSupportedNetworks = (): string[] => {
-  return Object.keys(deploymentConfigs.networks);
+  return Object.keys((deploymentConfigs as any).networks);
 };
 
 export const getDefaultConstructorArgs = () => {
-  return deploymentConfigs.defaults.constructorArgs;
+  return (deploymentConfigs as any).defaults.constructorArgs;
 };
 
 export const getDefaultDeploymentConfig = () => {
-  return deploymentConfigs.defaults.deployment;
+  return (deploymentConfigs as any).defaults.deployment;
 };
 
 export const getDefaultVerificationConfig = () => {
-  return deploymentConfigs.defaults.verification;
+  return (deploymentConfigs as any).defaults.verification;
 };
 
 // Network-specific utilities
@@ -257,15 +259,15 @@ export const getContractName = (contractName: string = 'SBTSimple') => {
 
 export const getCompilerVersion = (contractName: string = 'SBTSimple'): string => {
   if (contractName === 'SBTSimple') {
-    return SBTSimpleArtifact.compiler.version;
+    return (SBTSimpleArtifact as any).compiler.version;
   }
-  return bytecodeData[contractName]?.compilerVersion || '';
+  return (bytecodeData as any)[contractName]?.compilerVersion || '';
 };
 
 export const getOptimizationSettings = (contractName: string = 'SBTSimple') => {
   return {
-    enabled: bytecodeData[contractName]?.optimizationEnabled || false,
-    runs: bytecodeData[contractName]?.optimizationRuns || 200,
+    enabled: (bytecodeData as any)[contractName]?.optimizationEnabled || false,
+    runs: (bytecodeData as any)[contractName]?.optimizationRuns || 200,
   };
 };
 
@@ -275,7 +277,7 @@ export const validateNetwork = (network: string): boolean => {
 };
 
 export const validateContractName = (contractName: string): boolean => {
-  return Object.keys(bytecodeData).includes(contractName);
+  return Object.keys(bytecodeData as any).includes(contractName);
 };
 
 export const validateGasEstimate = (gasEstimate: string): boolean => {
