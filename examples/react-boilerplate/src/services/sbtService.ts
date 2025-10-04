@@ -1,5 +1,6 @@
 import { SBTToken, SBTVerificationStatus } from '../components/SBTCard';
 import { API_CONFIG, REAL_SBT_CONTRACTS, ERC721_ABI } from '../config/api';
+import { ethers } from 'ethers';
 
 // Real blockchain RPC endpoints
 const RPC_ENDPOINTS = {
@@ -33,11 +34,60 @@ export interface SBTServiceConfig {
   cacheTimeout?: number;
   enableTestMode?: boolean; // Enable test mode for development
   enableRealData?: boolean; // Enable real data fetching
+  enableMinting?: boolean; // Enable SBT minting functionality
+  moonbeamConfig?: {
+    rpcUrl: string;
+    network: string;
+    chainId: number;
+  };
+}
+
+export interface SBTMintRequest {
+  contractAddress: string;
+  recipient: string;
+  metadata?: {
+    name: string;
+    description: string;
+    image: string;
+    attributes?: Array<{
+      trait_type: string;
+      value: string | number | boolean;
+    }>;
+  };
+  tokenURI?: string;
+  gasLimit?: bigint;
+  gasPrice?: bigint;
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
+}
+
+export interface SBTMintResult {
+  tokenId: string;
+  transactionHash: string;
+  blockNumber: number;
+  gasUsed: bigint;
+  metadataUri: string;
+  contractAddress: string;
+  recipient: string;
+  mintedAt: string;
+}
+
+export interface SBTMintStatus {
+  status: 'idle' | 'preparing' | 'minting' | 'confirming' | 'success' | 'error';
+  progress?: number;
+  message?: string;
+  error?: string;
+  transactionHash?: string;
+  result?: SBTMintResult;
 }
 
 export class SBTService {
   private config: SBTServiceConfig;
   private cache: Map<string, { data: SBTToken[]; timestamp: number }> = new Map();
+  private mintingStatus: SBTMintStatus = { status: 'idle' };
+  private mintingListeners: Array<(status: SBTMintStatus) => void> = [];
+  private provider: ethers.JsonRpcProvider | null = null;
+  private contract: ethers.Contract | null = null;
 
   constructor(config: SBTServiceConfig = {}) {
     this.config = {
@@ -45,8 +95,14 @@ export class SBTService {
       cacheTimeout: 5 * 60 * 1000, // 5 minutes
       enableTestMode: false,
       enableRealData: true,
+      enableMinting: true,
       ...config
     };
+
+    // Initialize provider if Moonbeam config is provided
+    if (this.config.moonbeamConfig && this.config.enableMinting) {
+      this.initializeProvider();
+    }
   }
 
   /**
@@ -555,7 +611,295 @@ export class SBTService {
       entries: Array.from(this.cache.keys())
     };
   }
+
+  /**
+   * Initialize blockchain provider
+   */
+  private initializeProvider(): void {
+    if (!this.config.moonbeamConfig) {
+      console.warn('[SBTService] No Moonbeam config provided for minting');
+      return;
+    }
+
+    try {
+      this.provider = new ethers.JsonRpcProvider(this.config.moonbeamConfig.rpcUrl);
+      console.log('[SBTService] Provider initialized for', this.config.moonbeamConfig.network);
+    } catch (error) {
+      console.error('[SBTService] Failed to initialize provider:', error);
+    }
+  }
+
+  /**
+   * Set contract for minting operations
+   */
+  setContract(contractAddress: string): void {
+    if (!this.provider) {
+      console.warn('[SBTService] Provider not initialized');
+      return;
+    }
+
+    try {
+      // Basic ERC-721 ABI for minting
+      const abi = [
+        'function mint(address to, string memory uri) external returns (uint256)',
+        'function safeMint(address to, string memory uri) external returns (uint256)',
+        'function ownerOf(uint256 tokenId) external view returns (address)',
+        'function tokenURI(uint256 tokenId) external view returns (string)',
+        'function totalSupply() external view returns (uint256)',
+        'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
+      ];
+
+      this.contract = new ethers.Contract(contractAddress, abi, this.provider);
+      console.log('[SBTService] Contract set:', contractAddress);
+    } catch (error) {
+      console.error('[SBTService] Failed to set contract:', error);
+    }
+  }
+
+  /**
+   * Mint SBT token with real blockchain integration
+   */
+  async mintSBT(
+    request: SBTMintRequest,
+    signer: ethers.Signer
+  ): Promise<SBTMintResult> {
+    if (!this.config.enableMinting) {
+      throw new Error('SBT minting is disabled');
+    }
+
+    if (!this.contract) {
+      throw new Error('Contract not set. Call setContract() first.');
+    }
+
+    try {
+      // Update status to preparing
+      this.updateMintingStatus({
+        status: 'preparing',
+        progress: 10,
+        message: 'Preparing minting transaction...'
+      });
+
+      // Connect contract to signer
+      const contractWithSigner = this.contract.connect(signer);
+
+      // Prepare metadata URI
+      let metadataUri = request.tokenURI;
+      if (request.metadata && !request.tokenURI) {
+        // In a real implementation, you would upload metadata to IPFS
+        // For now, we'll create a simple data URI
+        metadataUri = `data:application/json,${encodeURIComponent(JSON.stringify(request.metadata))}`;
+      }
+
+      if (!metadataUri) {
+        throw new Error('No metadata URI provided');
+      }
+
+      // Update status to minting
+      this.updateMintingStatus({
+        status: 'minting',
+        progress: 30,
+        message: 'Submitting minting transaction...'
+      });
+
+      // Estimate gas
+      const gasEstimate = await (contractWithSigner as any).mint.estimateGas(
+        request.recipient,
+        metadataUri,
+        {
+          gasLimit: request.gasLimit,
+          gasPrice: request.gasPrice,
+          maxFeePerGas: request.maxFeePerGas,
+          maxPriorityFeePerGas: request.maxPriorityFeePerGas,
+        }
+      );
+
+      // Execute minting transaction
+      const tx = await (contractWithSigner as any).mint(request.recipient, metadataUri, {
+        gasLimit: gasEstimate * BigInt(120) / BigInt(100), // Add 20% buffer
+        gasPrice: request.gasPrice,
+        maxFeePerGas: request.maxFeePerGas,
+        maxPriorityFeePerGas: request.maxPriorityFeePerGas,
+      });
+
+      // Update status with transaction hash
+      this.updateMintingStatus({
+        status: 'confirming',
+        progress: 60,
+        message: 'Waiting for transaction confirmation...',
+        transactionHash: tx.hash
+      });
+
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+
+      if (!receipt) {
+        throw new Error('Transaction failed - no receipt received');
+      }
+
+      // Find the Transfer event to get the token ID
+      const transferEvent = receipt.logs.find((log: any) => {
+        try {
+          const parsed = this.contract!.interface.parseLog(log);
+          return parsed?.name === 'Transfer' && parsed.args.from === ethers.ZeroAddress;
+        } catch {
+          return false;
+        }
+      });
+
+      if (!transferEvent) {
+        throw new Error('No Transfer event found in transaction');
+      }
+
+      const parsedEvent = this.contract.interface.parseLog(transferEvent);
+      const tokenId = parsedEvent!.args.tokenId.toString();
+
+      // Update status to success
+      const result: SBTMintResult = {
+        tokenId,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed,
+        metadataUri,
+        contractAddress: request.contractAddress,
+        recipient: request.recipient,
+        mintedAt: new Date().toISOString(),
+      };
+
+      this.updateMintingStatus({
+        status: 'success',
+        progress: 100,
+        message: 'SBT minted successfully!',
+        result
+      });
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      this.updateMintingStatus({
+        status: 'error',
+        error: errorMessage
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get current minting status
+   */
+  getMintingStatus(): SBTMintStatus {
+    return { ...this.mintingStatus };
+  }
+
+  /**
+   * Subscribe to minting status updates
+   */
+  onMintingStatusUpdate(callback: (status: SBTMintStatus) => void): () => void {
+    this.mintingListeners.push(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      const index = this.mintingListeners.indexOf(callback);
+      if (index > -1) {
+        this.mintingListeners.splice(index, 1);
+      }
+    };
+  }
+
+  /**
+   * Update minting status and notify listeners
+   */
+  private updateMintingStatus(status: Partial<SBTMintStatus>): void {
+    this.mintingStatus = { ...this.mintingStatus, ...status };
+    
+    // Notify all listeners
+    this.mintingListeners.forEach(callback => {
+      try {
+        callback({ ...this.mintingStatus });
+      } catch (error) {
+        console.error('[SBTService] Error in status update callback:', error);
+      }
+    });
+  }
+
+  /**
+   * Reset minting status
+   */
+  resetMintingStatus(): void {
+    this.mintingStatus = { status: 'idle' };
+    this.updateMintingStatus({});
+  }
+
+  /**
+   * Check if minting is available
+   */
+  isMintingAvailable(): boolean {
+    return !!(this.config.enableMinting && this.provider !== null && this.contract !== null);
+  }
+
+  /**
+   * Get provider status
+   */
+  getProviderStatus(): {
+    available: boolean;
+    connected: boolean;
+    network?: string;
+  } {
+    if (!this.provider || !this.config.moonbeamConfig) {
+      return {
+        available: false,
+        connected: false,
+      };
+    }
+
+    return {
+      available: true,
+      connected: true, // JsonRpcProvider is always "connected"
+      network: this.config.moonbeamConfig.network,
+    };
+  }
+
+  /**
+   * Connect to provider (for wallet connection)
+   */
+  async connectProvider(signer: ethers.Signer): Promise<boolean> {
+    if (!this.provider) {
+      throw new Error('Provider not initialized');
+    }
+
+    try {
+      // Test connection
+      await this.provider.getNetwork();
+      console.log('[SBTService] Provider connected successfully');
+      return true;
+    } catch (error) {
+      console.error('[SBTService] Failed to connect provider:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Disconnect from provider
+   */
+  async disconnectProvider(): Promise<void> {
+    if (this.provider) {
+      // JsonRpcProvider doesn't need explicit disconnection
+      console.log('[SBTService] Provider disconnected');
+    }
+  }
 }
 
-// Export a default instance
-export const sbtService = new SBTService(); 
+// Export a default instance with Moonbeam configuration
+export const sbtService = new SBTService({
+  enableCaching: true,
+  cacheTimeout: 5 * 60 * 1000, // 5 minutes
+  enableTestMode: false,
+  enableRealData: true,
+  enableMinting: true,
+  moonbeamConfig: {
+    rpcUrl: process.env.REACT_APP_MOONBEAM_RPC_URL || 'https://rpc.api.moonbase.moonbeam.network',
+    network: process.env.REACT_APP_MOONBEAM_NETWORK || 'moonbase-alpha',
+    chainId: parseInt(process.env.REACT_APP_MOONBEAM_CHAIN_ID || '1287'),
+  },
+}); 
