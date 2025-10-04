@@ -1,0 +1,148 @@
+{
+  "networks": {
+    "moonbase-alpha": {
+      "chainId": 1287,
+      "name": "Moonbase Alpha",
+      "rpcUrl": "https://rpc.api.moonbase.moonbeam.network",
+      "blockExplorer": "https://moonbase.moonscan.io",
+      "nativeCurrency": {
+        "name": "DEV",
+        "symbol": "DEV",
+        "decimals": 18
+      },
+      "deployment": {
+        "gasLimit": "3000000",
+        "gasPrice": "1000000000",
+        "maxFeePerGas": "1500000000",
+        "maxPriorityFeePerGas": "100000000",
+        "confirmations": 2,
+        "timeout": 300000,
+        "verification": {
+          "enabled": true,
+          "apiKey": "${MOONSCAN_API_KEY}",
+          "delay": 30,
+          "retries": 3
+        }
+      },
+      "contracts": {
+        "SBTSimple": {
+          "address": "",
+          "deployedAt": "",
+          "transactionHash": "",
+          "verified": false,
+          "verificationId": ""
+        }
+      }
+    },
+    "moonbeam": {
+      "chainId": 1284,
+      "name": "Moonbeam",
+      "rpcUrl": "https://rpc.api.moonbeam.network",
+      "blockExplorer": "https://moonscan.io",
+      "nativeCurrency": {
+        "name": "GLMR",
+        "symbol": "GLMR",
+        "decimals": 18
+      },
+      "deployment": {
+        "gasLimit": "3000000",
+        "gasPrice": "1000000000",
+        "maxFeePerGas": "1500000000",
+        "maxPriorityFeePerGas": "100000000",
+        "confirmations": 3,
+        "timeout": 300000,
+        "verification": {
+          "enabled": true,
+          "apiKey": "${MOONSCAN_API_KEY}",
+          "delay": 60,
+          "retries": 5
+        }
+      },
+      "contracts": {
+        "SBTSimple": {
+          "address": "",
+          "deployedAt": "",
+          "transactionHash": "",
+          "verified": false,
+          "verificationId": ""
+        }
+      }
+    },
+    "moonriver": {
+      "chainId": 1285,
+      "name": "Moonriver",
+      "rpcUrl": "https://rpc.api.moonriver.moonbeam.network",
+      "blockExplorer": "https://moonriver.moonscan.io",
+      "nativeCurrency": {
+        "name": "MOVR",
+        "symbol": "MOVR",
+        "decimals": 18
+      },
+      "deployment": {
+        "gasLimit": "3000000",
+        "gasPrice": "1000000000",
+        "maxFeePerGas": "1500000000",
+        "maxPriorityFeePerGas": "100000000",
+        "confirmations": 3,
+        "timeout": 300000,
+        "verification": {
+          "enabled": true,
+          "apiKey": "${MOONSCAN_API_KEY}",
+          "delay": 60,
+          "retries": 5
+        }
+      },
+      "contracts": {
+        "SBTSimple": {
+          "address": "",
+          "deployedAt": "",
+          "transactionHash": "",
+          "verified": false,
+          "verificationId": ""
+        }
+      }
+    }
+  },
+  "defaults": {
+    "contractName": "SBTSimple",
+    "constructorArgs": {
+      "name": "KeyPass SBT",
+      "symbol": "KPASS",
+      "baseURI": "https://api.keypass.com/metadata/"
+    },
+    "deployment": {
+      "gasLimit": "3000000",
+      "gasPrice": "1000000000",
+      "maxFeePerGas": "1500000000",
+      "maxPriorityFeePerGas": "100000000",
+      "confirmations": 2,
+      "timeout": 300000,
+      "retries": 3,
+      "retryDelay": 5000
+    },
+    "verification": {
+      "enabled": true,
+      "delay": 30,
+      "retries": 3,
+      "retryDelay": 10000
+    }
+  },
+  "environment": {
+    "required": [
+      "PRIVATE_KEY",
+      "MOONSCAN_API_KEY"
+    ],
+    "optional": [
+      "GAS_LIMIT",
+      "GAS_PRICE",
+      "MAX_FEE_PER_GAS",
+      "MAX_PRIORITY_FEE_PER_GAS"
+    ]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T10:30:00.000Z",
+    "description": "Deployment configurations for SBT contracts on Moonbeam networks"
+  }
+}

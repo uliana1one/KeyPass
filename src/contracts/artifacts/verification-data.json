@@ -1,0 +1,120 @@
+{
+  "verificationTemplates": {
+    "moonbase-alpha": {
+      "apiUrl": "https://api-moonbase.moonscan.io/api",
+      "endpoint": "?module=contract&action=verifysourcecode",
+      "requiredFields": [
+        "apikey",
+        "module",
+        "action",
+        "contractaddress",
+        "sourceCode",
+        "codeformat",
+        "contractname",
+        "compilerversion",
+        "optimizationUsed",
+        "runs",
+        "constructorArguements"
+      ],
+      "optionalFields": [
+        "evmversion",
+        "licenseType",
+        "libraryname1",
+        "libraryaddress1"
+      ]
+    },
+    "moonbeam": {
+      "apiUrl": "https://api.moonscan.io/api",
+      "endpoint": "?module=contract&action=verifysourcecode",
+      "requiredFields": [
+        "apikey",
+        "module",
+        "action",
+        "contractaddress",
+        "sourceCode",
+        "codeformat",
+        "contractname",
+        "compilerversion",
+        "optimizationUsed",
+        "runs",
+        "constructorArguements"
+      ],
+      "optionalFields": [
+        "evmversion",
+        "licenseType",
+        "libraryname1",
+        "libraryaddress1"
+      ]
+    },
+    "moonriver": {
+      "apiUrl": "https://api-moonriver.moonscan.io/api",
+      "endpoint": "?module=contract&action=verifysourcecode",
+      "requiredFields": [
+        "apikey",
+        "module",
+        "action",
+        "contractaddress",
+        "sourceCode",
+        "codeformat",
+        "contractname",
+        "compilerversion",
+        "optimizationUsed",
+        "runs",
+        "constructorArguements"
+      ],
+      "optionalFields": [
+        "evmversion",
+        "licenseType",
+        "libraryname1",
+        "libraryaddress1"
+      ]
+    }
+  },
+  "sourceCode": {
+    "SBTSimple": {
+      "source": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.19;\n\nimport \"@openzeppelin/contracts/token/ERC721/ERC721.sol\";\nimport \"@openzeppelin/contracts/access/Ownable.sol\";\n\ncontract SBTSimple is ERC721, Ownable {\n    string private _baseTokenURI;\n    \n    constructor(\n        string memory name,\n        string memory symbol,\n        string memory baseURI\n    ) ERC721(name, symbol) Ownable(msg.sender) {\n        _baseTokenURI = baseURI;\n    }\n    \n    function mint(address to, string memory uri) public onlyOwner returns (uint256) {\n        uint256 tokenId = totalSupply() + 1;\n        _safeMint(to, tokenId);\n        if (bytes(uri).length > 0) {\n            _setTokenURI(tokenId, uri);\n        }\n        return tokenId;\n    }\n    \n    function burn(uint256 tokenId) public {\n        require(ownerOf(tokenId) == msg.sender || owner() == msg.sender, \"Not authorized\");\n        _burn(tokenId);\n    }\n    \n    function _baseURI() internal view override returns (string memory) {\n        return _baseTokenURI;\n    }\n    \n    // Soulbound functionality - disable transfers\n    function _beforeTokenTransfer(\n        address from,\n        address to,\n        uint256 tokenId,\n        uint256 batchSize\n    ) internal override {\n        require(from == address(0) || to == address(0), \"SBT: transfers not allowed\");\n        super._beforeTokenTransfer(from, to, tokenId, batchSize);\n    }\n}",
+      "compilerVersion": "0.8.19+commit.7dd6d404",
+      "optimizationEnabled": true,
+      "optimizationRuns": 200,
+      "evmVersion": "london",
+      "licenseType": "3"
+    }
+  },
+  "verificationHistory": {
+    "moonbase-alpha": [],
+    "moonbeam": [],
+    "moonriver": []
+  },
+  "verificationStatus": {
+    "pending": "Pending",
+    "success": "Success",
+    "failed": "Failed",
+    "already_verified": "Already Verified",
+    "invalid_source_code": "Invalid Source Code",
+    "compilation_error": "Compilation Error",
+    "timeout": "Timeout"
+  },
+  "verificationResults": {
+    "success": {
+      "status": "success",
+      "message": "Contract verified successfully",
+      "explorerUrl": "https://{network}.moonscan.io/address/{address}#code"
+    },
+    "failed": {
+      "status": "failed",
+      "message": "Contract verification failed",
+      "error": "Verification error details"
+    },
+    "pending": {
+      "status": "pending",
+      "message": "Verification in progress",
+      "estimatedTime": "30-60 seconds"
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T10:30:00.000Z",
+    "description": "Contract verification data and templates for Moonbeam networks"
+  }
+}
