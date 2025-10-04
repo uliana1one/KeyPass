@@ -18,9 +18,13 @@
     "test:docker": "docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test",
     "test:docker:cleanup": "docker-compose -f docker-compose.test.yml down -v",
     "verify:production": "node scripts/production-verification.js",
-    "test:e2e": "jest --testPathPattern=e2e",
+    "test:e2e": "jest --config jest.e2e.config.js",
+    "test:e2e:watch": "jest --config jest.e2e.config.js --watch",
+    "test:e2e:coverage": "jest --config jest.e2e.config.js --coverage",
     "test:integration": "jest --testPathPattern=integration",
-    "test:integration:kilt": "jest --testPathPattern=KILTDIDProvider.live"
+    "test:integration:kilt": "jest --testPathPattern=KILTDIDProvider.live",
+    "test:sbt:e2e": "jest --config jest.e2e.config.js --testPathPattern=SBTMinting.e2e.test.ts",
+    "test:all": "npm run test && npm run test:e2e"
   },
   "keywords": [
     "polkadot",
