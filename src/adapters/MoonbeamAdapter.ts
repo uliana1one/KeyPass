@@ -6,7 +6,7 @@
  */
 
 import { ethers, JsonRpcProvider, Network, TransactionResponse } from 'ethers';
-import { MoonbeamConfigManager, MoonbeamNetwork, MoonbeamErrorCode, MoonbeamErrorMessages } from '../config/moonbeamConfig.js';
+import { MoonbeamConfigManager, MoonbeamNetwork, MoonbeamErrorCode, MoonbeamErrorMessages } from '../config/moonbeamConfig';
 
 /**
  * Moonbeam network information interface

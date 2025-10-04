@@ -9,11 +9,11 @@
 import { ethers, Signer, ContractTransactionReceipt, ContractTransactionResponse } from 'ethers';
 import { createHelia } from 'helia';
 import { UnixFS } from 'ipfs-unixfs';
-import { SBTContract } from '../contracts/SBTContract.js';
-import { SBTContractFactory } from '../contracts/SBTContractFactory.js';
-import { MoonbeamAdapter } from '../adapters/MoonbeamAdapter.js';
-import { MoonbeamNetwork, MoonbeamErrorCode } from '../config/moonbeamConfig.js';
-import { WalletError } from '../errors/WalletErrors.js';
+import { SBTContract } from '../contracts/SBTContract';
+import { SBTContractFactory } from '../contracts/SBTContractFactory';
+import { MoonbeamAdapter } from '../adapters/MoonbeamAdapter';
+import { MoonbeamNetwork, MoonbeamErrorCode } from '../config/moonbeamConfig';
+import { WalletError } from '../errors/WalletErrors';
 import { 
   SBTMintParams, 
   SBTTokenMetadata, 
@@ -22,7 +22,7 @@ import {
   SBTContractErrorType,
   SBTContractDeploymentConfig,
   SBTContractDeploymentResult
-} from '../contracts/types/SBTContractTypes.js';
+} from '../contracts/types/SBTContractTypes';
 import { 
   getNetworkConfig, 
   getContractBytecode, 
@@ -31,7 +31,7 @@ import {
   isTestnet,
   getExplorerUrl,
   ArtifactUtils
-} from '../contracts/artifacts/index.js';
+} from '../contracts/artifacts/index';
 
 /**
  * Custom error for SBT Minting Service operations

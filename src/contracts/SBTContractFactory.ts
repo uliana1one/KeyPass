@@ -6,15 +6,15 @@
  */
 
 import { ethers, ContractFactory, Contract, ContractTransactionResponse } from 'ethers';
-import { MoonbeamAdapter } from '../adapters/MoonbeamAdapter.js';
-import { MoonbeamErrorCode } from '../config/moonbeamConfig.js';
-import { WalletError } from '../errors/WalletErrors.js';
+import { MoonbeamAdapter } from '../adapters/MoonbeamAdapter';
+import { MoonbeamErrorCode } from '../config/moonbeamConfig';
+import { WalletError } from '../errors/WalletErrors';
 import { 
   SBTContractAddress, 
   SBTContractDeploymentConfig, 
   SBTContractDeploymentResult,
   SBTContractABI 
-} from './types/SBTContractTypes.js';
+} from './types/SBTContractTypes';
 
 /**
  * Custom error for SBT Contract Factory operations

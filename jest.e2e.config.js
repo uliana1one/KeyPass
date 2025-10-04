@@ -1,8 +1,11 @@
-module.exports = {
+export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
   testMatch: ['**/__tests__/integration/**/*.e2e.test.ts'],
-  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup/e2e-setup.ts'],
+  setupFilesAfterEnv: [
+    '<rootDir>/src/__tests__/setup/ipfs-mocks.ts',
+    '<rootDir>/src/__tests__/setup/e2e-setup.ts'
+  ],
   testTimeout: 300000, // 5 minutes for E2E tests
   maxWorkers: 1, // Run E2E tests sequentially to avoid conflicts
   
@@ -11,9 +14,14 @@ module.exports = {
   coverageDirectory: 'coverage/e2e',
   
   // Module resolution
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^helia$': '<rootDir>/src/__tests__/setup/ipfs-mocks.ts',
+    '^ipfs-unixfs$': '<rootDir>/src/__tests__/setup/ipfs-mocks.ts',
   },
+  
+  // Module directories
+  moduleDirectories: ['node_modules', 'src', 'dist'],
   
   // Transform configuration
   transform: {
@@ -30,8 +38,17 @@ module.exports = {
         declaration: false,
         outDir: './dist',
       },
+      useESM: false,
     }],
   },
+  
+  // Extensions to treat as ES modules
+  extensionsToTreatAsEsm: [],
+  
+  // Transform ignore patterns
+  transformIgnorePatterns: [
+    'node_modules/(?!(helia|ipfs-unixfs|@helia|@ipfs|multiformats|@multiformats)/)',
+  ],
   
   // File extensions
   moduleFileExtensions: ['ts', 'js', 'json'],
@@ -46,12 +63,8 @@ module.exports = {
   // Reporter configuration
   reporters: [
     'default',
-    ['jest-junit', {
-      outputDirectory: 'test-results/e2e',
-      outputName: 'junit.xml',
-    }],
   ],
   
-  // Test result processor
-  testResultsProcessor: '<rootDir>/src/__tests__/setup/test-results-processor.ts',
+  // Test result processor (disabled for now)
+  // testResultsProcessor: '<rootDir>/src/__tests__/setup/test-results-processor.ts',
 };

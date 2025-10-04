@@ -1,4 +1,6 @@
 import { ethers } from 'ethers';
+import { config } from 'dotenv';
+import { join } from 'path';
 
 /**
  * Global Setup for E2E Tests
@@ -11,6 +13,10 @@ import { ethers } from 'ethers';
 
 export default async function globalSetup() {
   console.log('=== Global E2E Test Setup ===');
+  
+  // Load E2E environment variables
+  const envPath = join(process.cwd(), '.env.e2e');
+  config({ path: envPath });
   
   // Set test environment
   process.env.NODE_ENV = 'test';
