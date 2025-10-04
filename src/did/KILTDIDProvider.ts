@@ -14,7 +14,8 @@ import {
   KILTDIDStatus,
   KILTDIDDocument,
   KILTVerificationMethod,
-  KILTService
+  KILTService,
+  KILTKeyType
 } from './types/KILTTypes.js';
 import { KILTConfigManager, KILTNetwork } from '../config/kiltConfig.js';
 
@@ -212,13 +213,13 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
   }
 
   /**
-   * Registers a KILT DID on the blockchain.
+   * Registers a KILT DID on the blockchain using real KILT parachain integration.
    * Creates the DID with associated verification methods and services.
    * @param request - The KILT DID creation request
    * @returns A promise that resolves to the creation response
    * @throws {KILTError} If registration fails
    */
-  public async registerDIDOnChain(request: KILTCreateDIDRequest): Promise<KILTCreateDIDResponse> {
+  public async registerDidOnchain(request: KILTCreateDIDRequest): Promise<KILTCreateDIDResponse> {
     try {
       // Validate the request
       this.validateAddress(request.accountAddress);
@@ -381,7 +382,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
   }
 
   /**
-   * Waits for transaction confirmation on the KILT parachain.
+   * Waits for transaction confirmation on the KILT parachain using real blockchain monitoring.
    * @param transactionHash - The transaction hash to wait for
    * @returns A promise that resolves to confirmation details
    * @throws {KILTError} If confirmation times out or fails
@@ -412,47 +413,72 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
           ));
         }, this.confirmationTimeout);
 
-        // Poll for transaction status
-        const pollInterval = 2000; // Poll every 2 seconds
-        const pollTransaction = async () => {
+        // Use KILT's transaction tracking to monitor the transaction
+        const trackTransaction = async () => {
           try {
-            // Check if transaction is in the transaction pool
+            // First, check if transaction is still in the pool
             const pendingExtrinsics = await api.rpc.author.pendingExtrinsics();
             const isPending = pendingExtrinsics.some((extrinsic: any) => 
               extrinsic.hash.toHex() === transactionHash
             );
 
-            if (!isPending) {
-              // Transaction is no longer pending, check if it's confirmed
-              try {
-                // Try to get the transaction status
-                const txStatus = await api.rpc.chain.getBlockHash();
+            if (isPending) {
+              // Transaction is still pending, continue monitoring
+              setTimeout(trackTransaction, 2000);
+              return;
+            }
+
+            // Transaction is no longer pending, check if it was included in a block
+            const currentBlockHash = await api.rpc.chain.getFinalizedHead();
+            const currentBlock = await api.rpc.chain.getBlock(currentBlockHash);
+            
+            // Search backwards through recent blocks to find the transaction
+            let searchBlockHash = currentBlockHash;
+            let searchDepth = 0;
+            const maxSearchDepth = 10; // Search last 10 blocks
+
+            while (searchDepth < maxSearchDepth) {
+              const block = await api.rpc.chain.getBlock(searchBlockHash);
+              
+              // Check if our transaction is in this block
+              const transactionFound = block.block.extrinsics.some((extrinsic: any) => 
+                extrinsic.hash.toHex() === transactionHash
+              );
+
+              if (transactionFound) {
+                // Transaction found! Get block details
+                const blockNumber = await api.rpc.chain.getHeader(searchBlockHash);
                 
-                // For now, we'll use a simplified approach
-                // In a real implementation, you'd track the transaction through the blockchain
                 clearTimeout(timeout);
                 resolve({
-                  blockNumber: Math.floor(Math.random() * 10000000) + 5000000,
-                  blockHash: txStatus.toHex(),
+                  blockNumber: blockNumber.number.toNumber(),
+                  blockHash: searchBlockHash,
                 });
-              } catch (blockError) {
-                console.warn('Error checking block status:', blockError);
-                // Continue polling
-                setTimeout(pollTransaction, pollInterval);
+                return;
               }
-            } else {
-              // Transaction is still pending, continue polling
-              setTimeout(pollTransaction, pollInterval);
+
+              // Move to previous block
+              const header = await api.rpc.chain.getHeader(searchBlockHash);
+              searchBlockHash = header.parentHash.toHex();
+              searchDepth++;
             }
-          } catch (pollError) {
-            console.warn('Error polling transaction status:', pollError);
-            // Continue polling on error
-            setTimeout(pollTransaction, pollInterval);
+
+            // Transaction not found in recent blocks, might have been dropped
+            clearTimeout(timeout);
+            reject(new KILTError(
+              `Transaction ${transactionHash} not found in recent blocks. It may have been dropped.`,
+              KILTErrorType.TRANSACTION_EXECUTION_ERROR
+            ));
+
+          } catch (trackError) {
+            console.warn('Error tracking transaction:', trackError);
+            // Continue tracking on error
+            setTimeout(trackTransaction, 2000);
           }
         };
 
-        // Start polling
-        setTimeout(pollTransaction, pollInterval);
+        // Start tracking
+        setTimeout(trackTransaction, 1000);
       });
     } catch (error) {
       if (error instanceof KILTError) {
@@ -712,7 +738,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
   }
 
   /**
-   * Calculates the actual transaction fee.
+   * Calculates the actual transaction fee using real KILT blockchain data.
    * @param signedTx - The signed transaction
    * @param gasLimit - The gas limit used
    * @returns Fee information
@@ -725,19 +751,53 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
       }
 
-      // Calculate fee based on gas limit and current gas price
-      const gasPrice = await api.rpc.payment.queryFeeDetails(signedTx, gasLimit);
-      const fee = gasPrice.inclusionFee.baseFee.toBn().toString();
+      // Get fee details using KILT's payment query
+      const feeDetails = await api.rpc.payment.queryFeeDetails(signedTx, gasLimit);
+      
+      let totalFee = BigInt(0);
+      
+      // Calculate total fee from inclusion fee components
+      if (feeDetails.inclusionFee) {
+        const inclusionFee = feeDetails.inclusionFee;
+        
+        // Base fee
+        if (inclusionFee.baseFee) {
+          totalFee += inclusionFee.baseFee.toBn();
+        }
+        
+        // Length fee
+        if (inclusionFee.lenFee) {
+          totalFee += inclusionFee.lenFee.toBn();
+        }
+        
+        // Adjusted weight fee
+        if (inclusionFee.adjustedWeightFee) {
+          totalFee += inclusionFee.adjustedWeightFee.toBn();
+        }
+      }
+      
+      // Add tip if present
+      if (feeDetails.tip) {
+        totalFee += feeDetails.tip.toBn();
+      }
+      
+      // Get the current network token symbol
+      const networkConfig = this.configManager.getNetworkConfig(this.configManager.getCurrentNetwork());
       
       return {
-        amount: fee,
-        currency: 'KILT',
+        amount: totalFee.toString(),
+        currency: networkConfig.tokenSymbol,
       };
     } catch (error) {
       console.warn('Failed to calculate transaction fee:', error);
+      
+      // Fallback to default fee based on network
+      const networkConfig = this.configManager.getNetworkConfig(this.configManager.getCurrentNetwork());
+      const defaultFee = networkConfig.isTestnet ? '1000000000000000' : '1000000000000000000'; // 0.001 or 1 KILT
+      
       return {
-        amount: '1000000000000000000', // Default 1 KILT
-        currency: 'KILT',
+        amount: defaultFee,
+        currency: networkConfig.tokenSymbol,
       };
     }
   }
@@ -769,5 +829,334 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    */
   private generateMockBlockHash(): string {
     return this.generateMockTransactionHash();
+  }
+
+  /**
+   * Updates a DID document on the KILT parachain.
+   * @param did - The DID to update
+   * @param updates - The updates to apply
+   * @returns A promise that resolves to the update result
+   * @throws {KILTError} If the update fails
+   */
+  public async updateDIDDocument(
+    did: string,
+    updates: {
+      verificationMethods?: Partial<KILTVerificationMethod>[];
+      services?: Partial<KILTService>[];
+      controller?: string;
+      metadata?: Record<string, unknown>;
+    }
+  ): Promise<KILTTransactionResult> {
+    try {
+      const address = await this.extractAddress(did);
+      
+      // Connect to KILT parachain
+      await this.kiltAdapter.connect();
+      
+      const api = (this.kiltAdapter as any).api;
+      if (!api || !api.isConnected) {
+        throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
+      }
+
+      const extrinsics: any[] = [];
+
+      // Add new verification methods
+      if (updates.verificationMethods) {
+        for (const vm of updates.verificationMethods) {
+          if (vm.id && vm.publicKeyMultibase && vm.type) {
+            const addVerificationMethodExtrinsic = api.tx.did.addVerificationMethod(
+              address,
+              vm.id,
+              vm.publicKeyMultibase,
+              vm.type,
+              vm.metadata || {}
+            );
+            extrinsics.push(addVerificationMethodExtrinsic);
+          }
+        }
+      }
+
+      // Add new services
+      if (updates.services) {
+        for (const service of updates.services) {
+          if (service.id && service.type && service.serviceEndpoint) {
+            const addServiceExtrinsic = api.tx.did.addService(
+              address,
+              service.id,
+              service.type,
+              service.serviceEndpoint,
+              service.metadata || {}
+            );
+            extrinsics.push(addServiceExtrinsic);
+          }
+        }
+      }
+
+      // Update controller
+      if (updates.controller) {
+        const setControllerExtrinsic = api.tx.did.setController(
+          address,
+          updates.controller
+        );
+        extrinsics.push(setControllerExtrinsic);
+      }
+
+      // Update metadata
+      if (updates.metadata) {
+        const updateMetadataExtrinsic = api.tx.did.updateMetadata(
+          address,
+          updates.metadata
+        );
+        extrinsics.push(updateMetadataExtrinsic);
+      }
+
+      if (extrinsics.length === 0) {
+        throw new KILTError('No valid updates provided', KILTErrorType.DID_REGISTRATION_ERROR);
+      }
+
+      // Submit the transaction
+      return await this.submitTransaction(extrinsics, address);
+
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+      
+      throw new KILTError(
+        `Failed to update DID document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.DID_REGISTRATION_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Removes a verification method from a DID.
+   * @param did - The DID to update
+   * @param verificationMethodId - The verification method ID to remove
+   * @returns A promise that resolves to the transaction result
+   * @throws {KILTError} If the removal fails
+   */
+  public async removeVerificationMethod(did: string, verificationMethodId: string): Promise<KILTTransactionResult> {
+    try {
+      const address = await this.extractAddress(did);
+      
+      // Connect to KILT parachain
+      await this.kiltAdapter.connect();
+      
+      const api = (this.kiltAdapter as any).api;
+      if (!api || !api.isConnected) {
+        throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
+      }
+
+      const removeVerificationMethodExtrinsic = api.tx.did.removeVerificationMethod(
+        address,
+        verificationMethodId
+      );
+
+      return await this.submitTransaction([removeVerificationMethodExtrinsic], address);
+
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+      
+      throw new KILTError(
+        `Failed to remove verification method: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.DID_REGISTRATION_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Removes a service from a DID.
+   * @param did - The DID to update
+   * @param serviceId - The service ID to remove
+   * @returns A promise that resolves to the transaction result
+   * @throws {KILTError} If the removal fails
+   */
+  public async removeService(did: string, serviceId: string): Promise<KILTTransactionResult> {
+    try {
+      const address = await this.extractAddress(did);
+      
+      // Connect to KILT parachain
+      await this.kiltAdapter.connect();
+      
+      const api = (this.kiltAdapter as any).api;
+      if (!api || !api.isConnected) {
+        throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
+      }
+
+      const removeServiceExtrinsic = api.tx.did.removeService(
+        address,
+        serviceId
+      );
+
+      return await this.submitTransaction([removeServiceExtrinsic], address);
+
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+      
+      throw new KILTError(
+        `Failed to remove service: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.DID_REGISTRATION_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Queries a DID document from the KILT parachain.
+   * @param did - The DID to query
+   * @returns A promise that resolves to the DID document or null if not found
+   * @throws {KILTError} If the query fails
+   */
+  public async queryDIDDocument(did: string): Promise<KILTDIDDocument | null> {
+    try {
+      const address = await this.extractAddress(did);
+      
+      // Connect to KILT parachain
+      await this.kiltAdapter.connect();
+      
+      const api = (this.kiltAdapter as any).api;
+      if (!api || !api.isConnected) {
+        throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
+      }
+
+      // Query the DID from the chain
+      const didStorage = await api.query.did.didStorage(address);
+      
+      if (didStorage.isNone) {
+        return null; // DID not found
+      }
+
+      const didData = didStorage.unwrap();
+      
+      // Parse the DID data and construct the DID document
+      const didDocument: KILTDIDDocument = {
+        '@context': [
+          'https://www.w3.org/ns/did/v1',
+          'https://w3id.org/security/suites/sr25519-2020/v1',
+          'https://w3id.org/security/suites/kilt-2023/v1',
+        ],
+        id: did,
+        controller: did,
+        verificationMethod: [],
+        authentication: [],
+        assertionMethod: [],
+        keyAgreement: [],
+        capabilityInvocation: [],
+        capabilityDelegation: [],
+        service: [],
+      };
+
+      // Add verification methods from chain data
+      if (didData.verificationMethods) {
+        for (const vm of didData.verificationMethods) {
+          const verificationMethod: KILTVerificationMethod = {
+            id: vm.id.toString(),
+            type: vm.type.toString() as any,
+            controller: did,
+            publicKeyMultibase: vm.publicKey.toString(),
+            keyType: KILTKeyType.SR25519, // Default to SR25519 for KILT
+            metadata: {
+              isActive: true,
+              createdAt: new Date().toISOString(),
+            },
+          };
+          
+          didDocument.verificationMethod.push(verificationMethod);
+          didDocument.authentication.push(verificationMethod.id);
+          if (didDocument.assertionMethod) {
+            didDocument.assertionMethod.push(verificationMethod.id);
+          }
+          if (didDocument.capabilityInvocation) {
+            didDocument.capabilityInvocation.push(verificationMethod.id);
+          }
+          if (didDocument.capabilityDelegation) {
+            didDocument.capabilityDelegation.push(verificationMethod.id);
+          }
+        }
+      }
+
+      // Add services from chain data
+      if (didData.services) {
+        for (const service of didData.services) {
+          const kiltService: KILTService = {
+            id: service.id.toString(),
+            type: service.type.toString() as any,
+            serviceEndpoint: service.serviceEndpoint.toString(),
+            metadata: {
+              version: '1.0.0',
+              provider: 'KILT Parachain',
+              lastUpdated: new Date().toISOString(),
+              status: 'active',
+            },
+          };
+          
+          didDocument.service!.push(kiltService);
+        }
+      }
+
+      return didDocument;
+
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+      
+      throw new KILTError(
+        `Failed to query DID document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.KILT_DID_NOT_FOUND,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Checks if a DID exists on the KILT parachain.
+   * @param did - The DID to check
+   * @returns A promise that resolves to true if the DID exists
+   * @throws {KILTError} If the check fails
+   */
+  public async didExists(did: string): Promise<boolean> {
+    try {
+      const address = await this.extractAddress(did);
+      
+      // Connect to KILT parachain
+      await this.kiltAdapter.connect();
+      
+      const api = (this.kiltAdapter as any).api;
+      if (!api || !api.isConnected) {
+        throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
+      }
+
+      // Query the DID from the chain
+      const didStorage = await api.query.did.didStorage(address);
+      
+      return !didStorage.isNone;
+
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+      
+      throw new KILTError(
+        `Failed to check DID existence: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.KILT_DID_NOT_FOUND,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Legacy method for backward compatibility.
+   * @deprecated Use registerDidOnchain instead
+   */
+  public async registerDIDOnChain(request: KILTCreateDIDRequest): Promise<KILTCreateDIDResponse> {
+    return this.registerDidOnchain(request);
   }
 }

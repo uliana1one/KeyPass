@@ -421,22 +421,11 @@ export class KILTTransactionService {
           status.blockHash = blockHash;
           
           // Parse events from the block
-          status.events = await this.extractTransactionEvents(latestBlock.block.extrinsics);
+          status.events = await this.extractTransactionEvents(latestBlock.block.extrinsics, blockHash);
         } catch (blockError) {
           console.warn('Failed to get latest block info:', blockError);
-          // Fallback to basic confirmation
-          status.status = 'confirmed';
-          status.blockNumber = Math.floor(Math.random() * 10000000) + 5000000;
-          status.blockHash = this.generateMockBlockHash();
-          status.events = [
-            {
-              type: 'did.DidCreated',
-              section: 'did',
-              method: 'DidCreated',
-              data: { did: 'real-did-from-blockchain' },
-              index: 0,
-            },
-          ];
+          // Search through recent blocks for the transaction
+          await this.searchTransactionInRecentBlocks(txHash, status);
         }
       }
 
@@ -452,7 +441,7 @@ export class KILTTransactionService {
   }
 
   /**
-   * Retries a failed transaction.
+   * Retries a failed transaction with exponential backoff.
    * @param originalTxHash - The original transaction hash
    * @param extrinsic - The transaction extrinsic
    * @param options - Transaction options
@@ -480,14 +469,123 @@ export class KILTTransactionService {
       );
     }
 
+    // Calculate exponential backoff delay
+    const backoffDelay = Math.min(
+      this.config.retryDelay * Math.pow(2, status.retryCount),
+      this.configManager.getTransactionConfig().maxRetryDelay
+    );
+
+    console.log(`Retrying transaction ${originalTxHash} (attempt ${status.retryCount + 1}/${this.config.maxRetries}) after ${backoffDelay}ms`);
+
     // Increment retry count
     status.retryCount++;
 
-    // Wait before retry
-    await new Promise(resolve => setTimeout(resolve, this.config.retryDelay));
+    // Wait before retry with exponential backoff
+    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+
+    // Update nonce for retry
+    options.nonce = await this.getNonce(options.signer);
 
     // Submit the transaction again
     return this.submitTransaction(extrinsic, options);
+  }
+
+  /**
+   * Automatically retries failed transactions based on configuration.
+   * @param txHash - The transaction hash to retry
+   * @param extrinsic - The transaction extrinsic
+   * @param options - Transaction options
+   * @returns A promise that resolves to the final transaction result
+   */
+  public async autoRetryTransaction(
+    txHash: string,
+    extrinsic: any,
+    options: KILTTransactionOptions
+  ): Promise<KILTTransactionResult> {
+    let lastResult: KILTTransactionResult | null = null;
+    let attempts = 0;
+
+    while (attempts <= this.config.maxRetries) {
+      try {
+        if (attempts > 0) {
+          // Wait for retry delay with exponential backoff
+          const backoffDelay = Math.min(
+            this.config.retryDelay * Math.pow(2, attempts - 1),
+            this.configManager.getTransactionConfig().maxRetryDelay
+          );
+          
+          console.log(`Auto-retrying transaction ${txHash} (attempt ${attempts + 1}) after ${backoffDelay}ms`);
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+          
+          // Update nonce for retry
+          options.nonce = await this.getNonce(options.signer);
+        }
+
+        lastResult = await this.submitTransaction(extrinsic, options);
+        
+        if (lastResult.success) {
+          console.log(`Transaction ${txHash} succeeded on attempt ${attempts + 1}`);
+          return lastResult;
+        }
+
+      } catch (error) {
+        console.warn(`Transaction attempt ${attempts + 1} failed:`, error);
+        
+        // Check if this is a retryable error
+        if (!this.isRetryableError(error)) {
+          throw error;
+        }
+      }
+
+      attempts++;
+    }
+
+    // All retries exhausted
+    throw new KILTError(
+      `Transaction ${txHash} failed after ${this.config.maxRetries + 1} attempts`,
+      KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+      { 
+        transactionHash: txHash,
+        cause: new Error('Maximum retry attempts exceeded')
+      }
+    );
+  }
+
+  /**
+   * Determines if an error is retryable.
+   * @param error - The error to check
+   * @returns True if the error is retryable
+   * @private
+   */
+  private isRetryableError(error: any): boolean {
+    if (!error) return false;
+    
+    const errorMessage = error.message?.toLowerCase() || '';
+    
+    // Non-retryable errors
+    const nonRetryableErrors = [
+      'insufficient balance',
+      'invalid signature',
+      'invalid nonce',
+      'account not found',
+      'invalid extrinsic',
+    ];
+    
+    if (nonRetryableErrors.some(msg => errorMessage.includes(msg))) {
+      return false;
+    }
+    
+    // Network and timeout errors are retryable
+    const retryableErrors = [
+      'network',
+      'timeout',
+      'connection',
+      'temporary',
+      'busy',
+      'rate limit',
+    ];
+    
+    return retryableErrors.some(msg => errorMessage.includes(msg));
   }
 
   /**
@@ -501,15 +599,53 @@ export class KILTTransactionService {
     gasLimit: string | number
   ): Promise<{ amount: string; currency: string }> {
     try {
-      // Mock fee calculation - in real implementation would calculate actual fee
+      // Get fee details using KILT's payment query
+      const feeDetails = await this.api.rpc.payment.queryFeeDetails(extrinsic, gasLimit.toString());
+      
+      let totalFee = BigInt(0);
+      
+      // Calculate total fee from inclusion fee components
+      if (feeDetails.inclusionFee && !feeDetails.inclusionFee.isNone) {
+        const inclusionFee = feeDetails.inclusionFee.unwrap();
+        
+        // Base fee
+        if (inclusionFee.baseFee) {
+          totalFee += BigInt(inclusionFee.baseFee.toString());
+        }
+        
+        // Length fee
+        if (inclusionFee.lenFee) {
+          totalFee += BigInt(inclusionFee.lenFee.toString());
+        }
+        
+        // Adjusted weight fee
+        if (inclusionFee.adjustedWeightFee) {
+          totalFee += BigInt(inclusionFee.adjustedWeightFee.toString());
+        }
+      }
+      
+      // Add tip if present (note: tip might not be available in all versions)
+      if ((feeDetails as any).tip) {
+        totalFee += BigInt((feeDetails as any).tip.toString());
+      }
+      
+      // Get the current network token symbol
+      const networkConfig = this.configManager.getNetworkConfig(this.configManager.getCurrentNetwork());
+      
       return {
-        amount: '1000000000000000000', // 1 KILT in smallest unit
-        currency: 'KILT',
+        amount: totalFee.toString(),
+        currency: networkConfig.tokenSymbol,
       };
     } catch (error) {
+      console.warn('Failed to calculate transaction fee:', error);
+      
+      // Fallback to default fee based on network
+      const networkConfig = this.configManager.getNetworkConfig(this.configManager.getCurrentNetwork());
+      const defaultFee = networkConfig.isTestnet ? '1000000000000000' : '1000000000000000000'; // 0.001 or 1 KILT
+      
       return {
-        amount: '0',
-        currency: 'KILT',
+        amount: defaultFee,
+        currency: networkConfig.tokenSymbol,
       };
     }
   }
@@ -563,64 +699,154 @@ export class KILTTransactionService {
   }
 
   /**
-   * Extracts transaction events from block extrinsics.
+   * Extracts transaction events from block extrinsics using real KILT blockchain data.
    * @param extrinsics - The block extrinsics
+   * @param blockHash - The block hash for event retrieval
    * @returns Array of transaction events
    * @private
    */
-  private async extractTransactionEvents(extrinsics: any[]): Promise<KILTTransactionEvent[]> {
+  private async extractTransactionEvents(extrinsics: any[], blockHash?: string): Promise<KILTTransactionEvent[]> {
     try {
       const events: KILTTransactionEvent[] = [];
       
-      // Parse events from extrinsics
-      // This is a simplified implementation - in reality you'd parse the actual events
-      for (let i = 0; i < extrinsics.length; i++) {
-        const extrinsic = extrinsics[i];
-        if (extrinsic.method && extrinsic.method.section === 'did') {
-          events.push({
-            type: `${extrinsic.method.section}.${extrinsic.method.method}`,
-            section: extrinsic.method.section,
-            method: extrinsic.method.method,
-            data: { did: 'real-did-from-blockchain' },
-            index: i,
-          });
+      if (!blockHash) {
+        console.warn('Block hash not provided for event extraction');
+        return events;
+      }
+
+      // Get events from the block
+      const blockEvents = await this.api.query.system.events.at(blockHash);
+      
+      // Find events for our transaction
+      const eventsArray = blockEvents as unknown as any[];
+      for (let i = 0; i < eventsArray.length; i++) {
+        const event = eventsArray[i];
+        const phase = event.phase;
+        
+        // Check if this event is from an extrinsic (not from inherents)
+        if (phase.isApplyExtrinsic) {
+          const extrinsicIndex = phase.asApplyExtrinsic.toNumber();
+          
+          // Check if this event corresponds to one of our extrinsics
+          if (extrinsicIndex < extrinsics.length) {
+            const eventData = event.event;
+            
+            const parsedEvent: KILTTransactionEvent = {
+              type: `${eventData.section}.${eventData.method}`,
+              section: eventData.section.toString(),
+              method: eventData.method.toString(),
+              data: this.parseEventData(eventData.data),
+              index: i,
+            };
+            
+            events.push(parsedEvent);
+          }
         }
       }
       
-      return events.length > 0 ? events : [
-        {
-          type: 'did.DidCreated',
-          section: 'did',
-          method: 'DidCreated',
-          data: { did: 'real-did-from-blockchain' },
-          index: 0,
-        },
-      ];
+      return events;
     } catch (error) {
       console.warn('Failed to extract transaction events:', error);
-      return [
-        {
-          type: 'did.DidCreated',
-          section: 'did',
-          method: 'DidCreated',
-          data: { did: 'real-did-from-blockchain' },
-          index: 0,
-        },
-      ];
+      return [];
     }
   }
 
   /**
-   * Generates a mock block hash for testing.
+   * Parses event data from KILT blockchain events.
+   * @param eventData - Raw event data from the blockchain
+   * @returns Parsed event data object
    * @private
    */
-  private generateMockBlockHash(): string {
-    const chars = '0123456789abcdef';
-    let hash = '0x';
-    for (let i = 0; i < 64; i++) {
-      hash += chars[Math.floor(Math.random() * chars.length)];
+  private parseEventData(eventData: any): Record<string, unknown> {
+    const parsed: Record<string, unknown> = {};
+    
+    try {
+      // Convert the event data to a more readable format
+      const eventDataArray = (eventData as any[]);
+      if (Array.isArray(eventDataArray)) {
+        eventDataArray.forEach((data: any, index: number) => {
+        const key = `param${index}`;
+        
+        if (data && typeof data === 'object') {
+          if (data.isU8a) {
+            // Handle Uint8Array data
+            parsed[key] = data.toHex();
+          } else if (data.isU64 || data.isU32 || data.isU16 || data.isU8) {
+            // Handle numeric data
+            parsed[key] = data.toNumber();
+          } else if (data.isText) {
+            // Handle text data
+            parsed[key] = data.toString();
+          } else if (data.isAccountId) {
+            // Handle account ID data
+            parsed[key] = data.toString();
+          } else if (data.isHash) {
+            // Handle hash data
+            parsed[key] = data.toHex();
+          } else {
+            // Fallback for other types
+            parsed[key] = data.toString();
+          }
+        } else {
+          parsed[key] = data;
+        }
+        });
+      }
+    } catch (error) {
+      console.warn('Error parsing event data:', error);
+      parsed.raw = eventData.toString();
     }
-    return hash;
+
+    return parsed;
+  }
+
+  /**
+   * Searches for a transaction in recent blocks.
+   * @param txHash - The transaction hash to search for
+   * @param status - The transaction status to update
+   * @private
+   */
+  private async searchTransactionInRecentBlocks(txHash: string, status: KILTTransactionStatus): Promise<void> {
+    try {
+      // Search through recent blocks to find the transaction
+      let currentBlockHash = await this.api.rpc.chain.getFinalizedHead();
+      let searchDepth = 0;
+      const maxSearchDepth = 10; // Search last 10 blocks
+
+      while (searchDepth < maxSearchDepth) {
+        const block = await this.api.rpc.chain.getBlock(currentBlockHash);
+        
+        // Check if our transaction is in this block
+        const transactionFound = block.block.extrinsics.some((extrinsic: any) => 
+          extrinsic.hash.toHex() === txHash
+        );
+
+        if (transactionFound) {
+          // Transaction found! Get block details
+          const blockNumber = block.block.header.number.toNumber();
+          
+          status.status = 'confirmed';
+          status.blockNumber = blockNumber;
+          status.blockHash = currentBlockHash.toString();
+          status.events = await this.extractTransactionEvents(block.block.extrinsics, currentBlockHash.toString());
+          return;
+        }
+
+        // Move to previous block
+        const header = block.block.header;
+        currentBlockHash = header.parentHash;
+        searchDepth++;
+      }
+
+      // Transaction not found in recent blocks
+      status.status = 'failed';
+      status.error = 'Transaction not found in recent blocks';
+      
+    } catch (error) {
+      console.warn('Error searching for transaction in recent blocks:', error);
+      status.status = 'failed';
+      status.error = error instanceof Error ? error.message : 'Unknown error';
+    }
   }
 
   /**
@@ -668,5 +894,278 @@ export class KILTTransactionService {
    */
   public clearNonceCache(): void {
     this.nonceCache.clear();
+  }
+
+  /**
+   * Monitors transaction status with real-time updates.
+   * @param txHash - The transaction hash to monitor
+   * @param callback - Callback function for status updates
+   * @returns A promise that resolves when monitoring is complete
+   */
+  public async monitorTransaction(
+    txHash: string,
+    callback: (status: KILTTransactionStatus) => void
+  ): Promise<KILTTransactionResult> {
+    const status = this.pendingTransactions.get(txHash);
+    if (!status) {
+      throw new KILTError(
+        'Transaction not found for monitoring',
+        KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+        { transactionHash: txHash }
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        status.status = 'timeout';
+        status.error = 'Transaction monitoring timeout';
+        callback(status);
+        reject(new KILTError(
+          'Transaction monitoring timeout',
+          KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+          { transactionHash: txHash }
+        ));
+      }, this.config.confirmationTimeout);
+
+      // Poll for status updates
+      const pollInterval = setInterval(async () => {
+        try {
+          const isConfirmed = await this.checkTransactionStatus(txHash);
+          
+          // Update callback with current status
+          callback(status);
+          
+          if (isConfirmed && status.status === 'confirmed') {
+            clearTimeout(timeout);
+            clearInterval(pollInterval);
+            
+            const result: KILTTransactionResult = {
+              success: true,
+              transactionHash: txHash,
+              blockNumber: status.blockNumber || 0,
+              blockHash: status.blockHash || '',
+              events: status.events || [],
+              fee: { amount: '0', currency: 'KILT' }, // Will be calculated separately
+              timestamp: new Date().toISOString(),
+            };
+            
+            resolve(result);
+          } else if (status.status === 'failed') {
+            clearTimeout(timeout);
+            clearInterval(pollInterval);
+            
+            const result: KILTTransactionResult = {
+              success: false,
+              transactionHash: txHash,
+              blockNumber: 0,
+              blockHash: '',
+              events: [],
+              fee: { amount: '0', currency: 'KILT' },
+              timestamp: new Date().toISOString(),
+            };
+            
+            reject(new KILTError(
+              status.error || 'Transaction failed',
+              KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+              { transactionHash: txHash }
+            ));
+          }
+        } catch (error) {
+          clearTimeout(timeout);
+          clearInterval(pollInterval);
+          reject(error);
+        }
+      }, 1000); // Poll every second
+    });
+  }
+
+  /**
+   * Gets transaction details from the blockchain.
+   * @param txHash - The transaction hash
+   * @returns A promise that resolves to transaction details
+   */
+  public async getTransactionDetails(txHash: string): Promise<{
+    hash: string;
+    blockNumber: number;
+    blockHash: string;
+    events: KILTTransactionEvent[];
+    fee: { amount: string; currency: string };
+    timestamp: string;
+  } | null> {
+    try {
+      // Search through recent blocks for the transaction
+      let currentBlockHash = await this.api.rpc.chain.getFinalizedHead();
+      let searchDepth = 0;
+      const maxSearchDepth = 50; // Search last 50 blocks
+
+      while (searchDepth < maxSearchDepth) {
+        const block = await this.api.rpc.chain.getBlock(currentBlockHash);
+        
+        // Check if our transaction is in this block
+        const transactionIndex = block.block.extrinsics.findIndex((extrinsic: any) => 
+          extrinsic.hash.toHex() === txHash
+        );
+
+        if (transactionIndex !== -1) {
+          // Transaction found! Get details
+          const blockNumber = block.block.header.number.toNumber();
+          const blockHash = currentBlockHash.toString();
+          const events = await this.extractTransactionEvents(block.block.extrinsics, blockHash);
+          
+          // Calculate fee for this transaction
+          const extrinsic = block.block.extrinsics[transactionIndex];
+          const gasLimit = await this.estimateGas(extrinsic, null as any);
+          const fee = await this.calculateFee(extrinsic, gasLimit.gasLimit);
+
+          return {
+            hash: txHash,
+            blockNumber,
+            blockHash,
+            events,
+            fee,
+            timestamp: new Date().toISOString(),
+          };
+        }
+
+        // Move to previous block
+        const header = block.block.header;
+        currentBlockHash = header.parentHash;
+        searchDepth++;
+      }
+
+      return null; // Transaction not found
+      
+    } catch (error) {
+      console.warn('Error getting transaction details:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Gets network statistics for monitoring.
+   * @returns A promise that resolves to network statistics
+   */
+  public async getNetworkStats(): Promise<{
+    blockNumber: number;
+    blockHash: string;
+    finalizedBlockNumber: number;
+    finalizedBlockHash: string;
+    pendingTransactions: number;
+    averageBlockTime: number;
+    networkName: string;
+    tokenSymbol: string;
+  }> {
+    try {
+      const [latestBlock, finalizedBlock, pendingExtrinsics] = await Promise.all([
+        this.api.rpc.chain.getBlock(),
+        this.api.rpc.chain.getFinalizedHead(),
+        this.api.rpc.author.pendingExtrinsics(),
+      ]);
+
+      const networkConfig = this.configManager.getNetworkConfig(this.configManager.getCurrentNetwork());
+
+      return {
+        blockNumber: latestBlock.block.header.number.toNumber(),
+        blockHash: latestBlock.block.header.hash.toHex(),
+        finalizedBlockNumber: (await this.api.rpc.chain.getBlock(finalizedBlock)).block.header.number.toNumber(),
+        finalizedBlockHash: finalizedBlock.toString(),
+        pendingTransactions: pendingExtrinsics.length,
+        averageBlockTime: networkConfig.blockTime,
+        networkName: networkConfig.displayName,
+        tokenSymbol: networkConfig.tokenSymbol,
+      };
+    } catch (error) {
+      throw new KILTError(
+        `Failed to get network statistics: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.NETWORK_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Validates transaction before submission.
+   * @param extrinsic - The transaction extrinsic
+   * @param signer - The transaction signer
+   * @returns A promise that resolves to validation result
+   */
+  public async validateTransaction(extrinsic: any, signer: KeyringPair): Promise<{
+    isValid: boolean;
+    errors: string[];
+    warnings: string[];
+    estimatedFee: string;
+    gasEstimate: string;
+  }> {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    try {
+      // Validate API connection
+      if (!this.api.isConnected) {
+        errors.push('API not connected');
+      }
+
+      // Validate signer
+      if (!signer || !signer.address) {
+        errors.push('Invalid signer');
+      }
+
+      // Validate extrinsic
+      if (!extrinsic) {
+        errors.push('Invalid extrinsic');
+      }
+
+      // Estimate gas and fee
+      let gasEstimate = '0';
+      let estimatedFee = '0';
+
+      try {
+        const gasResult = await this.estimateGas(extrinsic, signer);
+        gasEstimate = gasResult.gasLimit;
+        
+        const feeResult = await this.calculateFee(extrinsic, gasEstimate);
+        estimatedFee = feeResult.amount;
+        
+        if (!gasResult.success) {
+          warnings.push('Gas estimation failed, using default values');
+        }
+      } catch (error) {
+        warnings.push('Failed to estimate gas and fees');
+      }
+
+      // Check account balance (if possible)
+      try {
+        const balance = await this.api.query.system.account(signer.address);
+        const freeBalance = (balance as any).data.free.toBn();
+        const estimatedFeeBigInt = BigInt(estimatedFee);
+        
+        if (freeBalance < estimatedFeeBigInt) {
+          errors.push('Insufficient balance for transaction fee');
+        } else if (freeBalance < estimatedFeeBigInt * BigInt(2)) {
+          warnings.push('Low balance, consider adding more funds');
+        }
+      } catch (error) {
+        warnings.push('Could not check account balance');
+      }
+
+      return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+        estimatedFee,
+        gasEstimate,
+      };
+
+    } catch (error) {
+      errors.push(`Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      return {
+        isValid: false,
+        errors,
+        warnings,
+        estimatedFee: '0',
+        gasEstimate: '0',
+      };
+    }
   }
 }
