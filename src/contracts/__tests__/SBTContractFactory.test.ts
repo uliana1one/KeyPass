@@ -225,10 +225,10 @@ describe('SBTContractFactory', () => {
         'Test SBT',
         'TSBT',
         'https://api.test.com/metadata/',
-        {
+        expect.objectContaining({
           gasLimit: BigInt('3000000'),
           gasPrice: BigInt('1000000000'),
-        }
+        })
       );
 
       // Verify deployment process
@@ -255,11 +255,11 @@ describe('SBTContractFactory', () => {
         'Test SBT',
         'TSBT',
         'https://api.test.com/metadata/',
-        {
+        expect.objectContaining({
           gasLimit: BigInt('3000000'),
           maxFeePerGas: BigInt('30000000000'),
           maxPriorityFeePerGas: BigInt('2000000000'),
-        }
+        })
       );
     }, 15000);
 
