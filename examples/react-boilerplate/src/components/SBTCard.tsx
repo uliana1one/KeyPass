@@ -1,4 +1,5 @@
 import React from 'react';
+import './SBTCard.css';
 
 // Define the types locally since we can't import from the main src directory
 export const SBTVerificationStatus = {
@@ -46,6 +47,10 @@ export interface SBTToken {
 interface SBTCardProps {
   token: SBTToken;
   onClick?: (token: SBTToken) => void;
+  showTransactionDetails?: boolean;
+  transactionHash?: string;
+  blockNumber?: number;
+  gasUsed?: bigint;
 }
 
 const getStatusColor = (status: SBTVerificationStatus): string => {
@@ -78,7 +83,14 @@ const getStatusText = (status: SBTVerificationStatus): string => {
   }
 };
 
-export const SBTCard: React.FC<SBTCardProps> = ({ token, onClick }) => {
+export const SBTCard: React.FC<SBTCardProps> = ({ 
+  token, 
+  onClick, 
+  showTransactionDetails = false,
+  transactionHash,
+  blockNumber,
+  gasUsed 
+}) => {
   const handleClick = () => {
     if (onClick) {
       onClick(token);
@@ -87,6 +99,17 @@ export const SBTCard: React.FC<SBTCardProps> = ({ token, onClick }) => {
 
   const isExpired = token.expiresAt && new Date(token.expiresAt) < new Date();
   const isRevoked = token.verificationStatus === SBTVerificationStatus.REVOKED;
+
+  const formatGas = (gas: bigint | undefined) => {
+    if (!gas) return 'N/A';
+    return gas.toString();
+  };
+
+  const getExplorerUrl = () => {
+    if (!transactionHash) return null;
+    // Moonbase Alpha explorer
+    return `https://moonbase.moonscan.io/tx/${transactionHash}`;
+  };
 
   return (
     <div 
@@ -190,6 +213,58 @@ export const SBTCard: React.FC<SBTCardProps> = ({ token, onClick }) => {
                 +{token.tags.length - 3}
               </span>
             )}
+          </div>
+        )}
+
+        {/* Transaction Details */}
+        {showTransactionDetails && (transactionHash || blockNumber || gasUsed) && (
+          <div className="sbt-transaction-details">
+            <div className="sbt-transaction-header">
+              <svg className="sbt-transaction-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="sbt-transaction-title">Transaction Details</span>
+            </div>
+            
+            <div className="sbt-transaction-info">
+              {transactionHash && (
+                <div className="sbt-transaction-row">
+                  <span className="sbt-transaction-label">TX Hash:</span>
+                  <div className="sbt-transaction-value">
+                    <code className="sbt-transaction-hash">
+                      {transactionHash.slice(0, 10)}...{transactionHash.slice(-8)}
+                    </code>
+                    {getExplorerUrl() && (
+                      <a
+                        href={getExplorerUrl()!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="sbt-transaction-link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {blockNumber && (
+                <div className="sbt-transaction-row">
+                  <span className="sbt-transaction-label">Block:</span>
+                  <span className="sbt-transaction-value">{blockNumber.toLocaleString()}</span>
+                </div>
+              )}
+              
+              {gasUsed && (
+                <div className="sbt-transaction-row">
+                  <span className="sbt-transaction-label">Gas Used:</span>
+                  <span className="sbt-transaction-value">{formatGas(gasUsed)}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useSBTMinting } from '../hooks/useSBTMinting';
 import { SBTMintRequest } from '../services/sbtService';
+import TransactionStatus from './TransactionStatus';
+import GasEstimation from './GasEstimation';
 
 interface SBTMintingComponentProps {
   contractAddress?: string;
@@ -35,6 +37,8 @@ export const SBTMintingComponent: React.FC<SBTMintingComponentProps> = ({
 
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
   const [walletConnected, setWalletConnected] = useState(false);
+  const [showTransactionStatus, setShowTransactionStatus] = useState(false);
+  const [gasEstimate, setGasEstimate] = useState<any>(null);
 
   // Set contract when contractAddress prop changes
   useEffect(() => {
@@ -52,6 +56,13 @@ export const SBTMintingComponent: React.FC<SBTMintingComponentProps> = ({
       onError?.(status.error);
     }
   }, [status, onMintingComplete, onError]);
+
+  // Show transaction status when minting starts
+  useEffect(() => {
+    if (status.status === 'preparing' || status.status === 'minting' || status.status === 'confirming') {
+      setShowTransactionStatus(true);
+    }
+  }, [status.status]);
 
   // Connect wallet
   const connectWallet = async () => {
@@ -281,6 +292,24 @@ export const SBTMintingComponent: React.FC<SBTMintingComponentProps> = ({
           />
         </div>
 
+        {/* Gas Estimation */}
+        {walletConnected && signer && formData.contractAddress && formData.recipient && (
+          <div className="mt-6">
+            <GasEstimation
+              contractAddress={formData.contractAddress}
+              recipient={formData.recipient}
+              metadataUri={`data:application/json,${encodeURIComponent(JSON.stringify({
+                name: formData.name,
+                description: formData.description,
+                image: formData.image,
+              }))}`}
+              signer={signer}
+              onEstimate={setGasEstimate}
+              onError={(error) => console.warn('Gas estimation error:', error)}
+            />
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex space-x-3">
           <button
@@ -313,6 +342,28 @@ export const SBTMintingComponent: React.FC<SBTMintingComponentProps> = ({
             <p><strong>Gas Used:</strong> {status.result.gasUsed.toString()}</p>
           </div>
         </div>
+      )}
+
+      {/* Transaction Status Modal */}
+      {showTransactionStatus && (
+        <TransactionStatus
+          status={status.status}
+          progress={status.progress}
+          message={status.message}
+          error={status.error}
+          transactionHash={status.transactionHash}
+          gasEstimate={gasEstimate?.gasLimit}
+          gasUsed={status.result?.gasUsed}
+          gasPrice={gasEstimate?.gasPrice}
+          blockNumber={status.result?.blockNumber}
+          result={status.result}
+          onClose={() => {
+            setShowTransactionStatus(false);
+            if (status.status === 'success' || status.status === 'error') {
+              resetStatus();
+            }
+          }}
+        />
       )}
     </div>
   );

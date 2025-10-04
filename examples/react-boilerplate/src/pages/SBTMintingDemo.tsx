@@ -1,23 +1,64 @@
 import React, { useState } from 'react';
 import SBTMintingComponent from '../components/SBTMintingComponent';
+import TransactionHistory from '../components/TransactionHistory';
+import { TransactionHistoryItem } from '../components/TransactionHistory';
 
 export const SBTMintingDemo: React.FC = () => {
   const [mintingResults, setMintingResults] = useState<any[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryItem[]>([]);
 
   const handleMintingComplete = (result: any) => {
     setMintingResults(prev => [result, ...prev]);
+    
+    // Add to transaction history
+    const historyItem: TransactionHistoryItem = {
+      id: result.transactionHash,
+      tokenId: result.tokenId,
+      transactionHash: result.transactionHash,
+      blockNumber: result.blockNumber,
+      gasUsed: result.gasUsed,
+      metadataUri: result.metadataUri,
+      contractAddress: result.contractAddress,
+      recipient: result.recipient,
+      mintedAt: result.mintedAt,
+      status: 'success',
+    };
+    
+    setTransactionHistory(prev => [historyItem, ...prev]);
     console.log('Minting completed:', result);
   };
 
   const handleError = (error: string) => {
     setErrors(prev => [error, ...prev]);
+    
+    // Add failed transaction to history
+    const historyItem: TransactionHistoryItem = {
+      id: `error_${Date.now()}`,
+      tokenId: 'N/A',
+      transactionHash: 'N/A',
+      blockNumber: 0,
+      gasUsed: BigInt(0),
+      metadataUri: '',
+      contractAddress: '',
+      recipient: '',
+      mintedAt: new Date().toISOString(),
+      status: 'failed',
+      error,
+    };
+    
+    setTransactionHistory(prev => [historyItem, ...prev]);
     console.error('Minting error:', error);
   };
 
   const clearResults = () => {
     setMintingResults([]);
     setErrors([]);
+    setTransactionHistory([]);
+  };
+
+  const handleViewTransaction = (transactionHash: string) => {
+    window.open(`https://moonbase.moonscan.io/tx/${transactionHash}`, '_blank');
   };
 
   return (
@@ -43,6 +84,17 @@ export const SBTMintingDemo: React.FC = () => {
             />
           </div>
 
+          {/* Transaction History */}
+          <div>
+            <TransactionHistory
+              transactions={transactionHistory}
+              onClearHistory={clearResults}
+              onViewTransaction={handleViewTransaction}
+            />
+          </div>
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Results and Errors */}
           <div className="space-y-6">
             {/* Recent Results */}

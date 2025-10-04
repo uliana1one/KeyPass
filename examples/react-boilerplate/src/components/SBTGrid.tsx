@@ -1,18 +1,27 @@
 import React, { useState } from 'react';
 import { SBTCard, SBTToken } from './SBTCard';
+import './SBTCard.css';
 
 interface SBTGridProps {
   tokens: SBTToken[];
   loading?: boolean;
   onTokenClick?: (token: SBTToken) => void;
   itemsPerPage?: number;
+  showTransactionDetails?: boolean;
+  transactionData?: Map<string, {
+    transactionHash?: string;
+    blockNumber?: number;
+    gasUsed?: bigint;
+  }>;
 }
 
 export const SBTGrid: React.FC<SBTGridProps> = ({ 
   tokens, 
   loading = false, 
   onTokenClick,
-  itemsPerPage = 6 
+  itemsPerPage = 6,
+  showTransactionDetails = false,
+  transactionData = new Map()
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -66,13 +75,20 @@ export const SBTGrid: React.FC<SBTGridProps> = ({
       </div>
 
       {/* Token Grid */}
-      {currentTokens.map((token) => (
-        <SBTCard 
-          key={token.id} 
-          token={token} 
-          onClick={handleTokenClick}
-        />
-      ))}
+      {currentTokens.map((token) => {
+        const txData = transactionData.get(token.id);
+        return (
+          <SBTCard 
+            key={token.id} 
+            token={token} 
+            onClick={handleTokenClick}
+            showTransactionDetails={showTransactionDetails}
+            transactionHash={txData?.transactionHash}
+            blockNumber={txData?.blockNumber}
+            gasUsed={txData?.gasUsed}
+          />
+        );
+      })}
 
       {/* Pagination */}
       {totalPages > 1 && (
