@@ -295,7 +295,34 @@ describe('KILTDIDProvider Blockchain Registration', () => {
 
   describe('submitTransaction', () => {
     it('should successfully submit and confirm transaction', async () => {
-      const mockExtrinsics = [{ method: 'system.remark', args: ['test'] }] as any;
+      const mockExtrinsics = [{
+        signAsync: jest.fn().mockResolvedValue({
+          hash: {
+            toHex: () => '0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0',
+          },
+          send: jest.fn().mockImplementation((callback) => {
+            // Simulate successful transaction
+            setTimeout(() => {
+              callback({
+                status: {
+                  type: 'Finalized',
+                  asFinalized: { toHex: () => '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' }
+                },
+                isFinalized: true,
+                isInBlock: false,
+                events: [
+                  {
+                    section: 'did',
+                    method: 'DidCreated',
+                    data: { toString: () => 'test' }
+                  }
+                ]
+              });
+            }, 10);
+            return jest.fn(); // Return unsubscribe function
+          }),
+        }),
+      }] as any;
       
       const result = await kiltDidProvider.submitTransaction(mockExtrinsics, validKiltAddress);
 

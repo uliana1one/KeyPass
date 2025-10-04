@@ -29,24 +29,11 @@ jest.mock('@polkadot/api', () => {
   };
 });
 
-// Mock extension dapp
+// Mock extension-dapp
 jest.mock('@polkadot/extension-dapp', () => ({
-  web3Enable: jest.fn().mockResolvedValue(true),
-  web3Accounts: jest.fn().mockResolvedValue([
-    {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: {
-        name: 'Test Account',
-      },
-    },
-  ]),
-  web3FromAddress: jest.fn().mockResolvedValue({
-    signer: {
-      signRaw: jest.fn().mockResolvedValue({
-        signature: '0x' + '1'.repeat(128),
-      }),
-    },
-  }),
+  web3Enable: jest.fn(),
+  web3Accounts: jest.fn(),
+  web3FromAddress: jest.fn(),
 }));
 
 // Mock util-crypto

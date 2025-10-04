@@ -1,20 +1,25 @@
+// Mock the SBT service before any imports
+const mockSBTServiceInstance = {
+  getTokens: jest.fn(),
+  getSBTs: jest.fn(),
+  mintSBT: jest.fn(),
+  transferSBT: jest.fn(),
+  burnSBT: jest.fn(),
+  getSBTMetadata: jest.fn(),
+  constructor: jest.fn().mockImplementation(() => mockSBTServiceInstance),
+};
+
+jest.mock('../../services/sbtService', () => ({
+  SBTService: jest.fn().mockImplementation(() => mockSBTServiceInstance),
+  sbtService: mockSBTServiceInstance,
+}));
+
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { SBTSection } from '../SBTSection';
 import { SBTService } from '../../services/sbtService';
-
-// Mock the SBT service
-jest.mock('../../services/sbtService', () => ({
-  SBTService: jest.fn().mockImplementation(() => ({
-    getSBTs: jest.fn(),
-    mintSBT: jest.fn(),
-    transferSBT: jest.fn(),
-    burnSBT: jest.fn(),
-    getSBTMetadata: jest.fn(),
-  })),
-}));
 
 // Mock the SBTCard component
 jest.mock('../SBTCard', () => ({
@@ -89,15 +94,15 @@ describe('SBTSection Component Tests', () => {
     user = userEvent.setup();
     jest.clearAllMocks();
     
-    mockSBTService = {
-      getSBTs: jest.fn().mockResolvedValue(mockSBTs),
-      mintSBT: jest.fn().mockResolvedValue(mockSBTs[0]),
-      transferSBT: jest.fn().mockResolvedValue(undefined),
-      burnSBT: jest.fn().mockResolvedValue(undefined),
-      getSBTMetadata: jest.fn().mockResolvedValue(mockSBTs[0].metadata),
-    };
+    // Reset mock implementations
+    mockSBTServiceInstance.getTokens.mockResolvedValue(mockSBTs);
+    mockSBTServiceInstance.getSBTs.mockResolvedValue(mockSBTs);
+    mockSBTServiceInstance.mintSBT.mockResolvedValue(mockSBTs[0]);
+    mockSBTServiceInstance.transferSBT.mockResolvedValue(undefined);
+    mockSBTServiceInstance.burnSBT.mockResolvedValue(undefined);
+    mockSBTServiceInstance.getSBTMetadata.mockResolvedValue(mockSBTs[0].metadata);
 
-    (SBTService as jest.Mock).mockImplementation(() => mockSBTService);
+    mockSBTService = mockSBTServiceInstance;
   });
 
   describe('SBTSection Core Functionality', () => {
