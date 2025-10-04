@@ -468,7 +468,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
   }
 
   /**
-   * Prepares DID registration transaction extrinsics.
+   * Prepares DID registration transaction extrinsics using real KILT DID pallet.
    * @private
    */
   private async prepareDIDRegistrationTransaction(
@@ -482,20 +482,69 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
       }
 
-      // Create real DID registration transaction
       const did = `did:kilt:${request.accountAddress}`;
-      
-      // For KILT, DID registration would typically involve:
-      // 1. Creating a DID document on-chain
-      // 2. Setting verification methods
-      // 3. Adding services if specified
-      
-      // This is a simplified implementation - in reality, you'd use the proper KILT DID pallet
-      const extrinsic = api.tx.system.remark(
-        `DID Registration: ${did}` // This would be replaced with actual DID creation logic
-      );
+      const extrinsics: any[] = [];
 
-      return [extrinsic];
+      // 1. Create DID on-chain using KILT DID pallet
+      // The KILT DID pallet typically uses create() method
+      const createDidExtrinsic = api.tx.did.create(
+        request.accountAddress, // account_id
+        didDocument.verificationMethod.map(vm => ({
+          id: vm.id,
+          publicKey: vm.publicKeyMultibase,
+          type: vm.type,
+        })), // verification_methods
+        didDocument.service?.map(s => ({
+          id: s.id,
+          type: s.type,
+          serviceEndpoint: s.serviceEndpoint,
+        })) || [], // services
+        request.metadata || {} // metadata
+      );
+      extrinsics.push(createDidExtrinsic);
+
+      // 2. Add additional verification methods if specified
+      if (request.verificationMethods && request.verificationMethods.length > 0) {
+        for (const vm of request.verificationMethods) {
+          if (vm.id && vm.publicKeyMultibase && vm.type) {
+            const addVerificationMethodExtrinsic = api.tx.did.addVerificationMethod(
+              request.accountAddress,
+              vm.id,
+              vm.publicKeyMultibase,
+              vm.type,
+              vm.metadata || {}
+            );
+            extrinsics.push(addVerificationMethodExtrinsic);
+          }
+        }
+      }
+
+      // 3. Add services if specified
+      if (request.services && request.services.length > 0) {
+        for (const service of request.services) {
+          if (service.id && service.type && service.serviceEndpoint) {
+            const addServiceExtrinsic = api.tx.did.addService(
+              request.accountAddress,
+              service.id,
+              service.type,
+              service.serviceEndpoint,
+              service.metadata || {}
+            );
+            extrinsics.push(addServiceExtrinsic);
+          }
+        }
+      }
+
+      // 4. Set controller if specified and different from account
+      if (request.controller && request.controller !== did) {
+        const setControllerExtrinsic = api.tx.did.setController(
+          request.accountAddress,
+          request.controller
+        );
+        extrinsics.push(setControllerExtrinsic);
+      }
+
+      return extrinsics;
     } catch (error) {
       throw new KILTError(
         `Failed to prepare DID registration transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -557,7 +606,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
   }
 
   /**
-   * Gets transaction events from a block.
+   * Gets transaction events from a block using real KILT blockchain data.
    * @param blockHash - The block hash
    * @param transactionHash - The transaction hash
    * @returns Array of transaction events
@@ -570,26 +619,96 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
       }
 
+      // Get the block and its events
       const block = await api.rpc.chain.getBlock(blockHash);
       const events = await api.query.system.events.at(blockHash);
 
-      // Filter events for this transaction
       const transactionEvents: KILTTransactionEvent[] = [];
       
-      // For now, return mock events - in a real implementation, you'd parse the actual events
-      return [
-        {
-          type: 'did.DidCreated',
-          section: 'did',
-          method: 'DidCreated',
-          data: { did: 'real-did-from-blockchain' },
-          index: 0,
-        },
-      ];
+      // Find the transaction in the block
+      let transactionIndex = -1;
+      for (let i = 0; i < block.block.extrinsics.length; i++) {
+        const extrinsic = block.block.extrinsics[i];
+        if (extrinsic.hash.toHex() === transactionHash) {
+          transactionIndex = i;
+          break;
+        }
+      }
+
+      if (transactionIndex === -1) {
+        console.warn(`Transaction ${transactionHash} not found in block ${blockHash}`);
+        return [];
+      }
+
+      // Get events for this specific transaction
+      const transactionEventsRaw = events.filter((event: any, index: number) => {
+        const phase = event.phase;
+        return phase.isApplyExtrinsic && phase.asApplyExtrinsic.eqn(transactionIndex);
+      });
+
+      // Parse and format the events
+      for (let i = 0; i < transactionEventsRaw.length; i++) {
+        const event = transactionEventsRaw[i];
+        const eventData = event.event;
+        
+        const parsedEvent: KILTTransactionEvent = {
+          type: `${eventData.section}.${eventData.method}`,
+          section: eventData.section.toString(),
+          method: eventData.method.toString(),
+          data: this.parseEventData(eventData.data),
+          index: i,
+        };
+
+        transactionEvents.push(parsedEvent);
+      }
+
+      return transactionEvents;
     } catch (error) {
       console.warn('Failed to get transaction events:', error);
       return [];
     }
+  }
+
+  /**
+   * Parses event data from KILT blockchain events.
+   * @param eventData - Raw event data from the blockchain
+   * @returns Parsed event data object
+   * @private
+   */
+  private parseEventData(eventData: any): Record<string, unknown> {
+    const parsed: Record<string, unknown> = {};
+    
+    try {
+      // Convert the event data to a more readable format
+      eventData.forEach((data: any, index: number) => {
+        const key = `param${index}`;
+        
+        if (data.isU8a) {
+          // Handle Uint8Array data
+          parsed[key] = data.toHex();
+        } else if (data.isU64 || data.isU32 || data.isU16 || data.isU8) {
+          // Handle numeric data
+          parsed[key] = data.toNumber();
+        } else if (data.isText) {
+          // Handle text data
+          parsed[key] = data.toString();
+        } else if (data.isAccountId) {
+          // Handle account ID data
+          parsed[key] = data.toString();
+        } else if (data.isHash) {
+          // Handle hash data
+          parsed[key] = data.toHex();
+        } else {
+          // Fallback for other types
+          parsed[key] = data.toString();
+        }
+      });
+    } catch (error) {
+      console.warn('Error parsing event data:', error);
+      parsed.raw = eventData.toString();
+    }
+
+    return parsed;
   }
 
   /**

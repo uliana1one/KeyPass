@@ -24,6 +24,7 @@
     "test:integration": "jest --testPathPattern=integration",
     "test:integration:kilt": "jest --testPathPattern=KILTDIDProvider.live",
     "test:sbt:e2e": "jest --config jest.e2e.config.js --testPathPattern=SBTMinting.e2e.test.ts",
+    "test:e2e:sbt": "jest --testPathPattern=SBTMinting.e2e",
     "test:all": "npm run test && npm run test:e2e"
   },
   "keywords": [
@@ -88,6 +89,7 @@
     "ts-node": "^10.9.2"
   },
   "dependencies": {
+    "@libp2p/logger": "^6.0.5",
     "@polkadot/api": "^10.11.2",
     "@polkadot/extension-dapp": "^0.45.3",
     "@polkadot/keyring": "^11.0.0",
