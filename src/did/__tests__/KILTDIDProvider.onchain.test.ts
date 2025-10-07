@@ -901,4 +901,23 @@ describe('KILTDIDProvider On-Chain Integration Tests', () => {
       await expect(kiltDIDProvider.resolve(notADID)).rejects.toThrow('Invalid KILT DID format');
     }, TEST_CONFIG.testTimeout);
   });
+
+  describe('Key Generation Methods', () => {
+    test('should generate valid key agreement key', async () => {
+      const keyAgreementKey = await kiltDIDProvider.generateKeyAgreementKey();
+      
+      expect(keyAgreementKey).toBeDefined();
+      expect(typeof keyAgreementKey).toBe('string');
+      expect(keyAgreementKey.length).toBeGreaterThan(0);
+      // Should start with multibase prefix
+      expect(keyAgreementKey).toMatch(/^[a-zA-Z0-9]/);
+    }, TEST_CONFIG.testTimeout);
+
+    test('should generate unique keys on each call', async () => {
+      const key1 = await kiltDIDProvider.generateKeyAgreementKey();
+      const key2 = await kiltDIDProvider.generateKeyAgreementKey();
+      
+      expect(key1).not.toBe(key2);
+    }, TEST_CONFIG.testTimeout);
+  });
 });
