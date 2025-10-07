@@ -887,8 +887,9 @@ export class KiltAdapter implements WalletAdapter {
         );
       }
 
-      // Create a mock KeyringPair that uses the injector signer
-      const mockKeyringPair = {
+      // Create a KeyringPair adapter that uses the browser extension injector signer
+      // This allows us to use the extension's signing capabilities with Polkadot API
+      const keyringPairAdapter = {
         address,
         sign: async (message: Uint8Array) => {
           if (!injector.signer || !injector.signer.signRaw) {
@@ -914,7 +915,7 @@ export class KiltAdapter implements WalletAdapter {
         },
       } as unknown as KeyringPair;
 
-      return mockKeyringPair;
+      return keyringPairAdapter;
 
     } catch (error) {
       throw new KILTError(

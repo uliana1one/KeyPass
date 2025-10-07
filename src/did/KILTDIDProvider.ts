@@ -216,28 +216,29 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    * Registers a KILT DID on the blockchain using real KILT parachain integration.
    * Creates the DID with associated verification methods and services.
    * @param request - The KILT DID creation request
+   * @param accountAddress - The account address to use for signing
    * @returns A promise that resolves to the creation response
    * @throws {KILTError} If registration fails
    */
-  public async registerDidOnchain(request: KILTCreateDIDRequest): Promise<KILTCreateDIDResponse> {
+  public async registerDidOnchain(request: KILTCreateDIDRequest, accountAddress: string): Promise<KILTCreateDIDResponse> {
     try {
-      // Validate the request
-      this.validateAddress(request.accountAddress);
+      // Validate the account address
+      this.validateAddress(accountAddress);
       
       // Connect to KILT parachain
       await this.kiltAdapter.connect();
       
       // Create the DID
-      const did = await this.createDid(request.accountAddress);
+      const did = request.did || await this.createDid(accountAddress);
       
-      // Create the DID document
-      const didDocument = await this.createDIDDocument(request.accountAddress) as KILTDIDDocument;
+      // Create the DID document from the address
+      const didDocument = await this.createDIDDocument(accountAddress) as KILTDIDDocument;
       
       // Prepare transaction extrinsics
-      const extrinsics = await this.prepareDIDRegistrationTransaction(request, didDocument);
+      const extrinsics = await this.prepareDIDRegistrationTransaction(request, didDocument, accountAddress);
       
       // Submit the transaction
-      const transactionResult = await this.submitTransaction(extrinsics, request.feePayer || request.accountAddress);
+      const transactionResult = await this.submitTransaction(extrinsics, accountAddress);
       
       return {
         did,
@@ -499,7 +500,8 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    */
   private async prepareDIDRegistrationTransaction(
     request: KILTCreateDIDRequest,
-    didDocument: KILTDIDDocument
+    didDocument: KILTDIDDocument,
+    accountAddress: string
   ): Promise<any[]> {
     try {
       // Get the API instance from the adapter
@@ -508,19 +510,19 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
       }
 
-      const did = `did:kilt:${request.accountAddress}`;
+      const did = request.did || `did:kilt:${accountAddress}`;
       const extrinsics: any[] = [];
 
       // 1. Create DID on-chain using KILT DID pallet
       // The KILT DID pallet typically uses create() method
       const createDidExtrinsic = api.tx.did.create(
-        request.accountAddress, // account_id
-        didDocument.verificationMethod.map(vm => ({
+        accountAddress, // account_id
+        (request.verificationMethods || didDocument.verificationMethod).map(vm => ({
           id: vm.id,
           publicKey: vm.publicKeyMultibase,
           type: vm.type,
         })), // verification_methods
-        didDocument.service?.map(s => ({
+        (request.services || didDocument.service)?.map(s => ({
           id: s.id,
           type: s.type,
           serviceEndpoint: s.serviceEndpoint,
@@ -529,42 +531,14 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       );
       extrinsics.push(createDidExtrinsic);
 
-      // 2. Add additional verification methods if specified
-      if (request.verificationMethods && request.verificationMethods.length > 0) {
-        for (const vm of request.verificationMethods) {
-          if (vm.id && vm.publicKeyMultibase && vm.type) {
-            const addVerificationMethodExtrinsic = api.tx.did.addVerificationMethod(
-              request.accountAddress,
-              vm.id,
-              vm.publicKeyMultibase,
-              vm.type,
-              vm.metadata || {}
-            );
-            extrinsics.push(addVerificationMethodExtrinsic);
-          }
-        }
-      }
-
-      // 3. Add services if specified
-      if (request.services && request.services.length > 0) {
-        for (const service of request.services) {
-          if (service.id && service.type && service.serviceEndpoint) {
-            const addServiceExtrinsic = api.tx.did.addService(
-              request.accountAddress,
-              service.id,
-              service.type,
-              service.serviceEndpoint,
-              service.metadata || {}
-            );
-            extrinsics.push(addServiceExtrinsic);
-          }
-        }
-      }
+      // 2. Add additional verification methods if specified (beyond the initial ones)
+      // 3. Add services if specified (beyond the initial ones)
+      // Note: These are already included in the create() call above
 
       // 4. Set controller if specified and different from account
-      if (request.controller && request.controller !== did) {
+      if (request.controller && request.controller !== accountAddress) {
         const setControllerExtrinsic = api.tx.did.setController(
-          request.accountAddress,
+          accountAddress,
           request.controller
         );
         extrinsics.push(setControllerExtrinsic);
@@ -832,9 +806,42 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
   }
 
   /**
+   * Adds a verification method to an existing DID.
+   * @param did - The DID to update
+   * @param verificationMethod - The verification method to add
+   * @param accountAddress - The account address for signing
+   * @returns A promise that resolves to the transaction result
+   * @throws {KILTError} If the operation fails
+   */
+  public async addVerificationMethod(
+    did: string,
+    verificationMethod: Partial<KILTVerificationMethod>,
+    accountAddress: string
+  ): Promise<KILTTransactionResult> {
+    return this.updateDIDDocument(did, { verificationMethods: [verificationMethod] }, accountAddress);
+  }
+
+  /**
+   * Adds a service endpoint to an existing DID.
+   * @param did - The DID to update
+   * @param service - The service to add
+   * @param accountAddress - The account address for signing
+   * @returns A promise that resolves to the transaction result
+   * @throws {KILTError} If the operation fails
+   */
+  public async addService(
+    did: string,
+    service: Partial<KILTService>,
+    accountAddress: string
+  ): Promise<KILTTransactionResult> {
+    return this.updateDIDDocument(did, { services: [service] }, accountAddress);
+  }
+
+  /**
    * Updates a DID document on the KILT parachain.
    * @param did - The DID to update
    * @param updates - The updates to apply
+   * @param accountAddress - The account address for signing
    * @returns A promise that resolves to the update result
    * @throws {KILTError} If the update fails
    */
@@ -845,7 +852,8 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       services?: Partial<KILTService>[];
       controller?: string;
       metadata?: Record<string, unknown>;
-    }
+    },
+    accountAddress: string
   ): Promise<KILTTransactionResult> {
     try {
       const address = await this.extractAddress(did);
@@ -915,7 +923,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       }
 
       // Submit the transaction
-      return await this.submitTransaction(extrinsics, address);
+      return await this.submitTransaction(extrinsics, accountAddress);
 
     } catch (error) {
       if (error instanceof KILTError) {
@@ -1156,7 +1164,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    * Legacy method for backward compatibility.
    * @deprecated Use registerDidOnchain instead
    */
-  public async registerDIDOnChain(request: KILTCreateDIDRequest): Promise<KILTCreateDIDResponse> {
-    return this.registerDidOnchain(request);
+  public async registerDIDOnChain(request: KILTCreateDIDRequest, accountAddress: string): Promise<KILTCreateDIDResponse> {
+    return this.registerDidOnchain(request, accountAddress);
   }
 }

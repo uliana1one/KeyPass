@@ -434,8 +434,8 @@ export enum KILTDIDStatus {
  * Request interface for creating KILT DIDs.
  */
 export interface KILTCreateDIDRequest {
-  /** Account address to use for DID creation */
-  accountAddress: string;
+  /** DID identifier (optional - will be generated from address if not provided) */
+  did?: string;
   
   /** DID controller */
   controller?: string;
