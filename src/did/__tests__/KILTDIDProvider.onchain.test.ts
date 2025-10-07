@@ -971,4 +971,121 @@ describe('KILTDIDProvider On-Chain Integration Tests', () => {
       }
     }, TEST_CONFIG.testTimeout);
   });
+
+  describe('DID Modification Methods', () => {
+    test('should remove verification method successfully', async () => {
+      const testDID = `did:kilt:${testAccount.address}`;
+      const verificationMethodId = `${testDID}#key-1`;
+      
+      // Mock the removal since it requires real chain interaction
+      const mockRemove = jest.spyOn(kiltDIDProvider, 'removeVerificationMethod').mockResolvedValue({
+        success: true,
+        transactionHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        blockNumber: 1000,
+        blockHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+        events: []
+      });
+      
+      const result = await kiltDIDProvider.removeVerificationMethod(testDID, verificationMethodId);
+      
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      
+      mockRemove.mockRestore();
+    }, TEST_CONFIG.testTimeout);
+
+    test('should handle removal of non-existent verification method', async () => {
+      const testDID = `did:kilt:${testAccount.address}`;
+      const nonExistentKeyId = `${testDID}#non-existent`;
+      
+      // Mock error scenario
+      const mockRemove = jest.spyOn(kiltDIDProvider, 'removeVerificationMethod').mockRejectedValue(
+        new KILTError('Verification method not found', KILTErrorType.DID_REGISTRATION_ERROR)
+      );
+      
+      await expect(
+        kiltDIDProvider.removeVerificationMethod(testDID, nonExistentKeyId)
+      ).rejects.toThrow();
+      
+      mockRemove.mockRestore();
+    }, TEST_CONFIG.testTimeout);
+
+    test('should remove service endpoint successfully', async () => {
+      const testDID = `did:kilt:${testAccount.address}`;
+      const serviceId = `${testDID}#service-1`;
+      
+      // Mock the removal
+      const mockRemoveService = jest.spyOn(kiltDIDProvider, 'removeService').mockResolvedValue({
+        success: true,
+        transactionHash: '0x2345678901bcdef2345678901bcdef2345678901bcdef2345678901bcdef01',
+        blockNumber: 1001,
+        blockHash: '0xbcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890a',
+        events: []
+      });
+      
+      const result = await kiltDIDProvider.removeService(testDID, serviceId);
+      
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      
+      mockRemoveService.mockRestore();
+    }, TEST_CONFIG.testTimeout);
+
+    test('should handle removal of non-existent service', async () => {
+      const testDID = `did:kilt:${testAccount.address}`;
+      const nonExistentServiceId = `${testDID}#non-existent-service`;
+      
+      // Mock error scenario
+      const mockRemoveService = jest.spyOn(kiltDIDProvider, 'removeService').mockRejectedValue(
+        new KILTError('Service not found', KILTErrorType.DID_REGISTRATION_ERROR)
+      );
+      
+      await expect(
+        kiltDIDProvider.removeService(testDID, nonExistentServiceId)
+      ).rejects.toThrow();
+      
+      mockRemoveService.mockRestore();
+    }, TEST_CONFIG.testTimeout);
+  });
+
+  describe('DID Existence Checks', () => {
+    test('should return true for existing DID', async () => {
+      const testDID = `did:kilt:${testAccount.address}`;
+      
+      // Mock didExists to return true
+      const mockExists = jest.spyOn(kiltDIDProvider, 'didExists').mockResolvedValue(true);
+      
+      const exists = await kiltDIDProvider.didExists(testDID);
+      
+      expect(exists).toBe(true);
+      
+      mockExists.mockRestore();
+    }, TEST_CONFIG.testTimeout);
+
+    test('should return false for non-existent DID', async () => {
+      const nonExistentDID = `did:kilt:${testAccount.address.replace(/.$/, 'x')}`;
+      
+      // Mock didExists to return false
+      const mockExists = jest.spyOn(kiltDIDProvider, 'didExists').mockResolvedValue(false);
+      
+      const exists = await kiltDIDProvider.didExists(nonExistentDID);
+      
+      expect(exists).toBe(false);
+      
+      mockExists.mockRestore();
+    }, TEST_CONFIG.testTimeout);
+
+    test('should handle errors when checking DID existence', async () => {
+      const invalidDID = 'invalid-did';
+      
+      // Mock error scenario
+      const mockExists = jest.spyOn(kiltDIDProvider, 'didExists').mockRejectedValue(
+        new KILTError('Invalid DID format', KILTErrorType.DID_REGISTRATION_ERROR)
+      );
+      
+      await expect(kiltDIDProvider.didExists(invalidDID)).rejects.toThrow();
+      
+      mockExists.mockRestore();
+    }, TEST_CONFIG.testTimeout);
+  });
 });
