@@ -184,6 +184,10 @@ export class KILTTransactionService {
               }
             }).catch(error => {
               console.warn('Failed to get block number in callback:', error);
+              // Set to 0 if we can't retrieve it, transaction is still valid
+              if (txStatus) {
+                txStatus.blockNumber = 0;
+              }
             });
             
             // Extract events from status
@@ -409,23 +413,32 @@ export class KILTTransactionService {
       // Transaction is no longer pending, check if it was included in a block
       const status = this.pendingTransactions.get(txHash);
       if (status && status.status === 'pending') {
-        // Try to get the latest block to see if our transaction is confirmed
+        // Search through recent blocks to find the transaction
         try {
-          const latestBlock = await this.api.rpc.chain.getBlock();
-          const blockHash = latestBlock.block.header.hash.toHex();
-          
-          // For now, assume transaction is confirmed if not pending
-          // In a real implementation, you'd search through recent blocks
-          status.status = 'confirmed';
-          status.blockNumber = await this.getBlockNumber(blockHash);
-          status.blockHash = blockHash;
-          
-          // Parse events from the block
-          status.events = await this.extractTransactionEvents(latestBlock.block.extrinsics, blockHash);
-        } catch (blockError) {
-          console.warn('Failed to get latest block info:', blockError);
-          // Search through recent blocks for the transaction
           await this.searchTransactionInRecentBlocks(txHash, status);
+          
+          // If we couldn't find it in recent blocks, try current block as fallback
+          if (status.status === 'pending') {
+            const latestBlock = await this.api.rpc.chain.getBlock();
+            const blockHash = latestBlock.block.header.hash.toHex();
+            
+            status.status = 'confirmed';
+            try {
+              status.blockNumber = await this.getBlockNumber(blockHash);
+            } catch (blockNumError) {
+              console.warn('Failed to get block number:', blockNumError);
+              status.blockNumber = 0; // Set to 0 if unavailable
+            }
+            status.blockHash = blockHash;
+            
+            // Parse events from the block
+            status.events = await this.extractTransactionEvents(latestBlock.block.extrinsics, blockHash);
+          }
+        } catch (blockError) {
+          console.warn('Failed to search for transaction in blocks:', blockError);
+          // Mark as confirmed but without detailed block info
+          status.status = 'confirmed';
+          status.blockNumber = 0;
         }
       }
 
@@ -686,6 +699,7 @@ export class KILTTransactionService {
    * Gets the block number for a given block hash.
    * @param blockHash - The block hash
    * @returns The block number
+   * @throws {KILTError} If block number cannot be retrieved
    * @private
    */
   private async getBlockNumber(blockHash: string): Promise<number> {
@@ -693,8 +707,11 @@ export class KILTTransactionService {
       const block = await this.api.rpc.chain.getBlock(blockHash);
       return block.block.header.number.toNumber();
     } catch (error) {
-      console.warn('Failed to get block number:', error);
-      return Math.floor(Math.random() * 10000000) + 5000000;
+      throw new KILTError(
+        `Failed to get block number for hash ${blockHash}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.NETWORK_ERROR,
+        { cause: error as Error, blockHash }
+      );
     }
   }
 
