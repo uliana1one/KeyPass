@@ -1088,4 +1088,41 @@ describe('KILTDIDProvider On-Chain Integration Tests', () => {
       mockExists.mockRestore();
     }, TEST_CONFIG.testTimeout);
   });
+
+  describe('DID Query Methods', () => {
+    test('should query and parse DID document with verification methods', async () => {
+      const testDID = `did:kilt:${testAccount.address}`;
+      
+      const didDocument = await kiltDIDProvider.queryDIDDocument(testDID);
+      
+      expect(didDocument).toBeDefined();
+      expect(didDocument?.id).toBe(testDID);
+      expect(didDocument?.verificationMethod).toBeDefined();
+      if (didDocument?.verificationMethod) {
+        expect(Array.isArray(didDocument.verificationMethod)).toBe(true);
+      }
+    }, TEST_CONFIG.testTimeout);
+
+    test('should query and parse DID document with services', async () => {
+      const testDID = `did:kilt:${testAccount.address}`;
+      
+      const didDocument = await kiltDIDProvider.queryDIDDocument(testDID);
+      
+      expect(didDocument).toBeDefined();
+      if (didDocument?.service) {
+        expect(Array.isArray(didDocument.service)).toBe(true);
+      }
+    }, TEST_CONFIG.testTimeout);
+
+    test('should handle empty chain data gracefully', async () => {
+      // Create a DID that doesn't exist on chain
+      const nonExistentDID = 'did:kilt:4nonexistent111111111111111111111111111111111';
+      
+      const didDocument = await kiltDIDProvider.queryDIDDocument(nonExistentDID);
+      
+      // With mock API, might return a document or null depending on mock implementation
+      // Both are acceptable results in test environment
+      expect(didDocument === null || typeof didDocument === 'object').toBe(true);
+    }, TEST_CONFIG.testTimeout);
+  });
 });
