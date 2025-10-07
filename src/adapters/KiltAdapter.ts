@@ -3,6 +3,7 @@ import { hexToU8a, u8aToHex } from '@polkadot/util';
 import { isAddress } from '@polkadot/util-crypto';
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import { InjectedWindow } from '@polkadot/extension-inject/types';
+import { KeyringPair } from '@polkadot/keyring/types';
 import {
   WalletAdapter,
   WalletAccount,
@@ -23,6 +24,13 @@ import {
 } from '../errors/WalletErrors';
 import { EventEmitter } from 'events';
 import { KILT_NETWORKS, KILTNetwork } from '../config/kiltConfig.js';
+import { KILTTransactionService } from '../did/services/KILTTransactionService.js';
+import { 
+  KILTTransactionResult, 
+  KILTTransactionEvent,
+  KILTError,
+  KILTErrorType
+} from '../did/types/KILTTypes.js';
 
 // KILT network endpoints with fallbacks
 const KILT_ENDPOINTS = {
@@ -68,9 +76,55 @@ export interface KiltChainInfo {
   genesisHash: string;
 }
 
+// Transaction options interface
+export interface KILTTransactionOptions {
+  /** Transaction signer */
+  signer: KeyringPair | string;
+  /** Transaction nonce (optional, will be fetched if not provided) */
+  nonce?: number;
+  /** Transaction tip (optional) */
+  tip?: string | number;
+  /** Transaction era (optional) */
+  era?: any;
+  /** Custom gas limit (optional) */
+  gasLimit?: string | number;
+  /** Whether to wait for transaction confirmation */
+  waitForConfirmation?: boolean;
+  /** Transaction metadata */
+  metadata?: Record<string, unknown>;
+}
+
+// Transaction status interface
+export interface KILTTransactionStatus {
+  /** Transaction hash */
+  hash: string;
+  /** Current status */
+  status: 'pending' | 'inBlock' | 'confirmed' | 'failed' | 'timeout';
+  /** Block number where transaction was included */
+  blockNumber?: number;
+  /** Block hash where transaction was included */
+  blockHash?: string;
+  /** Transaction events */
+  events?: KILTTransactionEvent[];
+  /** Error message if transaction failed */
+  error?: string;
+  /** Number of retry attempts */
+  retryCount: number;
+}
+
+// Nonce management interface
+export interface KILTNonceInfo {
+  /** Current nonce */
+  nonce: number;
+  /** Whether nonce is cached */
+  cached: boolean;
+  /** Timestamp of last nonce update */
+  lastUpdated: Date;
+}
+
 /**
- * Adapter for KILT parachain connection and wallet operations.
- * Handles connection to KILT spiritnet, account listing, and message signing.
+ * Enhanced adapter for KILT parachain connection and wallet operations.
+ * Handles connection to KILT networks, account listing, message signing, and real transaction operations.
  */
 export class KiltAdapter implements WalletAdapter {
   private enabled = false;
@@ -89,6 +143,12 @@ export class KiltAdapter implements WalletAdapter {
   private isConnecting = false;
   private lastHealthCheck: Date | null = null;
   private connectionState: 'disconnected' | 'connecting' | 'connected' | 'reconnecting' = 'disconnected';
+
+  // Transaction management
+  private transactionService: KILTTransactionService | null = null;
+  private nonceCache: Map<string, KILTNonceInfo> = new Map();
+  private pendingTransactions: Map<string, KILTTransactionStatus> = new Map();
+  private transactionMonitorInterval: NodeJS.Timeout | null = null;
 
   constructor(network: KILTNetwork = KILTNetwork.SPIRITNET) {
     this.injectedWindow = window as Window & InjectedWindow;
@@ -205,6 +265,12 @@ export class KiltAdapter implements WalletAdapter {
             ss58Format,
             genesisHash,
           };
+
+          // Initialize transaction service
+          this.transactionService = new KILTTransactionService(this.api);
+
+          // Start transaction monitoring
+          this.startTransactionMonitoring();
 
           console.log(`Successfully connected to ${endpoint}`);
           return this.chainInfo;
@@ -567,6 +633,358 @@ export class KiltAdapter implements WalletAdapter {
   }
 
   /**
+   * Signs and submits a transaction to the KILT parachain.
+   * @param extrinsic - The transaction extrinsic
+   * @param options - Transaction options
+   * @returns A promise that resolves to the transaction result
+   * @throws {KILTError} If transaction submission fails
+   */
+  public async submitTransaction(
+    extrinsic: any,
+    options: KILTTransactionOptions
+  ): Promise<KILTTransactionResult> {
+    try {
+      if (!this.api || !this.transactionService) {
+        throw new KILTError(
+          'KILT adapter not connected',
+          KILTErrorType.NETWORK_ERROR
+        );
+      }
+
+      // Convert string signer to KeyringPair if needed
+      let signer: KeyringPair;
+      if (typeof options.signer === 'string') {
+        signer = await this.getSignerFromAddress(options.signer);
+      } else {
+        signer = options.signer;
+      }
+
+      // Submit transaction using transaction service
+      const result = await this.transactionService.submitTransaction(extrinsic, {
+        signer,
+        nonce: options.nonce,
+        tip: options.tip,
+        era: options.era,
+        gasLimit: options.gasLimit,
+        waitForConfirmation: options.waitForConfirmation,
+      });
+
+      // Emit transaction event
+      this.eventEmitter.emit('transactionSubmitted', result);
+
+      return result;
+
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+
+      throw new KILTError(
+        `Transaction submission failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Gets the current nonce for an account.
+   * @param address - The account address
+   * @returns A promise that resolves to the nonce info
+   */
+  public async getNonce(address: string): Promise<KILTNonceInfo> {
+    try {
+      if (!this.api) {
+        throw new KILTError(
+          'KILT adapter not connected',
+          KILTErrorType.NETWORK_ERROR
+        );
+      }
+
+      // Check cache first
+      const cached = this.nonceCache.get(address);
+      if (cached && Date.now() - cached.lastUpdated.getTime() < 30000) { // 30 second cache
+        return { ...cached, cached: true };
+      }
+
+      // Fetch from chain
+      const nonce = await this.api.rpc.system.accountNextIndex(address);
+      const nonceInfo: KILTNonceInfo = {
+        nonce: nonce.toNumber(),
+        cached: false,
+        lastUpdated: new Date(),
+      };
+
+      // Cache the nonce
+      this.nonceCache.set(address, nonceInfo);
+
+      return nonceInfo;
+
+    } catch (error) {
+      throw new KILTError(
+        `Failed to get nonce: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Increments the nonce for an account (used after successful transaction).
+   * @param address - The account address
+   */
+  public incrementNonce(address: string): void {
+    const cached = this.nonceCache.get(address);
+    if (cached) {
+      cached.nonce++;
+      cached.lastUpdated = new Date();
+      this.nonceCache.set(address, cached);
+    }
+  }
+
+  /**
+   * Gets the status of a pending transaction.
+   * @param txHash - The transaction hash
+   * @returns The transaction status or undefined if not found
+   */
+  public getTransactionStatus(txHash: string): KILTTransactionStatus | undefined {
+    return this.pendingTransactions.get(txHash);
+  }
+
+  /**
+   * Gets all pending transactions.
+   * @returns Array of pending transaction statuses
+   */
+  public getPendingTransactions(): KILTTransactionStatus[] {
+    return Array.from(this.pendingTransactions.values());
+  }
+
+  /**
+   * Monitors transaction status with real-time updates.
+   * @param txHash - The transaction hash to monitor
+   * @param callback - Callback function for status updates
+   * @returns A promise that resolves when monitoring is complete
+   */
+  public async monitorTransaction(
+    txHash: string,
+    callback: (status: KILTTransactionStatus) => void
+  ): Promise<KILTTransactionResult> {
+    if (!this.transactionService) {
+      throw new KILTError(
+        'Transaction service not available',
+        KILTErrorType.NETWORK_ERROR
+      );
+    }
+
+    return this.transactionService.monitorTransaction(txHash, callback);
+  }
+
+  /**
+   * Estimates gas for a transaction.
+   * @param extrinsic - The transaction extrinsic
+   * @param signer - The transaction signer
+   * @returns A promise that resolves to gas estimation
+   */
+  public async estimateGas(
+    extrinsic: any,
+    signer: KeyringPair | string
+  ): Promise<{ gasLimit: string; fee: string; success: boolean; error?: string }> {
+    try {
+      if (!this.transactionService) {
+        throw new KILTError(
+          'Transaction service not available',
+          KILTErrorType.NETWORK_ERROR
+        );
+      }
+
+      // Convert string signer to KeyringPair if needed
+      let keyringPair: KeyringPair;
+      if (typeof signer === 'string') {
+        keyringPair = await this.getSignerFromAddress(signer);
+      } else {
+        keyringPair = signer;
+      }
+
+      return await this.transactionService.estimateGas(extrinsic, keyringPair);
+
+    } catch (error) {
+      return {
+        gasLimit: '0',
+        fee: '0',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Gets transaction details from the blockchain.
+   * @param txHash - The transaction hash
+   * @returns A promise that resolves to transaction details
+   */
+  public async getTransactionDetails(txHash: string): Promise<{
+    hash: string;
+    blockNumber: number;
+    blockHash: string;
+    events: KILTTransactionEvent[];
+    fee: { amount: string; currency: string };
+    timestamp: string;
+  } | null> {
+    if (!this.transactionService) {
+      throw new KILTError(
+        'Transaction service not available',
+        KILTErrorType.NETWORK_ERROR
+      );
+    }
+
+    return this.transactionService.getTransactionDetails(txHash);
+  }
+
+  /**
+   * Gets network statistics for monitoring.
+   * @returns A promise that resolves to network statistics
+   */
+  public async getNetworkStats(): Promise<{
+    blockNumber: number;
+    blockHash: string;
+    finalizedBlockNumber: number;
+    finalizedBlockHash: string;
+    pendingTransactions: number;
+    averageBlockTime: number;
+    networkName: string;
+    tokenSymbol: string;
+  }> {
+    if (!this.transactionService) {
+      throw new KILTError(
+        'Transaction service not available',
+        KILTErrorType.NETWORK_ERROR
+      );
+    }
+
+    return this.transactionService.getNetworkStats();
+  }
+
+  /**
+   * Creates a signer from an address using the wallet extension.
+   * @param address - The account address
+   * @returns A promise that resolves to a KeyringPair
+   * @private
+   */
+  private async getSignerFromAddress(address: string): Promise<KeyringPair> {
+    try {
+      if (!this.enabled) {
+        throw new KILTError(
+          'Wallet not enabled',
+          KILTErrorType.NETWORK_ERROR
+        );
+      }
+
+      const injector = await web3FromAddress(address);
+      if (!injector.signer) {
+        throw new KILTError(
+          `No signer available for address ${address}`,
+          KILTErrorType.NETWORK_ERROR
+        );
+      }
+
+      // Create a mock KeyringPair that uses the injector signer
+      const mockKeyringPair = {
+        address,
+        sign: async (message: Uint8Array) => {
+          if (!injector.signer || !injector.signer.signRaw) {
+            throw new KILTError('Signer not available', KILTErrorType.NETWORK_ERROR);
+          }
+          const signature = await injector.signer.signRaw({
+            address,
+            data: u8aToHex(message),
+            type: 'bytes',
+          });
+          return signature.signature;
+        },
+        signAsync: async (message: Uint8Array) => {
+          if (!injector.signer || !injector.signer.signRaw) {
+            throw new KILTError('Signer not available', KILTErrorType.NETWORK_ERROR);
+          }
+          const signature = await injector.signer.signRaw({
+            address,
+            data: u8aToHex(message),
+            type: 'bytes',
+          });
+          return signature.signature;
+        },
+      } as unknown as KeyringPair;
+
+      return mockKeyringPair;
+
+    } catch (error) {
+      throw new KILTError(
+        `Failed to get signer for address ${address}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.NETWORK_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Starts transaction monitoring for pending transactions.
+   * @private
+   */
+  private startTransactionMonitoring(): void {
+    this.stopTransactionMonitoring(); // Clear any existing interval
+
+    this.transactionMonitorInterval = setInterval(async () => {
+      if (this.pendingTransactions.size > 0) {
+        for (const [txHash, status] of this.pendingTransactions.entries()) {
+          try {
+            if (this.transactionService) {
+              const isConfirmed = await this.transactionService.checkTransactionStatus(txHash);
+              if (isConfirmed && status.status !== 'confirmed' && status.status !== 'failed') {
+                status.status = 'confirmed';
+                this.eventEmitter.emit('transactionConfirmed', { txHash, status });
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to check status for transaction ${txHash}:`, error);
+          }
+        }
+
+        // Clean up confirmed/failed transactions
+        for (const [txHash, status] of this.pendingTransactions.entries()) {
+          if (status.status === 'confirmed' || status.status === 'failed') {
+            this.pendingTransactions.delete(txHash);
+          }
+        }
+      }
+    }, 5000); // Check every 5 seconds
+  }
+
+  /**
+   * Stops transaction monitoring.
+   * @private
+   */
+  private stopTransactionMonitoring(): void {
+    if (this.transactionMonitorInterval) {
+      clearInterval(this.transactionMonitorInterval);
+      this.transactionMonitorInterval = null;
+    }
+  }
+
+  /**
+   * Clears the nonce cache.
+   */
+  public clearNonceCache(): void {
+    this.nonceCache.clear();
+  }
+
+  /**
+   * Gets the transaction service instance.
+   * @returns The transaction service or null if not available
+   */
+  public getTransactionService(): KILTTransactionService | null {
+    return this.transactionService;
+  }
+
+  /**
    * Disconnects from the KILT wallet and cleans up resources.
    */
   public async disconnect(): Promise<void> {
@@ -589,6 +1007,9 @@ export class KiltAdapter implements WalletAdapter {
 
     // Stop health checking
     this.stopHealthCheck();
+
+    // Stop transaction monitoring
+    this.stopTransactionMonitoring();
 
     // Clear connection timeout
     if (this.connectionTimeout) {
@@ -622,6 +1043,9 @@ export class KiltAdapter implements WalletAdapter {
       this.chainInfo = null;
       this.lastHealthCheck = null;
       this.connectionRetryCount = 0;
+      this.transactionService = null;
+      this.nonceCache.clear();
+      this.pendingTransactions.clear();
     }
   }
 
