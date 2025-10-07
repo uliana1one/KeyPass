@@ -869,4 +869,36 @@ describe('KILTDIDProvider On-Chain Integration Tests', () => {
       }
     }, TEST_CONFIG.testTimeout);
   });
+
+  describe('DID Resolution and Query Methods', () => {
+    test('should successfully resolve DID to DID document', async () => {
+      // Use the test account address to create a valid DID
+      const testDID = `did:kilt:${testAccount.address}`;
+      
+      const didDocument = await kiltDIDProvider.resolve(testDID);
+      
+      expect(didDocument).toBeDefined();
+      expect(didDocument.id).toBe(testDID);
+      expect(didDocument['@context']).toBeDefined();
+      expect(didDocument.controller).toBeDefined();
+      // Controller is set to the DID itself by default
+      expect(didDocument.controller).toBe(testDID);
+      expect(didDocument.verificationMethod).toBeDefined();
+      expect(didDocument.verificationMethod.length).toBeGreaterThan(0);
+      expect(didDocument.authentication).toBeDefined();
+      expect(didDocument.authentication.length).toBeGreaterThan(0);
+    }, TEST_CONFIG.testTimeout);
+
+    test('should reject invalid DID format', async () => {
+      const invalidDID = 'did:invalid:address';
+      
+      await expect(kiltDIDProvider.resolve(invalidDID)).rejects.toThrow('Invalid KILT DID format');
+    }, TEST_CONFIG.testTimeout);
+
+    test('should reject non-DID string', async () => {
+      const notADID = 'just-a-random-string';
+      
+      await expect(kiltDIDProvider.resolve(notADID)).rejects.toThrow('Invalid KILT DID format');
+    }, TEST_CONFIG.testTimeout);
+  });
 });
