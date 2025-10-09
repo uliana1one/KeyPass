@@ -14,36 +14,60 @@
  * Environment Variables:
  *   PRIVATE_KEY - Private key for deployment (required)
  *   MOONSCAN_API_KEY - API key for contract verification (optional)
- *   NETWORK - Target network (default: moonbase-alpha)
+ *   NETWORK - Target network: moonbase-alpha (testnet) | moonbeam | moonriver (default: moonbase-alpha)
  *   GAS_LIMIT - Custom gas limit (optional)
- *   GAS_PRICE - Custom gas price (optional)
- *   MAX_FEE_PER_GAS - EIP-1559 max fee per gas (optional)
- *   MAX_PRIORITY_FEE_PER_GAS - EIP-1559 priority fee (optional)
+ *   GAS_PRICE - Custom gas price in wei (optional)
+ *   MAX_FEE_PER_GAS - EIP-1559 max fee per gas in wei (optional)
+ *   MAX_PRIORITY_FEE_PER_GAS - EIP-1559 priority fee in wei (optional)
+ *   CONTRACT_NAME - Custom contract name (default: KeyPass SBT)
+ *   CONTRACT_SYMBOL - Custom contract symbol (default: KPASS)
+ *   BASE_URI - Base URI for token metadata (default: https://api.keypass.com/metadata/)
  */
 
 import { ethers } from 'ethers';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 // Import local modules
 import { MoonbeamAdapter } from '../src/adapters/MoonbeamAdapter.js';
+import { MoonbeamNetwork } from '../src/config/moonbeamConfig.js';
 import { SBTContractFactory } from '../src/contracts/SBTContractFactory.js';
-import { 
-  deploymentConfigs, 
-  getNetworkConfig, 
-  getDefaultConstructorArgs,
-  getDefaultDeploymentConfig,
-  getDefaultVerificationConfig,
-  validateNetwork,
-  isTestnet,
-  getExplorerUrl,
-  ArtifactUtils
-} from '../src/contracts/artifacts/index.js';
+import type { 
+  SBTContractAddress,
+  SBTContractDeploymentConfig 
+} from '../src/contracts/types/SBTContractTypes.js';
 
 // Get current directory for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+/**
+ * Network mapping for Moonbeam networks
+ */
+const NETWORK_MAPPING: Record<string, MoonbeamNetwork> = {
+  'moonbase-alpha': MoonbeamNetwork.MOONBASE_ALPHA,
+  'moonbeam': MoonbeamNetwork.MAINNET,
+  'moonriver': MoonbeamNetwork.MOONRIVER,
+};
+
+/**
+ * Explorer URLs for each network
+ */
+const EXPLORER_URLS: Record<string, string> = {
+  'moonbase-alpha': 'https://moonbase.moonscan.io',
+  'moonbeam': 'https://moonscan.io',
+  'moonriver': 'https://moonriver.moonscan.io',
+};
+
+/**
+ * Native token symbols for each network
+ */
+const NATIVE_SYMBOLS: Record<string, string> = {
+  'moonbase-alpha': 'DEV',
+  'moonbeam': 'GLMR',
+  'moonriver': 'MOVR',
+};
 
 /**
  * Deployment configuration interface
@@ -77,7 +101,6 @@ interface DeploymentResult {
   blockNumber?: number;
   gasUsed?: string;
   deploymentCost?: string;
-  verificationResult?: any;
   error?: string;
   network: string;
   deployedAt: string;
@@ -130,8 +153,9 @@ function loadEnvironmentVariables(): Partial<DeploymentConfig> {
   config.maxPriorityFeePerGas = process.env.MAX_PRIORITY_FEE_PER_GAS;
 
   // Validation
-  if (!validateNetwork(config.network!)) {
-    throw new Error(`Unsupported network: ${config.network}`);
+  if (!NETWORK_MAPPING[config.network]) {
+    const supported = Object.keys(NETWORK_MAPPING).join(', ');
+    throw new Error(`Unsupported network: ${config.network}. Supported networks: ${supported}`);
   }
 
   return config;
@@ -172,7 +196,7 @@ function saveConfigFile(config: ConfigFile): void {
   
   // Ensure config directory exists
   if (!existsSync(configDir)) {
-    require('fs').mkdirSync(configDir, { recursive: true });
+    mkdirSync(configDir, { recursive: true });
   }
 
   // Update metadata
@@ -187,6 +211,19 @@ function saveConfigFile(config: ConfigFile): void {
 }
 
 /**
+ * Get RPC URL for a given network
+ */
+function getRpcUrl(network: string): string {
+  const rpcUrls: Record<string, string> = {
+    'moonbase-alpha': 'https://rpc.api.moonbase.moonbeam.network',
+    'moonbeam': 'https://rpc.api.moonbeam.network',
+    'moonriver': 'https://rpc.api.moonriver.moonbeam.network',
+  };
+  
+  return rpcUrls[network] || rpcUrls['moonbase-alpha'];
+}
+
+/**
  * Create wallet from private key
  */
 function createWallet(privateKey: string, network: string): ethers.Wallet {
@@ -196,14 +233,11 @@ function createWallet(privateKey: string, network: string): ethers.Wallet {
       privateKey = '0x' + privateKey;
     }
 
-    // Get network configuration
-    const networkConfig = getNetworkConfig(network);
-    if (!networkConfig) {
-      throw new Error(`Network configuration not found: ${network}`);
-    }
+    // Get RPC URL for the network
+    const rpcUrl = getRpcUrl(network);
 
     // Create provider
-    const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
     
     // Create wallet
     const wallet = new ethers.Wallet(privateKey, provider);
@@ -220,9 +254,8 @@ function createWallet(privateKey: string, network: string): ethers.Wallet {
  */
 async function checkWalletBalance(wallet: ethers.Wallet, network: string): Promise<void> {
   try {
-    const balance = await wallet.provider.getBalance(wallet.address);
-    const networkConfig = getNetworkConfig(network);
-    const symbol = networkConfig?.nativeCurrency.symbol || 'ETH';
+    const balance = await wallet.provider!.getBalance(wallet.address);
+    const symbol = NATIVE_SYMBOLS[network] || 'ETH';
     
     console.log(`💰 Wallet balance: ${ethers.formatEther(balance)} ${symbol}`);
     
@@ -250,9 +283,15 @@ async function deploySBTContract(config: DeploymentConfig): Promise<DeploymentRe
     // Check wallet balance
     await checkWalletBalance(wallet, config.network);
     
-    // Create Moonbeam adapter
-    const adapter = new MoonbeamAdapter();
-    await adapter.connect(config.network);
+    // Get Moonbeam network enum
+    const moonbeamNetwork = NETWORK_MAPPING[config.network];
+    if (!moonbeamNetwork) {
+      throw new Error(`Invalid network: ${config.network}`);
+    }
+    
+    // Create Moonbeam adapter with the specific network
+    const adapter = new MoonbeamAdapter(moonbeamNetwork);
+    await adapter.connect();
     
     // Create SBT contract factory
     const factoryConfig = {
@@ -263,12 +302,12 @@ async function deploySBTContract(config: DeploymentConfig): Promise<DeploymentRe
     
     const factory = new SBTContractFactory(adapter, factoryConfig);
     
-    // Prepare deployment configuration
-    const deploymentConfig = {
+    // Prepare deployment configuration with proper address type
+    const deploymentConfig: SBTContractDeploymentConfig = {
       name: config.constructorArgs.name,
       symbol: config.constructorArgs.symbol,
       baseURI: config.constructorArgs.baseURI,
-      owner: wallet.address,
+      owner: wallet.address as SBTContractAddress,
       gasLimit: config.gasLimit ? BigInt(config.gasLimit) : undefined,
       gasPrice: config.gasPrice ? BigInt(config.gasPrice) : undefined,
       maxFeePerGas: config.maxFeePerGas ? BigInt(config.maxFeePerGas) : undefined,
@@ -288,8 +327,7 @@ async function deploySBTContract(config: DeploymentConfig): Promise<DeploymentRe
     
     // Calculate deployment cost
     const deploymentCost = ethers.formatEther(deploymentResult.deploymentCost);
-    const networkConfig = getNetworkConfig(config.network);
-    const symbol = networkConfig?.nativeCurrency.symbol || 'ETH';
+    const symbol = NATIVE_SYMBOLS[config.network] || 'ETH';
     
     console.log(`✅ Contract deployed successfully!`);
     console.log(`📍 Contract address: ${deploymentResult.contractAddress}`);
@@ -299,8 +337,23 @@ async function deploySBTContract(config: DeploymentConfig): Promise<DeploymentRe
     console.log(`💰 Deployment cost: ${deploymentCost} ${symbol}`);
     
     // Show explorer link
-    const explorerUrl = getExplorerUrl(config.network, deploymentResult.contractAddress);
+    const explorerUrl = `${EXPLORER_URLS[config.network]}/address/${deploymentResult.contractAddress}`;
     console.log(`🔍 Explorer: ${explorerUrl}`);
+    
+    // Attempt contract verification if enabled
+    let verified = false;
+    let verificationId: string | undefined;
+    
+    if (config.enableVerification && config.moonScanApiKey) {
+      console.log(`🔧 Attempting contract verification...`);
+      try {
+        // Note: Contract verification would be handled by a separate service
+        // This is a placeholder for the verification logic
+        console.log(`⚠️  Contract verification not yet implemented`);
+      } catch (verifyError) {
+        console.warn(`⚠️  Contract verification failed: ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`);
+      }
+    }
     
     // Save to configuration if enabled
     if (config.saveConfig) {
@@ -315,8 +368,8 @@ async function deploySBTContract(config: DeploymentConfig): Promise<DeploymentRe
         deployedAt: new Date().toISOString(),
         transactionHash: deploymentResult.transactionHash,
         blockNumber: deploymentResult.blockNumber,
-        verified: deploymentResult.verificationResult?.success || false,
-        verificationId: deploymentResult.verificationResult?.verificationId,
+        verified,
+        verificationId,
         constructorArgs: config.constructorArgs,
         gasUsed: deploymentResult.gasUsed.toString(),
         deploymentCost: deploymentResult.deploymentCost.toString(),
@@ -337,7 +390,6 @@ async function deploySBTContract(config: DeploymentConfig): Promise<DeploymentRe
       blockNumber: deploymentResult.blockNumber,
       gasUsed: deploymentResult.gasUsed.toString(),
       deploymentCost: deploymentResult.deploymentCost.toString(),
-      verificationResult: deploymentResult.verificationResult,
       network: config.network,
       deployedAt: new Date().toISOString(),
     };
@@ -376,7 +428,11 @@ async function main(): Promise<void> {
       maxFeePerGas: envConfig.maxFeePerGas,
       maxPriorityFeePerGas: envConfig.maxPriorityFeePerGas,
       contractName: 'SBTSimple',
-      constructorArgs: getDefaultConstructorArgs(),
+      constructorArgs: {
+        name: process.env.CONTRACT_NAME || 'KeyPass SBT',
+        symbol: process.env.CONTRACT_SYMBOL || 'KPASS',
+        baseURI: process.env.BASE_URI || 'https://api.keypass.com/metadata/',
+      },
       enableVerification: !!envConfig.moonScanApiKey,
       saveConfig: true,
       verbose: process.env.NODE_ENV !== 'production',
@@ -385,29 +441,19 @@ async function main(): Promise<void> {
     // Display configuration
     console.log(`🌐 Network: ${config.network}`);
     console.log(`📝 Contract: ${config.contractName}`);
+    console.log(`🏷️  Name: ${config.constructorArgs.name}`);
+    console.log(`🔤 Symbol: ${config.constructorArgs.symbol}`);
+    console.log(`🌐 Base URI: ${config.constructorArgs.baseURI}`);
     console.log(`🔧 Verification: ${config.enableVerification ? 'Enabled' : 'Disabled'}`);
     console.log(`💾 Save Config: ${config.saveConfig ? 'Yes' : 'No'}`);
     console.log(`🔍 Verbose: ${config.verbose ? 'Yes' : 'No'}`);
     console.log('');
     
-    // Validate network
-    if (!validateNetwork(config.network)) {
-      throw new Error(`Unsupported network: ${config.network}`);
-    }
-    
     // Check if testnet
-    if (!isTestnet(config.network)) {
+    if (config.network !== 'moonbase-alpha') {
       console.warn('⚠️  Warning: Deploying to mainnet. Make sure you have sufficient funds and have tested on testnet first.');
-      
-      // In production, you might want to add a confirmation prompt here
-      // const readline = require('readline');
-      // const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      // const answer = await new Promise(resolve => rl.question('Continue with mainnet deployment? (yes/no): ', resolve));
-      // rl.close();
-      // if (answer.toLowerCase() !== 'yes') {
-      //   console.log('Deployment cancelled.');
-      //   process.exit(0);
-      // }
+      console.warn('⚠️  Waiting 5 seconds before proceeding...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
     }
     
     // Deploy contract
@@ -418,12 +464,9 @@ async function main(): Promise<void> {
       console.log('🎉 Deployment completed successfully!');
       console.log(`📍 Contract: ${result.contractAddress}`);
       console.log(`🔗 Transaction: ${result.transactionHash}`);
-      
-      if (result.verificationResult?.success) {
-        console.log(`✅ Contract verified: ${result.verificationResult.explorerUrl}`);
-      } else if (config.enableVerification) {
-        console.log('⚠️  Contract verification failed or is pending');
-      }
+      console.log(`📦 Block: ${result.blockNumber}`);
+      console.log(`⛽ Gas Used: ${result.gasUsed}`);
+      console.log(`💰 Cost: ${result.deploymentCost} ${NATIVE_SYMBOLS[config.network]}`);
       
       process.exit(0);
     } else {
@@ -462,12 +505,11 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// Run main function if this script is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    console.error('💥 Script execution failed:', error);
-    process.exit(1);
-  });
-}
+// Run main function
+main().catch((error) => {
+  console.error('💥 Script execution failed:', error);
+  process.exit(1);
+});
 
+// Export for programmatic use
 export { deploySBTContract, DeploymentConfig, DeploymentResult };

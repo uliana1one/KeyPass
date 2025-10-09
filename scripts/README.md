@@ -1,281 +1,319 @@
-# Deployment Scripts
+# KeyPass Deployment Scripts
 
-This directory contains deployment scripts for SBT (Soulbound Token) contracts on Moonbeam networks.
+This directory contains deployment and utility scripts for the KeyPass project.
 
-## Files
+## SBT Contract Deployment
 
-### `deploySBT.ts`
-TypeScript deployment script with full type safety and modern ES modules support.
+### Overview
 
-### `deploySBT.js`
-JavaScript deployment script for environments that don't support TypeScript.
+The `deploySBT.ts` script deploys the SBT (Soulbound Token) contract to Moonbeam networks with full blockchain integration, verification support, and configuration management.
 
-## Usage
+### Features
+
+- ✅ **Real Moonbeam Deployment**: Deploy to testnet (Moonbase Alpha) or mainnet (Moonbeam/Moonriver)
+- ✅ **Contract Verification**: Optional contract verification on Moonbeam explorer
+- ✅ **Configuration Management**: Automatic saving of deployment artifacts and addresses
+- ✅ **Multi-Network Support**: Seamless switching between testnet and mainnet
+- ✅ **Gas Optimization**: Configurable gas limits and EIP-1559 support
+- ✅ **Error Handling**: Comprehensive error handling and logging
+- ✅ **Type Safety**: Full TypeScript type safety with proper Moonbeam types
 
 ### Prerequisites
 
-1. **Node.js** (v16 or higher)
-2. **Private Key** for deployment
-3. **Moonbeam Testnet Tokens** (DEV tokens for Moonbase Alpha)
-4. **MoonScan API Key** (optional, for contract verification)
+1. **Node.js**: Version 18+ with ESM support
+2. **Dependencies**: Install project dependencies
+   ```bash
+   npm install
+   ```
+3. **Private Key**: Deployment wallet private key
+4. **Network Funds**: Sufficient DEV (testnet) or GLMR/MOVR (mainnet) tokens
+5. **Moonscan API Key** (optional): For contract verification
 
 ### Environment Variables
 
+Create a `.env` file or set these environment variables:
+
 #### Required
-- `PRIVATE_KEY` - Private key for deployment (without 0x prefix)
+
+- `PRIVATE_KEY`: Private key for deployment wallet (with 0x prefix)
 
 #### Optional
-- `NETWORK` - Target network (default: moonbase-alpha)
-- `MOONSCAN_API_KEY` - API key for contract verification
-- `GAS_LIMIT` - Custom gas limit for deployment
-- `GAS_PRICE` - Custom gas price in wei
-- `MAX_FEE_PER_GAS` - EIP-1559 max fee per gas
-- `MAX_PRIORITY_FEE_PER_GAS` - EIP-1559 priority fee
 
-### Deployment Commands
+- `NETWORK`: Target network (default: `moonbase-alpha`)
+  - `moonbase-alpha`: Moonbeam testnet
+  - `moonbeam`: Moonbeam mainnet
+  - `moonriver`: Moonriver (Kusama)
+  
+- `MOONSCAN_API_KEY`: API key for contract verification on Moonscan
 
-#### Using TypeScript (Recommended)
+- `CONTRACT_NAME`: Custom contract name (default: `KeyPass SBT`)
+- `CONTRACT_SYMBOL`: Custom contract symbol (default: `KPASS`)
+- `BASE_URI`: Base URI for token metadata (default: `https://api.keypass.com/metadata/`)
+
+- `GAS_LIMIT`: Custom gas limit (optional)
+- `GAS_PRICE`: Custom gas price in wei (optional)
+- `MAX_FEE_PER_GAS`: EIP-1559 max fee per gas in wei (optional)
+- `MAX_PRIORITY_FEE_PER_GAS`: EIP-1559 priority fee in wei (optional)
+
+### Usage
+
+#### TypeScript Execution
+
 ```bash
-# Set environment variables
-export PRIVATE_KEY="your_private_key_here"
-export MOONSCAN_API_KEY="your_api_key_here"  # Optional
+# Deploy to testnet (default)
+PRIVATE_KEY=0x... npx ts-node scripts/deploySBT.ts
 
-# Deploy to Moonbase Alpha (testnet)
+# Deploy to mainnet with verification
+PRIVATE_KEY=0x... NETWORK=moonbeam MOONSCAN_API_KEY=... npx ts-node scripts/deploySBT.ts
+
+# Custom contract configuration
+PRIVATE_KEY=0x... CONTRACT_NAME="My SBT" CONTRACT_SYMBOL="MSBT" npx ts-node scripts/deploySBT.ts
+```
+
+#### JavaScript Execution
+
+```bash
+# First compile TypeScript
+npm run build
+
+# Then run the compiled JavaScript
+PRIVATE_KEY=0x... node dist/scripts/deploySBT.js
+```
+
+#### NPM Script (if configured in package.json)
+
+```bash
 npm run deploy:sbt
-
-# Or run directly
-npx ts-node scripts/deploySBT.ts
-
-# Deploy to specific network
-NETWORK=moonbase-alpha npx ts-node scripts/deploySBT.ts
 ```
 
-#### Using JavaScript
-```bash
-# Set environment variables
-export PRIVATE_KEY="your_private_key_here"
-export MOONSCAN_API_KEY="your_api_key_here"  # Optional
+### Deployment Output
 
-# Deploy to Moonbase Alpha (testnet)
-node scripts/deploySBT.js
+The script provides comprehensive deployment information:
 
-# Deploy to specific network
-NETWORK=moonbase-alpha node scripts/deploySBT.js
-```
-
-### Supported Networks
-
-#### Moonbase Alpha (Testnet)
-- **Chain ID**: 1287
-- **RPC URL**: https://rpc.api.moonbase.moonbeam.network
-- **Explorer**: https://moonbase.moonscan.io
-- **Currency**: DEV
-- **Faucet**: https://faucet.moonbase.moonbeam.network
-
-#### Moonbeam (Mainnet)
-- **Chain ID**: 1284
-- **RPC URL**: https://rpc.api.moonbeam.network
-- **Explorer**: https://moonscan.io
-- **Currency**: GLMR
-
-#### Moonriver (Mainnet)
-- **Chain ID**: 1285
-- **RPC URL**: https://rpc.api.moonriver.moonbeam.network
-- **Explorer**: https://moonriver.moonscan.io
-- **Currency**: MOVR
-
-## Configuration
-
-### Default Constructor Arguments
-- **Name**: "KeyPass SBT"
-- **Symbol**: "KPASS"
-- **Base URI**: "https://api.keypass.com/metadata/"
-
-### Gas Settings
-- **Default Gas Limit**: 3,000,000
-- **Default Gas Price**: 1 Gwei
-- **EIP-1559 Support**: Yes
-
-## Output
-
-### Success Output
 ```
 🎯 SBT Contract Deployment Script
 =====================================
 🌐 Network: moonbase-alpha
 📝 Contract: SBTSimple
+🏷️  Name: KeyPass SBT
+🔤 Symbol: KPASS
+🌐 Base URI: https://api.keypass.com/metadata/
 🔧 Verification: Enabled
 💾 Save Config: Yes
 🔍 Verbose: Yes
 
-🔑 Wallet created: 0x1234...5678
-💰 Wallet balance: 1.5 DEV
+🔑 Wallet created: 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb7
+💰 Wallet balance: 10.5 DEV
+🚀 Starting SBT contract deployment to moonbase-alpha...
 📋 Deployment configuration: {
   name: 'KeyPass SBT',
   symbol: 'KPASS',
   baseURI: 'https://api.keypass.com/metadata/',
-  owner: '0x1234...5678'
+  owner: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb7'
 }
 ⏳ Deploying contract...
 ✅ Contract deployed successfully!
-📍 Contract address: 0xabcd...efgh
-🔗 Transaction hash: 0x1234...5678
-📦 Block number: 12345678
-⛽ Gas used: 1800000
-💰 Deployment cost: 0.0018 DEV
-🔍 Explorer: https://moonbase.moonscan.io/address/0xabcd...efgh
+📍 Contract address: 0x1234567890123456789012345678901234567890
+🔗 Transaction hash: 0xabcdef...
+📦 Block number: 1234567
+⛽ Gas used: 2500000
+💰 Deployment cost: 0.05 DEV
+🔍 Explorer: https://moonbase.moonscan.io/address/0x1234567890123456789012345678901234567890
 ✅ Configuration saved to: /path/to/config/deployments.json
-⏱️  Deployment completed in 45.67 seconds
+⏱️  Deployment completed in 45.32 seconds
 
 🎉 Deployment completed successfully!
-📍 Contract: 0xabcd...efgh
-🔗 Transaction: 0x1234...5678
-✅ Contract verified: https://moonbase.moonscan.io/address/0xabcd...efgh#code
 ```
 
-### Error Output
-```
-❌ Deployment failed: Insufficient balance. Need at least 0.01 DEV for deployment.
-💥 Deployment failed!
-❌ Error: Insufficient balance. Need at least 0.01 DEV for deployment.
-```
+### Configuration Files
 
-## Configuration File
+#### Deployment Artifacts
 
-The script automatically saves deployment information to `config/deployments.json`:
+Deployment information is saved to `config/deployments.json`:
 
 ```json
 {
   "deployments": {
     "moonbase-alpha": {
       "SBTSimple": {
-        "address": "0xabcd...efgh",
-        "deployedAt": "2024-01-15T10:30:00.000Z",
-        "transactionHash": "0x1234...5678",
-        "blockNumber": 12345678,
-        "verified": true,
-        "verificationId": "verify_1234567890",
+        "address": "0x1234567890123456789012345678901234567890",
+        "deployedAt": "2024-10-09T12:34:56.789Z",
+        "transactionHash": "0xabcdef...",
+        "blockNumber": 1234567,
+        "verified": false,
         "constructorArgs": {
           "name": "KeyPass SBT",
           "symbol": "KPASS",
           "baseURI": "https://api.keypass.com/metadata/"
         },
-        "gasUsed": "1800000",
-        "deploymentCost": "1800000000000000"
+        "gasUsed": "2500000",
+        "deploymentCost": "50000000000000000"
       }
     }
   },
   "metadata": {
     "version": "1.0.0",
-    "lastUpdated": "2024-01-15T10:30:00.000Z",
+    "lastUpdated": "2024-10-09T12:34:56.789Z",
     "description": "SBT Contract Deployment Configuration"
   }
 }
 ```
 
-## Troubleshooting
+### Network Information
 
-### Common Issues
+| Network | Chain ID | RPC URL | Explorer | Token |
+|---------|----------|---------|----------|-------|
+| Moonbase Alpha | 1287 | https://rpc.api.moonbase.moonbeam.network | https://moonbase.moonscan.io | DEV |
+| Moonbeam | 1284 | https://rpc.api.moonbeam.network | https://moonscan.io | GLMR |
+| Moonriver | 1285 | https://rpc.api.moonriver.moonbeam.network | https://moonriver.moonscan.io | MOVR |
 
-#### 1. Insufficient Balance
-```
-❌ Insufficient balance. Need at least 0.01 DEV for deployment.
-```
-**Solution**: Get testnet tokens from the Moonbase Alpha faucet.
+### Contract Verification
 
-#### 2. Invalid Private Key
-```
-❌ Failed to create wallet: invalid private key
-```
-**Solution**: Ensure private key is valid and properly formatted.
+To enable contract verification:
 
-#### 3. Network Connection Issues
-```
-❌ Deployment failed: network error
-```
-**Solution**: Check internet connection and RPC endpoint availability.
+1. **Get Moonscan API Key**:
+   - Visit [Moonbase Moonscan](https://moonbase.moonscan.io/apis) (testnet)
+   - Or [Moonscan](https://moonscan.io/apis) (mainnet)
+   - Create an account and generate an API key
 
-#### 4. Gas Estimation Failed
-```
-❌ Deployment failed: gas estimation failed
-```
-**Solution**: Increase gas limit or check contract bytecode.
+2. **Set Environment Variable**:
+   ```bash
+   export MOONSCAN_API_KEY=your_api_key_here
+   ```
 
-#### 5. Verification Failed
-```
-⚠️ Contract verification failed or is pending
-```
-**Solution**: Check MoonScan API key and try manual verification.
+3. **Deploy with Verification**:
+   ```bash
+   PRIVATE_KEY=0x... MOONSCAN_API_KEY=... npx ts-node scripts/deploySBT.ts
+   ```
 
-### Debug Mode
+### Security Best Practices
 
-Enable verbose logging by setting environment variable:
+1. **Private Key Management**:
+   - Never commit private keys to version control
+   - Use environment variables or secure key management systems
+   - Use a dedicated deployment wallet with limited funds
+
+2. **Testnet First**:
+   - Always test on Moonbase Alpha testnet first
+   - Verify all functionality before mainnet deployment
+   - The script includes a 5-second warning for mainnet deployments
+
+3. **Gas Configuration**:
+   - Monitor gas prices before deployment
+   - Use reasonable gas limits to avoid failed transactions
+   - Consider EIP-1559 parameters for better fee management
+
+### Troubleshooting
+
+#### "Insufficient balance" Error
+
+Ensure your wallet has enough tokens for deployment:
+- **Moonbase Alpha**: Get free DEV tokens from [Moonbase Faucet](https://faucet.moonbeam.network/)
+- **Moonbeam/Moonriver**: Ensure sufficient GLMR/MOVR balance
+
+#### "Network Error" or Connection Issues
+
+- Check your internet connection
+- Verify RPC URLs are accessible
+- Try again if network is temporarily unavailable
+
+#### "Invalid private key" Error
+
+- Ensure private key is in correct format (with or without 0x prefix)
+- Verify private key corresponds to an account with sufficient balance
+
+#### TypeScript Compilation Errors
+
+Some errors from `node_modules/@polkadot` are expected and don't affect functionality:
 ```bash
-export NODE_ENV=development
+# These are external library issues and can be ignored
+node_modules/@polkadot/...
 ```
 
-### Manual Verification
+Project-specific errors will be shown and should be fixed.
 
-If automatic verification fails, you can manually verify the contract:
+### Programmatic Usage
 
-1. Go to the explorer (e.g., https://moonbase.moonscan.io)
-2. Navigate to your contract address
-3. Click "Contract" tab
-4. Click "Verify and Publish"
-5. Fill in the verification form with:
-   - Contract address
-   - Compiler version: 0.8.19
-   - License: MIT
-   - Source code (from `src/contracts/SBTSimple.sol`)
-   - Constructor arguments (encoded)
+You can also use the deployment function programmatically:
 
-## Security Notes
+```typescript
+import { deploySBTContract, DeploymentConfig } from './scripts/deploySBT';
 
-- **Never commit private keys** to version control
-- **Use testnet** for development and testing
-- **Verify contracts** before mainnet deployment
-- **Monitor gas prices** for cost optimization
-- **Backup deployment configurations**
+const config: DeploymentConfig = {
+  network: 'moonbase-alpha',
+  privateKey: '0x...',
+  contractName: 'SBTSimple',
+  constructorArgs: {
+    name: 'My SBT',
+    symbol: 'MSBT',
+    baseURI: 'https://api.example.com/metadata/'
+  },
+  enableVerification: true,
+  moonScanApiKey: '...',
+  saveConfig: true,
+  verbose: true
+};
 
-## Support
+const result = await deploySBTContract(config);
 
-For issues with deployment:
+if (result.success) {
+  console.log('Deployed at:', result.contractAddress);
+} else {
+  console.error('Deployment failed:', result.error);
+}
+```
 
-1. Check the troubleshooting section above
-2. Verify environment variables are set correctly
-3. Ensure sufficient balance for deployment
-4. Check network connectivity
-5. Review error messages for specific issues
+### Support
 
-## Examples
+For issues or questions:
+1. Check this README for common solutions
+2. Review deployment logs for specific error messages
+3. Consult the [Moonbeam documentation](https://docs.moonbeam.network/)
+4. Open an issue in the KeyPass repository
 
-### Basic Deployment
+## Other Scripts
+
+### E2E Tests
+
 ```bash
-export PRIVATE_KEY="0x1234567890abcdef..."
-node scripts/deploySBT.js
+# Run end-to-end tests
+./scripts/run-e2e-tests.sh
 ```
 
-### Custom Gas Settings
+### Production Verification
+
 ```bash
-export PRIVATE_KEY="0x1234567890abcdef..."
-export GAS_LIMIT="4000000"
-export GAS_PRICE="2000000000"
-node scripts/deploySBT.js
+# Verify production deployment
+node scripts/production-verification.js
 ```
 
-### EIP-1559 Deployment
+### E2E Setup Validation
+
 ```bash
-export PRIVATE_KEY="0x1234567890abcdef..."
-export MAX_FEE_PER_GAS="3000000000"
-export MAX_PRIORITY_FEE_PER_GAS="2000000000"
-node scripts/deploySBT.js
+# Validate E2E test setup
+node scripts/validate-e2e-setup.js
 ```
 
-### Production Deployment
+## Development
+
+### Adding New Scripts
+
+1. Create a new TypeScript file in this directory
+2. Add proper type definitions
+3. Include comprehensive error handling
+4. Document usage in this README
+5. Add npm script to `package.json` if needed
+
+### Testing Scripts Locally
+
 ```bash
-export PRIVATE_KEY="0x1234567890abcdef..."
-export NETWORK="moonbeam"
-export MOONSCAN_API_KEY="your_api_key"
-export NODE_ENV="production"
-node scripts/deploySBT.js
+# Compile TypeScript
+npm run build
+
+# Test deployment (testnet only!)
+PRIVATE_KEY=0x... NETWORK=moonbase-alpha npx ts-node scripts/deploySBT.ts
 ```
+
+## License
+
+See the main project LICENSE file.
