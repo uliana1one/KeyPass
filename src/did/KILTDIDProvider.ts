@@ -1,4 +1,4 @@
-import { decodeAddress, encodeAddress, base58Encode } from '@polkadot/util-crypto';
+import { decodeAddress, encodeAddress, base58Encode, isAddress } from '@polkadot/util-crypto';
 import { DIDDocument, DIDProvider, DIDResolver, VerificationMethod } from './types.js';
 import { MULTIBASE_PREFIXES, VERIFICATION_METHOD_TYPES } from './verification.js';
 import { validatePolkadotAddress } from '../adapters/types.js';
@@ -170,21 +170,19 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    * @throws {Error} If the address cannot be extracted
    */
   public async extractAddress(did: string): Promise<string> {
-    if (!did.startsWith('did:kilt:')) {
+    if (!did || typeof did !== 'string' || !did.startsWith('did:kilt:')) {
       throw new Error('Invalid KILT DID format');
     }
 
-    try {
-      // Extract the address part after 'did:kilt:'
-      const address = did.replace('did:kilt:', '');
-      
-      // Validate that it's a proper KILT address
-      this.validateAddress(address);
-      
-      return address;
-    } catch (error) {
-      throw new Error(`Failed to extract address from KILT DID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    // Extract the address part after 'did:kilt:'
+    const address = did.replace('did:kilt:', '').trim();
+    
+    // Basic sanity check - address should not be empty and should look like a Substrate address
+    if (!address || address.length < 40) {
+      throw new Error('Invalid address format');
     }
+    
+    return address;
   }
 
   /**
