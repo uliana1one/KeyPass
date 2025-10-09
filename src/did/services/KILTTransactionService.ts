@@ -710,7 +710,7 @@ export class KILTTransactionService {
       throw new KILTError(
         `Failed to get block number for hash ${blockHash}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         KILTErrorType.NETWORK_ERROR,
-        { cause: error as Error, blockHash }
+        { cause: error as Error }
       );
     }
   }
