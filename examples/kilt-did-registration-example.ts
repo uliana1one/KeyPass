@@ -30,7 +30,10 @@ import { KILTTransactionService } from '../src/did/services/KILTTransactionServi
 import { 
   KILTError,
   KILTErrorType,
-  KILTTransactionResult 
+  KILTTransactionResult,
+  KILTVerificationMethodType,
+  KILTKeyType,
+  KILTServiceType
 } from '../src/did/types/KILTTypes.js';
 
 // Configuration
@@ -106,15 +109,16 @@ async function example1_CreateDID(
       verificationMethods: [
         {
           id: `${did}#authentication`,
-          type: 'Sr25519VerificationKey2020',
+          type: KILTVerificationMethodType.SR25519_2020,
           controller: did,
-          publicKeyMultibase: account.publicKey.toString()
+          publicKeyMultibase: account.publicKey.toString(),
+          keyType: KILTKeyType.SR25519
         }
       ],
       services: [
         {
           id: `${did}#kilt-service`,
-          type: 'KiltPublishedCredentialCollectionV1',
+          type: KILTServiceType.KILT_CREDENTIAL_REGISTRY,
           serviceEndpoint: 'https://example.com/credentials'
         }
       ],
@@ -241,9 +245,10 @@ async function example3_UpdateDID_AddVerificationMethod(
 
     const newVerificationMethod = {
       id: `${did}#key-agreement`,
-      type: 'X25519KeyAgreementKey2020',
+      type: KILTVerificationMethodType.X25519_2020,
       controller: did,
-      publicKeyMultibase: 'z6LSbysY2xFMRpGMhb7tFTLMpeuPRaqaWM1yECx2AtzE3KCc'
+      publicKeyMultibase: 'z6LSbysY2xFMRpGMhb7tFTLMpeuPRaqaWM1yECx2AtzE3KCc',
+      keyType: KILTKeyType.X25519
     };
 
     console.log('➕ Adding new verification method:');
@@ -288,7 +293,7 @@ async function example4_UpdateDID_AddService(
 
     const newService = {
       id: `${did}#messaging`,
-      type: 'MessagingService',
+      type: KILTServiceType.KILT_PARACHAIN,
       serviceEndpoint: 'https://messaging.example.com/api'
     };
 
@@ -389,9 +394,10 @@ async function example6_BatchOperations(
             did,
             verificationMethod: {
               id: `${did}#assertion`,
-              type: 'EcdsaSecp256k1VerificationKey2019',
+              type: KILTVerificationMethodType.ED25519_2020,
               controller: did,
-              publicKeyMultibase: 'zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme'
+              publicKeyMultibase: 'zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme',
+              keyType: KILTKeyType.ED25519
             }
           }
         },
@@ -401,7 +407,7 @@ async function example6_BatchOperations(
             did,
             service: {
               id: `${did}#linked-domains`,
-              type: 'LinkedDomains',
+              type: KILTServiceType.KILT_DID_REGISTRY,
               serviceEndpoint: 'https://example.com'
             }
           }
@@ -497,9 +503,10 @@ async function example8_FeeCalculation(
     // 2. Add verification method fee
     const addVMTx = api.tx.did.addVerificationMethod(did, {
       id: `${did}#test`,
-      type: 'Sr25519VerificationKey2020',
+      type: KILTVerificationMethodType.SR25519_2020,
       controller: did,
-      publicKeyMultibase: 'test'
+      publicKeyMultibase: 'test',
+      keyType: KILTKeyType.SR25519
     });
     const addVMFee = await addVMTx.paymentInfo(account);
     console.log('2️⃣  Add Verification Method:');
@@ -509,7 +516,7 @@ async function example8_FeeCalculation(
     // 3. Add service fee
     const addServiceTx = api.tx.did.addService(did, {
       id: `${did}#test-service`,
-      type: 'TestService',
+      type: KILTServiceType.KILT_PARACHAIN,
       serviceEndpoint: 'https://test.com'
     });
     const addServiceFee = await addServiceTx.paymentInfo(account);
@@ -595,9 +602,10 @@ async function example9_ErrorHandling(
         operation: 'add',
         verificationMethod: {
           id: '', // Invalid empty ID
-          type: 'Sr25519VerificationKey2020',
+          type: KILTVerificationMethodType.SR25519_2020,
           controller: did,
-          publicKeyMultibase: 'test'
+          publicKeyMultibase: 'test',
+          keyType: KILTKeyType.SR25519
         }
       },
       account
@@ -654,15 +662,19 @@ async function example10_DeleteDID(
 function handleError(error: any): void {
   if (error instanceof KILTError) {
     console.error('🚨 KILT Error Details:');
-    console.error(`   Type: ${error.type || 'Unknown'}`);
+    console.error(`   Code: ${error.code || 'Unknown'}`);
     console.error(`   Message: ${error.message}`);
     
-    if (error.cause) {
-      console.error(`   Cause: ${error.cause}`);
+    if (error.transactionHash) {
+      console.error(`   Transaction: ${error.transactionHash}`);
     }
     
-    if ((error as any).transactionHash) {
-      console.error(`   Transaction: ${(error as any).transactionHash}`);
+    if (error.blockNumber !== undefined) {
+      console.error(`   Block Number: ${error.blockNumber}`);
+    }
+    
+    if (error.parachainInfo) {
+      console.error(`   Network: ${error.parachainInfo.network}`);
     }
   } else if (error.message) {
     console.error(`   Error: ${error.message}`);

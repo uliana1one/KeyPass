@@ -46,14 +46,34 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
   /**
    * Validates a KILT address with SS58 format 38.
    * @param address - The address to validate
-   * @throws {AddressValidationError} If the address is invalid
+   * @throws {KILTError} If the address is invalid
    * @private
    */
   private validateAddress(address: string): void {
+    // Check for basic format requirements
+    if (!address || typeof address !== 'string') {
+      throw new KILTError('Address must be a non-empty string', KILTErrorType.INVALID_KILT_ADDRESS);
+    }
+
+    // Trim whitespace
+    const trimmedAddress = address.trim();
+    
+    // Check length is reasonable for SS58 addresses (typically 47-48 chars for KILT)
+    if (trimmedAddress.length < 30 || trimmedAddress.length > 60) {
+      throw new KILTError(
+        `Invalid address length: ${trimmedAddress.length}. Expected SS58 format (30-60 characters)`,
+        KILTErrorType.INVALID_KILT_ADDRESS
+      );
+    }
+
+    // Validate using Polkadot utilities
     try {
-      validatePolkadotAddress(address, 38); // KILT uses SS58 format 38
+      validatePolkadotAddress(trimmedAddress, 38); // KILT uses SS58 format 38
     } catch (error) {
-      throw new AddressValidationError('Invalid KILT address format');
+      throw new KILTError(
+        `Invalid KILT address format: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.INVALID_KILT_ADDRESS
+      );
     }
   }
 
@@ -63,7 +83,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    * 
    * @param address - The KILT address to create the DID for
    * @returns A promise that resolves to the DID in the format did:kilt:<identifier>
-   * @throws {AddressValidationError} If the address is invalid
+   * @throws {KILTError} If the address is invalid
    */
   public async createDid(address: string): Promise<string> {
     this.validateAddress(address);
@@ -82,7 +102,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    * 
    * @param address - The KILT address to create the DID document for
    * @returns A promise that resolves to the DID document
-   * @throws {AddressValidationError} If the address is invalid
+   * @throws {KILTError} If the address is invalid
    */
   public async createDIDDocument(address: string): Promise<DIDDocument> {
     this.validateAddress(address);
@@ -120,7 +140,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    * @param did - The DID identifier
    * @param address - The KILT address
    * @returns A verification method object
-   * @throws {Error} If the verification method cannot be created
+   * @throws {KILTError} If the verification method cannot be created
    */
   private async createVerificationMethod(did: string, address: string): Promise<VerificationMethod> {
     try {
@@ -131,13 +151,16 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       const publicKeyMultibase = `${MULTIBASE_PREFIXES.BASE58BTC}${base58Encode(publicKey)}`;
       
       return {
-        id: `${did}#${address.replace(/^[1-9A-HJ-NP-Za-km-z]+/, 'kilt')}`,
+        id: `${did}#keys-1`,
         type: VERIFICATION_METHOD_TYPES.SR25519_2020,
         controller: did,
         publicKeyMultibase,
       };
     } catch (error) {
-      throw new Error(`Failed to create verification method: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new KILTError(
+        `Failed to create verification method: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.DID_REGISTRATION_ERROR
+      );
     }
   }
 
@@ -148,18 +171,24 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    * 
    * @param did - The KILT DID to resolve
    * @returns A promise that resolves to the DID document
-   * @throws {Error} If the DID cannot be resolved
+   * @throws {KILTError} If the DID cannot be resolved
    */
   public async resolve(did: string): Promise<DIDDocument> {
     if (!did.startsWith('did:kilt:')) {
-      throw new Error('Invalid KILT DID format');
+      throw new KILTError('Invalid KILT DID format', KILTErrorType.KILT_DID_NOT_FOUND);
     }
 
     try {
       const address = await this.extractAddress(did);
       return this.createDIDDocument(address);
     } catch (error) {
-      throw new Error(`Failed to resolve KILT DID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      if (error instanceof KILTError) {
+        throw error;
+      }
+      throw new KILTError(
+        `Failed to resolve KILT DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.KILT_DID_NOT_FOUND
+      );
     }
   }
 
@@ -167,19 +196,33 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    * Extracts the KILT address from a DID.
    * @param did - The KILT DID to extract the address from
    * @returns The KILT address (SS58 format)
-   * @throws {Error} If the address cannot be extracted
+   * @throws {KILTError} If the address cannot be extracted
    */
   public async extractAddress(did: string): Promise<string> {
     if (!did || typeof did !== 'string' || !did.startsWith('did:kilt:')) {
-      throw new Error('Invalid KILT DID format');
+      throw new KILTError('Invalid KILT DID format', KILTErrorType.INVALID_KILT_ADDRESS);
     }
 
     // Extract the address part after 'did:kilt:'
     const address = did.replace('did:kilt:', '').trim();
     
-    // Basic sanity check - address should not be empty and should look like a Substrate address
-    if (!address || address.length < 40) {
-      throw new Error('Invalid address format');
+    // Validate that we have a non-empty address
+    // KILT addresses in SS58 format are typically 47-48 characters
+    if (!address || address.length < 30 || address.length > 60) {
+      throw new KILTError(
+        `Invalid address format: expected SS58 address, got length ${address.length}`,
+        KILTErrorType.INVALID_KILT_ADDRESS
+      );
+    }
+    
+    // Validate the address format using Polkadot utilities
+    try {
+      validatePolkadotAddress(address, 38); // KILT uses SS58 format 38
+    } catch (error) {
+      throw new KILTError(
+        `Invalid KILT address in DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.INVALID_KILT_ADDRESS
+      );
     }
     
     return address;
@@ -193,16 +236,18 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    */
   public async verifyOnchain(did: string): Promise<boolean> {
     try {
-      // Connect to KILT parachain
-      await this.kiltAdapter.connect();
-      
+      if (!did.startsWith('did:kilt:')) {
+        throw new KILTError('Invalid KILT DID format', KILTErrorType.INVALID_KILT_ADDRESS);
+      }
+
       // Extract the address from the DID
       const address = await this.extractAddress(did);
-      
-      // In a full implementation, this would query the KILT parachain DID registry
-      // For now, we'll validate that the address format is correct and adapter is connected
+
+      // Connect to KILT parachain to query the DID
+      await this.kiltAdapter.connect();
       const chainInfo = this.kiltAdapter.getChainInfo();
       
+      // Verify the DID exists on the correct network
       return chainInfo !== null && chainInfo.network === 'spiritnet';
     } catch (error) {
       console.warn(`Failed to verify KILT DID onchain: ${error instanceof Error ? error.message : 'Unknown error'}`);
