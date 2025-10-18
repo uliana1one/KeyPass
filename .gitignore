@@ -208,3 +208,22 @@ yarn-error.log*
 
 # Coverage directory
 coverage/
+
+# Solidity / Smart Contracts
+# Foundry
+forge-out/
+out/
+cache/
+*.toml.bak
+
+# Hardhat
+cache/
+artifacts/
+!src/contracts/artifacts/
+
+# OpenZeppelin
+.openzeppelin/
+
+# Backup files
+*.bak
+*.sol.bak

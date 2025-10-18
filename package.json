@@ -23,11 +23,14 @@
     "test:e2e:coverage": "jest --config jest.e2e.config.js --coverage",
     "test:integration": "jest --testPathPattern=integration",
     "test:integration:kilt": "jest --testPathPattern=KILTDIDProvider.live",
+    "test:onchain": "jest --config jest.onchain.config.js",
+    "test:onchain:sbt": "jest --config jest.onchain.config.js --testPathPattern=SBTContract.onchain",
+    "test:onchain:minting": "jest --config jest.onchain.config.js --testPathPattern=SBTMintingService.onchain",
     "test:sbt:e2e": "jest --config jest.e2e.config.js --testPathPattern=SBTMinting.e2e.test.ts",
     "test:e2e:sbt": "jest --testPathPattern=SBTMinting.e2e",
     "test:all": "npm run test && npm run test:e2e",
-    "deploy:sbt": "ts-node scripts/deploySBT.ts",
-    "deploy:sbt:testnet": "NETWORK=moonbase-alpha ts-node scripts/deploySBT.ts"
+    "deploy:sbt": "node --loader ts-node/esm scripts/deploySBT.ts",
+    "deploy:sbt:testnet": "NETWORK=moonbase-alpha node --loader ts-node/esm scripts/deploySBT.ts"
   },
   "keywords": [
     "polkadot",
@@ -69,6 +72,7 @@
     "@babel/preset-react": "^7.27.1",
     "@babel/preset-typescript": "^7.27.1",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "@polkadot/types-augment": "^10.11.2",
     "@polkadot/types-codec": "^10.11.2",
     "@testing-library/jest-dom": "^6.6.3",
@@ -81,6 +85,7 @@
     "@typescript-eslint/eslint-plugin": "^8.32.1",
     "eslint": "^9.27.0",
     "eslint-plugin-prettier": "^5.4.0",
+    "hardhat": "^3.0.7",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
@@ -92,6 +97,7 @@
   },
   "dependencies": {
     "@libp2p/logger": "^6.0.5",
+    "@openzeppelin/contracts": "^4.9.6",
     "@polkadot/api": "^10.11.2",
     "@polkadot/extension-dapp": "^0.45.3",
     "@polkadot/keyring": "^11.0.0",

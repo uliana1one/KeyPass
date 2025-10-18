@@ -97,7 +97,7 @@ contract SBTSimple is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, Reent
         string memory name,
         string memory symbol,
         string memory baseURI
-    ) ERC721(name, symbol) Ownable(msg.sender) {
+    ) ERC721(name, symbol) {
         _baseTokenURI = baseURI;
         maxSupply = 0; // Unlimited by default
         
@@ -476,17 +476,6 @@ contract SBTSimple is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, Reent
     }
 
     /**
-     * @dev Override _update to handle token transfers and enumeration
-     */
-    function _update(
-        address to,
-        uint256 tokenId,
-        address auth
-    ) internal override(ERC721, ERC721Enumerable) returns (address) {
-        return super._update(to, tokenId, auth);
-    }
-
-    /**
      * @dev Emergency function to recover accidentally sent tokens
      * @param tokenId ID of the token to recover
      */
@@ -547,11 +536,11 @@ contract SBTSimple is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, Reent
      * @return baseURI Base URI for metadata
      */
     function getContractInfo() public view returns (
-        string memory name,
-        string memory symbol,
-        uint256 totalSupply,
-        uint256 maxSupply,
-        string memory baseURI
+        string memory,
+        string memory,
+        uint256,
+        uint256,
+        string memory
     ) {
         return (
             name(),
