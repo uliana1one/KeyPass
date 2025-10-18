@@ -177,7 +177,7 @@ export class SBTContractError extends Error {
 export class DeploymentConfigLoader {
   private static instance: DeploymentConfigLoader;
   private config: any = null;
-  private configPath: string;
+  private configPath: string = '';
 
   private constructor() {
     // Try multiple possible config paths

@@ -25,7 +25,9 @@
     "test:integration:kilt": "jest --testPathPattern=KILTDIDProvider.live",
     "test:sbt:e2e": "jest --config jest.e2e.config.js --testPathPattern=SBTMinting.e2e.test.ts",
     "test:e2e:sbt": "jest --testPathPattern=SBTMinting.e2e",
-    "test:all": "npm run test && npm run test:e2e"
+    "test:all": "npm run test && npm run test:e2e",
+    "deploy:sbt": "ts-node scripts/deploySBT.ts",
+    "deploy:sbt:testnet": "NETWORK=moonbase-alpha ts-node scripts/deploySBT.ts"
   },
   "keywords": [
     "polkadot",

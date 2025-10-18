@@ -377,7 +377,7 @@ export class SBTService {
         
         this.moonbeamAdapter = new MoonbeamAdapter(network);
         
-        this.mintingService = new SBTMintingService(this.moonbeamAdapter, config.debug);
+        this.mintingService = new SBTMintingService(this.moonbeamAdapter, {}, config.debug);
 
         if (config.debug) {
           console.debug('[SBTService] Moonbeam adapter and minting service initialized');
@@ -706,7 +706,7 @@ export class SBTService {
 
       // Convert SBTMintingResult to SBTMintResult format
       const mintResult: SBTMintResult = {
-        tokenId: result.tokenId,
+        tokenId: result.tokenId.toString(),
         transactionHash: result.transactionHash,
         blockNumber: result.blockNumber,
         gasUsed: result.gasUsed,

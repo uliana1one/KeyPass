@@ -5,7 +5,17 @@
  * It handles RPC connections, gas estimation, and network information retrieval.
  */
 
-import { ethers, JsonRpcProvider, Network, TransactionResponse } from 'ethers';
+import { 
+  ethers, 
+  JsonRpcProvider, 
+  Network, 
+  TransactionResponse, 
+  TransactionReceipt,
+  Signer,
+  Wallet,
+  TransactionRequest,
+  FeeData
+} from 'ethers';
 import { MoonbeamConfigManager, MoonbeamNetwork, MoonbeamErrorCode, MoonbeamErrorMessages } from '../config/moonbeamConfig';
 
 /**
@@ -57,6 +67,70 @@ export interface MoonbeamGasInfo {
 }
 
 /**
+ * Transaction request interface
+ */
+export interface MoonbeamTransactionRequest {
+  /** Recipient address */
+  to: string;
+  /** Transaction value in wei */
+  value?: bigint;
+  /** Transaction data */
+  data?: string;
+  /** Gas limit */
+  gasLimit?: bigint;
+  /** Gas price (legacy) */
+  gasPrice?: bigint;
+  /** Max fee per gas (EIP-1559) */
+  maxFeePerGas?: bigint;
+  /** Max priority fee per gas (EIP-1559) */
+  maxPriorityFeePerGas?: bigint;
+  /** Nonce (optional, will be auto-managed) */
+  nonce?: number;
+  /** Chain ID */
+  chainId?: number;
+  /** From address (for estimation) */
+  from?: string;
+}
+
+/**
+ * Transaction status information
+ */
+export interface MoonbeamTransactionStatus {
+  /** Transaction hash */
+  hash: string;
+  /** Transaction status: pending, confirmed, failed */
+  status: 'pending' | 'confirmed' | 'failed';
+  /** Block number (if mined) */
+  blockNumber?: number;
+  /** Block hash (if mined) */
+  blockHash?: string;
+  /** Confirmations count */
+  confirmations: number;
+  /** Gas used */
+  gasUsed?: bigint;
+  /** Effective gas price */
+  effectiveGasPrice?: bigint;
+  /** Transaction fee in wei */
+  transactionFee?: bigint;
+  /** Timestamp */
+  timestamp?: number;
+  /** Transaction receipt */
+  receipt?: TransactionReceipt;
+}
+
+/**
+ * Nonce management result
+ */
+export interface NonceInfo {
+  /** Current nonce */
+  nonce: number;
+  /** Pending nonce (including pending transactions) */
+  pendingNonce: number;
+  /** Address */
+  address: string;
+}
+
+/**
  * Custom error for Moonbeam adapter operations
  */
 export class MoonbeamAdapterError extends Error {
@@ -91,6 +165,8 @@ export class MoonbeamAdapter {
   private maxRetries: number = 3;
   private retryDelay: number = 1000;
   private debugMode: boolean = false;
+  private nonceCache: Map<string, number> = new Map();
+  private pendingTransactions: Map<string, Set<string>> = new Map();
 
   constructor(network: MoonbeamNetwork = MoonbeamNetwork.MOONBASE_ALPHA) {
     this.configManager = MoonbeamConfigManager.getInstance();
@@ -491,6 +567,572 @@ export class MoonbeamAdapter {
    */
   public get debug(): boolean {
     return this.debugMode;
+  }
+
+  // ============= Transaction Signing and Submission =============
+
+  /**
+   * Sign and send transaction
+   */
+  public async sendTransaction(
+    signer: Signer,
+    transaction: MoonbeamTransactionRequest
+  ): Promise<TransactionResponse> {
+    if (!this.isConnected()) {
+      throw new MoonbeamAdapterError(
+        'Not connected to Moonbeam network',
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+
+    try {
+      const signerAddress = await signer.getAddress();
+      
+      if (this.debugMode) {
+        console.log(`[MoonbeamAdapter] Preparing transaction from ${signerAddress}`);
+      }
+
+      // Prepare transaction with nonce management
+      const txRequest: TransactionRequest = {
+        to: transaction.to,
+        value: transaction.value,
+        data: transaction.data,
+        gasLimit: transaction.gasLimit,
+        chainId: transaction.chainId || (await this.provider!.getNetwork()).chainId,
+      };
+
+      // Handle nonce
+      if (transaction.nonce !== undefined) {
+        txRequest.nonce = transaction.nonce;
+      } else {
+        txRequest.nonce = await this.getNextNonce(signerAddress);
+      }
+
+      // Handle gas pricing (EIP-1559 vs legacy)
+      if (transaction.maxFeePerGas && transaction.maxPriorityFeePerGas) {
+        txRequest.maxFeePerGas = transaction.maxFeePerGas;
+        txRequest.maxPriorityFeePerGas = transaction.maxPriorityFeePerGas;
+      } else if (transaction.gasPrice) {
+        txRequest.gasPrice = transaction.gasPrice;
+      } else {
+        // Auto-estimate fees
+        const feeData = await this.provider!.getFeeData();
+        if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
+          txRequest.maxFeePerGas = feeData.maxFeePerGas;
+          txRequest.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+        } else {
+          txRequest.gasPrice = feeData.gasPrice || undefined;
+        }
+      }
+
+      // Estimate gas if not provided
+      if (!txRequest.gasLimit) {
+        try {
+          txRequest.gasLimit = await this.provider!.estimateGas(txRequest);
+          // Add 20% buffer
+          txRequest.gasLimit = (txRequest.gasLimit * BigInt(120)) / BigInt(100);
+        } catch (error) {
+          if (this.debugMode) {
+            console.warn('[MoonbeamAdapter] Gas estimation failed, using default');
+          }
+          txRequest.gasLimit = BigInt(100000);
+        }
+      }
+
+      if (this.debugMode) {
+        console.log('[MoonbeamAdapter] Transaction request:', {
+          to: txRequest.to,
+          value: txRequest.value?.toString(),
+          nonce: txRequest.nonce,
+          gasLimit: txRequest.gasLimit?.toString(),
+        });
+      }
+
+      // Send transaction
+      const txResponse = await signer.sendTransaction(txRequest);
+
+      // Track pending transaction
+      this.trackPendingTransaction(signerAddress, txResponse.hash);
+
+      if (this.debugMode) {
+        console.log(`[MoonbeamAdapter] Transaction sent: ${txResponse.hash}`);
+      }
+
+      return txResponse;
+    } catch (error) {
+      const errorMessage = `Failed to send transaction: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      if (this.debugMode) {
+        console.error('[MoonbeamAdapter] Transaction error:', error);
+      }
+
+      throw new MoonbeamAdapterError(
+        errorMessage,
+        MoonbeamErrorCode.TRANSACTION_ERROR,
+        this.currentNetwork
+      );
+    }
+  }
+
+  /**
+   * Sign transaction without sending
+   */
+  public async signTransaction(
+    signer: Signer,
+    transaction: MoonbeamTransactionRequest
+  ): Promise<string> {
+    if (!this.isConnected()) {
+      throw new MoonbeamAdapterError(
+        'Not connected to Moonbeam network',
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+
+    try {
+      const signerAddress = await signer.getAddress();
+      
+      const txRequest: TransactionRequest = {
+        to: transaction.to,
+        value: transaction.value,
+        data: transaction.data,
+        gasLimit: transaction.gasLimit,
+        chainId: transaction.chainId || (await this.provider!.getNetwork()).chainId,
+        nonce: transaction.nonce ?? (await this.getNextNonce(signerAddress)),
+      };
+
+      // Handle gas pricing
+      if (transaction.maxFeePerGas && transaction.maxPriorityFeePerGas) {
+        txRequest.maxFeePerGas = transaction.maxFeePerGas;
+        txRequest.maxPriorityFeePerGas = transaction.maxPriorityFeePerGas;
+      } else if (transaction.gasPrice) {
+        txRequest.gasPrice = transaction.gasPrice;
+      } else {
+        const feeData = await this.provider!.getFeeData();
+        if (feeData.maxFeePerGas) {
+          txRequest.maxFeePerGas = feeData.maxFeePerGas;
+          txRequest.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas || undefined;
+        } else {
+          txRequest.gasPrice = feeData.gasPrice || undefined;
+        }
+      }
+
+      const signedTx = await signer.signTransaction(txRequest);
+      
+      if (this.debugMode) {
+        console.log('[MoonbeamAdapter] Transaction signed');
+      }
+
+      return signedTx;
+    } catch (error) {
+      const errorMessage = `Failed to sign transaction: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      throw new MoonbeamAdapterError(
+        errorMessage,
+        MoonbeamErrorCode.TRANSACTION_ERROR,
+        this.currentNetwork
+      );
+    }
+  }
+
+  /**
+   * Broadcast signed transaction
+   */
+  public async broadcastTransaction(signedTx: string): Promise<TransactionResponse> {
+    if (!this.isConnected()) {
+      throw new MoonbeamAdapterError(
+        'Not connected to Moonbeam network',
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+
+    try {
+      const txResponse = await this.provider!.broadcastTransaction(signedTx);
+      
+      if (this.debugMode) {
+        console.log(`[MoonbeamAdapter] Transaction broadcasted: ${txResponse.hash}`);
+      }
+
+      return txResponse;
+    } catch (error) {
+      const errorMessage = `Failed to broadcast transaction: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      throw new MoonbeamAdapterError(
+        errorMessage,
+        MoonbeamErrorCode.TRANSACTION_ERROR,
+        this.currentNetwork
+      );
+    }
+  }
+
+  // ============= Nonce Management =============
+
+  /**
+   * Get nonce for address
+   */
+  public async getNonce(address: string, pending: boolean = false): Promise<number> {
+    if (!this.isConnected()) {
+      throw new MoonbeamAdapterError(
+        'Not connected to Moonbeam network',
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+
+    try {
+      const blockTag = pending ? 'pending' : 'latest';
+      const nonce = await this.provider!.getTransactionCount(address, blockTag);
+      
+      if (this.debugMode) {
+        console.log(`[MoonbeamAdapter] Nonce for ${address} (${blockTag}): ${nonce}`);
+      }
+
+      return nonce;
+    } catch (error) {
+      const errorMessage = `Failed to get nonce for ${address}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      throw new MoonbeamAdapterError(
+        errorMessage,
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+  }
+
+  /**
+   * Get next available nonce (with pending transaction awareness)
+   */
+  public async getNextNonce(address: string): Promise<number> {
+    try {
+      // Get pending nonce from network
+      const pendingNonce = await this.getNonce(address, true);
+      
+      // Check cached nonce
+      const cachedNonce = this.nonceCache.get(address.toLowerCase());
+      
+      // Use the higher of the two
+      const nextNonce = cachedNonce !== undefined ? Math.max(cachedNonce, pendingNonce) : pendingNonce;
+      
+      // Update cache
+      this.nonceCache.set(address.toLowerCase(), nextNonce + 1);
+      
+      if (this.debugMode) {
+        console.log(`[MoonbeamAdapter] Next nonce for ${address}: ${nextNonce} (cached: ${cachedNonce}, pending: ${pendingNonce})`);
+      }
+
+      return nextNonce;
+    } catch (error) {
+      const errorMessage = `Failed to get next nonce: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      throw new MoonbeamAdapterError(
+        errorMessage,
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+  }
+
+  /**
+   * Get nonce information for address
+   */
+  public async getNonceInfo(address: string): Promise<NonceInfo> {
+    try {
+      const [nonce, pendingNonce] = await Promise.all([
+        this.getNonce(address, false),
+        this.getNonce(address, true),
+      ]);
+
+      return {
+        nonce,
+        pendingNonce,
+        address,
+      };
+    } catch (error) {
+      const errorMessage = `Failed to get nonce info: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      throw new MoonbeamAdapterError(
+        errorMessage,
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+  }
+
+  /**
+   * Reset nonce cache for address
+   */
+  public resetNonce(address: string): void {
+    this.nonceCache.delete(address.toLowerCase());
+    
+    if (this.debugMode) {
+      console.log(`[MoonbeamAdapter] Nonce cache reset for ${address}`);
+    }
+  }
+
+  /**
+   * Clear all nonce caches
+   */
+  public clearNonceCache(): void {
+    this.nonceCache.clear();
+    
+    if (this.debugMode) {
+      console.log('[MoonbeamAdapter] All nonce caches cleared');
+    }
+  }
+
+  // ============= Transaction Status Monitoring =============
+
+  /**
+   * Get transaction status
+   */
+  public async getTransactionStatus(txHash: string): Promise<MoonbeamTransactionStatus> {
+    if (!this.isConnected()) {
+      throw new MoonbeamAdapterError(
+        'Not connected to Moonbeam network',
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+
+    try {
+      const tx = await this.provider!.getTransaction(txHash);
+      
+      if (!tx) {
+        return {
+          hash: txHash,
+          status: 'pending',
+          confirmations: 0,
+        };
+      }
+
+      const receipt = await this.provider!.getTransactionReceipt(txHash);
+      const currentBlock = await this.provider!.getBlockNumber();
+
+      if (!receipt) {
+        return {
+          hash: txHash,
+          status: 'pending',
+          confirmations: 0,
+        };
+      }
+
+      const confirmations = currentBlock - receipt.blockNumber + 1;
+      const status = receipt.status === 1 ? 'confirmed' : 'failed';
+      
+      // Get block timestamp
+      let timestamp: number | undefined;
+      try {
+        const block = await this.provider!.getBlock(receipt.blockNumber);
+        timestamp = block?.timestamp;
+      } catch {
+        // Continue without timestamp
+      }
+
+      const transactionFee = receipt.gasUsed * (receipt.gasPrice || BigInt(0));
+
+      return {
+        hash: txHash,
+        status,
+        blockNumber: receipt.blockNumber,
+        blockHash: receipt.blockHash,
+        confirmations,
+        gasUsed: receipt.gasUsed,
+        effectiveGasPrice: receipt.gasPrice,
+        transactionFee,
+        timestamp,
+        receipt,
+      };
+    } catch (error) {
+      const errorMessage = `Failed to get transaction status: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      throw new MoonbeamAdapterError(
+        errorMessage,
+        MoonbeamErrorCode.TRANSACTION_ERROR,
+        this.currentNetwork
+      );
+    }
+  }
+
+  /**
+   * Monitor transaction with progress callback
+   */
+  public async monitorTransaction(
+    txHash: string,
+    requiredConfirmations: number = 3,
+    onProgress?: (confirmations: number, required: number) => void
+  ): Promise<MoonbeamTransactionStatus> {
+    if (!this.isConnected()) {
+      throw new MoonbeamAdapterError(
+        'Not connected to Moonbeam network',
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+
+    try {
+      if (this.debugMode) {
+        console.log(`[MoonbeamAdapter] Monitoring transaction ${txHash} for ${requiredConfirmations} confirmations`);
+      }
+
+      let currentConfirmations = 0;
+
+      while (currentConfirmations < requiredConfirmations) {
+        const status = await this.getTransactionStatus(txHash);
+
+        if (status.status === 'failed') {
+          throw new Error('Transaction failed');
+        }
+
+        currentConfirmations = status.confirmations;
+
+        if (onProgress) {
+          onProgress(currentConfirmations, requiredConfirmations);
+        }
+
+        if (currentConfirmations >= requiredConfirmations) {
+          if (this.debugMode) {
+            console.log(`[MoonbeamAdapter] Transaction ${txHash} confirmed with ${currentConfirmations} confirmations`);
+          }
+          return status;
+        }
+
+        // Wait 2 seconds before checking again
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      return await this.getTransactionStatus(txHash);
+    } catch (error) {
+      const errorMessage = `Failed to monitor transaction: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      throw new MoonbeamAdapterError(
+        errorMessage,
+        MoonbeamErrorCode.TRANSACTION_ERROR,
+        this.currentNetwork
+      );
+    }
+  }
+
+  /**
+   * Wait for transaction with detailed status
+   */
+  public async waitForTransactionWithStatus(
+    txHash: string,
+    confirmations: number = 1,
+    timeout: number = 300000
+  ): Promise<MoonbeamTransactionStatus> {
+    if (!this.isConnected()) {
+      throw new MoonbeamAdapterError(
+        'Not connected to Moonbeam network',
+        MoonbeamErrorCode.NETWORK_ERROR,
+        this.currentNetwork
+      );
+    }
+
+    try {
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < timeout) {
+        const status = await this.getTransactionStatus(txHash);
+
+        if (status.status === 'failed') {
+          throw new Error('Transaction failed');
+        }
+
+        if (status.status === 'confirmed' && status.confirmations >= confirmations) {
+          return status;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      throw new Error(`Transaction confirmation timeout after ${timeout}ms`);
+    } catch (error) {
+      const errorMessage = `Failed to wait for transaction: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      throw new MoonbeamAdapterError(
+        errorMessage,
+        MoonbeamErrorCode.TRANSACTION_ERROR,
+        this.currentNetwork
+      );
+    }
+  }
+
+  // ============= Transaction Tracking =============
+
+  /**
+   * Track pending transaction
+   */
+  private trackPendingTransaction(address: string, txHash: string): void {
+    const addressLower = address.toLowerCase();
+    
+    if (!this.pendingTransactions.has(addressLower)) {
+      this.pendingTransactions.set(addressLower, new Set());
+    }
+    
+    this.pendingTransactions.get(addressLower)!.add(txHash);
+    
+    if (this.debugMode) {
+      console.log(`[MoonbeamAdapter] Tracking pending transaction ${txHash} for ${address}`);
+    }
+  }
+
+  /**
+   * Remove pending transaction
+   */
+  private removePendingTransaction(address: string, txHash: string): void {
+    const addressLower = address.toLowerCase();
+    this.pendingTransactions.get(addressLower)?.delete(txHash);
+    
+    if (this.debugMode) {
+      console.log(`[MoonbeamAdapter] Removed pending transaction ${txHash} for ${address}`);
+    }
+  }
+
+  /**
+   * Get pending transactions for address
+   */
+  public getPendingTransactions(address: string): string[] {
+    const addressLower = address.toLowerCase();
+    return Array.from(this.pendingTransactions.get(addressLower) || []);
+  }
+
+  /**
+   * Clear pending transactions for address
+   */
+  public clearPendingTransactions(address: string): void {
+    const addressLower = address.toLowerCase();
+    this.pendingTransactions.delete(addressLower);
+    
+    if (this.debugMode) {
+      console.log(`[MoonbeamAdapter] Cleared pending transactions for ${address}`);
+    }
+  }
+
+  // ============= Chain Information =============
+
+  /**
+   * Get chain information
+   */
+  public getChainInfo(): MoonbeamNetworkInfo | null {
+    if (!this.isConnected()) {
+      return null;
+    }
+
+    const networkConfig = this.configManager.getCurrentNetworkConfig();
+    
+    return {
+      chainId: networkConfig.chainId,
+      name: networkConfig.name,
+      network: this.currentNetwork,
+      rpcUrl: networkConfig.rpcUrl,
+      explorerUrl: networkConfig.explorerUrl,
+      nativeToken: networkConfig.nativeToken,
+      nativeTokenDecimals: networkConfig.nativeTokenDecimals,
+      connected: this.connected,
+      connectedAt: this.connectedAt || undefined,
+    };
   }
 }
 
