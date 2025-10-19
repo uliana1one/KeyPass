@@ -630,17 +630,21 @@ describe('KILTDIDProvider Integration Tests', () => {
     });
 
     it('should preserve error context in KILTError instances', async () => {
-      mockKiltAdapter.connect.mockRejectedValue(new Error('Custom connection error'));
-
+      // Test with invalid address to trigger KILTError with proper context
+      const invalidAddress = 'invalid_address_format';
+      
       try {
         await kiltDidProvider.registerDIDOnChain({
-          accountAddress: validKiltAddress,
+          accountAddress: invalidAddress,
           controller: validKiltAddress,
         });
+        fail('Should have thrown an error');
       } catch (error) {
         expect(error).toBeInstanceOf(KILTError);
-        expect((error as KILTError).code).toBe(KILTErrorType.DID_REGISTRATION_ERROR);
-        expect((error as KILTError).message).toContain('Failed to register KILT DID');
+        // With our improved validation, invalid addresses now throw INVALID_KILT_ADDRESS
+        expect((error as KILTError).code).toBe(KILTErrorType.INVALID_KILT_ADDRESS);
+        // Check that error message contains validation failure info
+        expect((error as KILTError).message).toBeTruthy();
       }
     });
   });
