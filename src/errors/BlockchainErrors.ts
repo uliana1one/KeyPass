@@ -40,6 +40,7 @@ export enum KILTErrorCode {
   CONNECTION_LOST = 'KILT_1002',
   RPC_ERROR = 'KILT_1003',
   WEBSOCKET_ERROR = 'KILT_1004',
+  CONNECTION_ERROR = 'KILT_1005',
   
   // DID errors (1100-1199)
   DID_NOT_FOUND = 'KILT_1100',
@@ -60,6 +61,8 @@ export enum KILTErrorCode {
   NONCE_TOO_HIGH = 'KILT_1206',
   GAS_LIMIT_EXCEEDED = 'KILT_1207',
   TRANSACTION_ALREADY_IMPORTED = 'KILT_1208',
+  TRANSACTION_NOT_FOUND = 'KILT_1209',
+  BATCH_INTERRUPTED = 'KILT_1210',
   
   // Pallet errors (1300-1399)
   PALLET_DID_ERROR = 'KILT_1300',
@@ -134,6 +137,8 @@ export enum MoonbeamErrorCode {
   INVALID_TRANSACTION = 'MOONBEAM_2402',
   INVALID_GAS_PRICE = 'MOONBEAM_2403',
   INVALID_CHAIN_ID = 'MOONBEAM_2404',
+  INVALID_PARAMETERS = 'MOONBEAM_2405',
+  GAS_ESTIMATION_FAILED = 'MOONBEAM_2406',
   
   // Account errors (2500-2599)
   ACCOUNT_NOT_FOUND = 'MOONBEAM_2500',
@@ -148,6 +153,9 @@ export enum MoonbeamErrorCode {
   IPFS_UPLOAD_FAILED = 'MOONBEAM_2700',
   IPFS_RETRIEVAL_FAILED = 'MOONBEAM_2701',
   METADATA_INVALID = 'MOONBEAM_2702',
+  
+  // System errors (2800-2899)
+  DEPENDENCY_ERROR = 'MOONBEAM_2800',
 }
 
 /**
@@ -180,6 +188,7 @@ export class BlockchainError extends WalletError {
   public readonly code: BlockchainErrorCode;
   public readonly category: ErrorCategory;
   public readonly severity: ErrorSeverity;
+  public readonly blockchain?: 'kilt' | 'moonbeam';
   public readonly context?: ErrorContext;
   public readonly originalError?: Error;
   public readonly retryable: boolean;
@@ -197,6 +206,7 @@ export class BlockchainError extends WalletError {
     this.code = code;
     this.category = category;
     this.severity = severity;
+    this.blockchain = context?.blockchain;
     this.context = context;
     this.originalError = originalError;
     this.retryable = context?.retryable ?? this.isRetryableByDefault();
@@ -280,6 +290,27 @@ export class BlockchainError extends WalletError {
       timestamp: Date.now(),
     };
   }
+
+  /**
+   * Get user-friendly error message
+   */
+  public toUserMessage(): string {
+    return ErrorMessageFormatter.forUser(this);
+  }
+
+  /**
+   * Get developer-friendly error message
+   */
+  public toDeveloperMessage(): string {
+    return ErrorMessageFormatter.forDeveloper(this);
+  }
+
+  /**
+   * Get logging-friendly error message
+   */
+  public toLogMessage(): string {
+    return ErrorMessageFormatter.forLogging(this);
+  }
 }
 
 /**
@@ -328,7 +359,7 @@ export class BlockchainErrorFactory {
       message,
       KILTErrorCode.CONNECTION_FAILED,
       ErrorCategory.NETWORK,
-      ErrorSeverity.HIGH,
+      ErrorSeverity.CRITICAL,
       context,
       originalError
     );
@@ -388,6 +419,19 @@ export class BlockchainErrorFactory {
   }
 
   /**
+   * Create KILT transaction not found error
+   */
+  static kiltTransactionNotFound(txHash: string, context?: ErrorContext): KILTBlockchainError {
+    return new KILTBlockchainError(
+      `Transaction not found: ${txHash}`,
+      KILTErrorCode.TRANSACTION_NOT_FOUND,
+      ErrorCategory.TRANSACTION,
+      ErrorSeverity.MEDIUM,
+      { ...context, txHash }
+    );
+  }
+
+  /**
    * Create Moonbeam connection error
    */
   static moonbeamConnectionError(message: string, context?: ErrorContext, originalError?: Error): MoonbeamBlockchainError {
@@ -395,7 +439,7 @@ export class BlockchainErrorFactory {
       message,
       MoonbeamErrorCode.CONNECTION_FAILED,
       ErrorCategory.NETWORK,
-      ErrorSeverity.HIGH,
+      ErrorSeverity.CRITICAL,
       context,
       originalError
     );
@@ -495,6 +539,107 @@ export class BlockchainErrorFactory {
       { ...context, retryable: true },
       originalError
     );
+  }
+
+  /**
+   * Create error from specific error code
+   */
+  static fromCode(
+    blockchain: 'kilt' | 'moonbeam',
+    code: BlockchainErrorCode,
+    message: string,
+    context?: ErrorContext
+  ): BlockchainError {
+    // Extract numeric part of error code
+    const codeStr = String(code);
+    const numericMatch = codeStr.match(/(\d+)/);
+    const codeNumber = numericMatch ? parseInt(numericMatch[1]) : 0;
+
+    let category = ErrorCategory.SYSTEM;
+    let severity = ErrorSeverity.MEDIUM;
+
+    if (blockchain === 'kilt') {
+      // KILT error code ranges
+      if (codeNumber >= 1000 && codeNumber < 1100) {
+        // Connection errors
+        category = ErrorCategory.NETWORK;
+        severity = ErrorSeverity.CRITICAL;
+      } else if (codeNumber >= 1100 && codeNumber < 1200) {
+        // DID errors
+        category = ErrorCategory.USER;
+        severity = ErrorSeverity.MEDIUM;
+      } else if (codeNumber >= 1200 && codeNumber < 1300) {
+        // Transaction errors
+        category = ErrorCategory.TRANSACTION;
+        severity = ErrorSeverity.HIGH;
+      } else if (codeNumber >= 1300 && codeNumber < 1400) {
+        // Pallet errors
+        category = ErrorCategory.SYSTEM;
+        severity = ErrorSeverity.HIGH;
+      } else if (codeNumber >= 1400 && codeNumber < 1500) {
+        // Validation errors
+        category = ErrorCategory.VALIDATION;
+        severity = ErrorSeverity.LOW;
+      } else if (codeNumber >= 1500 && codeNumber < 1600) {
+        // Account errors
+        category = ErrorCategory.USER;
+        severity = ErrorSeverity.MEDIUM;
+      } else if (codeNumber >= 1600 && codeNumber < 1700) {
+        // Network errors
+        category = ErrorCategory.NETWORK;
+        severity = ErrorSeverity.HIGH;
+      }
+
+      return new KILTBlockchainError(message, code as KILTErrorCode, category, severity, context);
+    } else {
+      // Moonbeam error code ranges
+      if (codeNumber >= 2000 && codeNumber < 2100) {
+        // Connection errors
+        category = ErrorCategory.NETWORK;
+        severity = ErrorSeverity.CRITICAL;
+      } else if (codeNumber >= 2100 && codeNumber < 2200) {
+        // Contract errors
+        category = ErrorCategory.CONTRACT;
+        severity = ErrorSeverity.HIGH;
+      } else if (codeNumber >= 2200 && codeNumber < 2300) {
+        // Transaction errors
+        category = ErrorCategory.TRANSACTION;
+        severity = ErrorSeverity.HIGH;
+      } else if (codeNumber >= 2300 && codeNumber < 2400) {
+        // SBT errors
+        category = ErrorCategory.CONTRACT;
+        severity = ErrorSeverity.HIGH;
+      } else if (codeNumber >= 2400 && codeNumber < 2500) {
+        // Validation errors
+        category = ErrorCategory.VALIDATION;
+        severity = ErrorSeverity.LOW;
+      } else if (codeNumber >= 2500 && codeNumber < 2600) {
+        // Account errors
+        category = ErrorCategory.USER;
+        severity = ErrorSeverity.MEDIUM;
+      } else if (codeNumber >= 2600 && codeNumber < 2700) {
+        // Network errors
+        category = ErrorCategory.NETWORK;
+        severity = ErrorSeverity.HIGH;
+      } else if (codeNumber >= 2700 && codeNumber < 2800) {
+        // IPFS/Metadata errors
+        category = ErrorCategory.NETWORK;
+        severity = ErrorSeverity.MEDIUM;
+      } else if (codeNumber >= 2800 && codeNumber < 2900) {
+        // System errors
+        category = ErrorCategory.SYSTEM;
+        severity = ErrorSeverity.HIGH;
+      }
+
+      // Special case overrides
+      if (code === MoonbeamErrorCode.TRANSACTION_REVERTED) {
+        category = ErrorCategory.CONTRACT;
+      } else if (code === MoonbeamErrorCode.GAS_ESTIMATION_FAILED) {
+        category = ErrorCategory.USER;
+      }
+
+      return new MoonbeamBlockchainError(message, code as MoonbeamErrorCode, category, severity, context);
+    }
   }
 
   /**
@@ -669,6 +814,20 @@ export function getErrorSeverity(error: unknown): ErrorSeverity {
   }
 
   return ErrorSeverity.LOW;
+}
+
+/**
+ * Check if error is a KILT blockchain error
+ */
+export function isKILTError(error: unknown): error is KILTBlockchainError {
+  return error instanceof KILTBlockchainError;
+}
+
+/**
+ * Check if error is a Moonbeam blockchain error
+ */
+export function isMoonbeamError(error: unknown): error is MoonbeamBlockchainError {
+  return error instanceof MoonbeamBlockchainError;
 }
 
 /**
