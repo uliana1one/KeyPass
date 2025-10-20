@@ -1,0 +1,34 @@
+# Test Account Summary
+Generated: 2025-10-20T21:12:52.389Z
+
+## KILT Account (Peregrine Testnet)
+Address: 4pRJCAzA432j6BStZVHpPgHPyAvMYYt28xQPpGJmMucLMa1g
+Mnemonic: item chase loan spawn rhythm jazz win attitude sadness rocket carry hollow
+Faucet: https://faucet.peregrine.kilt.io/
+
+## Moonbeam Account (Moonbase Alpha)  
+Address: 0x9a56DE46B2288041797BEBc911dD6E8Dd3875b72
+Private Key: 0x70a9672c4ecaec119377d000d70eb11d21d80db4ee89aa99c3927dced32869c6
+Mnemonic: goat power dawn affair casino accuse poem toe fat noise nut beauty
+Faucet: https://apps.moonbeam.network/moonbase-alpha/faucet/
+
+## ⚠️  IMPORTANT SECURITY NOTES
+- These are TEST ACCOUNTS ONLY
+- NEVER send real funds to these addresses
+- NEVER use these credentials on mainnet
+- Rotate these credentials regularly
+- Keep this file PRIVATE (it's in .gitignore)
+
+## Next Steps
+
+1. Request testnet tokens from faucets (links above)
+2. Wait ~1 minute for tokens to arrive
+3. Run tests:
+   ```bash
+   source .env.integration
+   npm run test:integration:coverage
+   ```
+
+4. Verify you have tokens:
+   - KILT: Check balance at https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fperegrine.kilt.io#/accounts
+   - Moonbeam: Check balance at https://moonbase.moonscan.io/address/0x9a56DE46B2288041797BEBc911dD6E8Dd3875b72

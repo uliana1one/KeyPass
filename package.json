@@ -33,7 +33,11 @@
     "test:e2e:sbt": "jest --testPathPattern=SBTMinting.e2e",
     "test:all": "npm run test && npm run test:e2e",
     "deploy:sbt": "node --loader ts-node/esm scripts/deploySBT.ts",
-    "deploy:sbt:testnet": "NETWORK=moonbase-alpha node --loader ts-node/esm scripts/deploySBT.ts"
+    "deploy:sbt:testnet": "NETWORK=moonbase-alpha node --loader ts-node/esm scripts/deploySBT.ts",
+    "setup:testnet": "node scripts/setup-testnet-accounts.js",
+    "check:kilt": "node scripts/check-kilt-balance.js",
+    "check:moonbeam": "node scripts/check-moonbeam-balance.js",
+    "check:balances": "npm run check:kilt && npm run check:moonbeam"
   },
   "keywords": [
     "polkadot",
