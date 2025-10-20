@@ -1,259 +1,373 @@
-# SBT Minting E2E Integration Tests
-
-This directory contains end-to-end integration tests for the SBT minting functionality. These tests use real Moonbase Alpha testnet to validate the complete minting flow.
+# Complete Flow Integration Tests
 
 ## Overview
 
-The E2E tests cover:
-- **Contract Deployment**: Deploy SBT contracts to Moonbase Alpha
-- **Full Minting Flow**: Complete SBT minting with real blockchain transactions
-- **Error Scenarios**: Handle various failure modes
-- **Transaction Confirmation**: Verify transaction inclusion and event emission
-- **Test Data Cleanup**: Proper resource cleanup after tests
+The `CompleteFlow.test.ts` file contains comprehensive end-to-end integration tests that validate the entire KeyPass system working together with real KILT and Moonbeam blockchains.
+
+## What's Tested
+
+### 🔄 **Complete Flow** (3 tests)
+1. **Full DID → SBT → Verification Flow**
+   - Registers DID on KILT
+   - Mints SBT on Moonbeam
+   - Verifies cross-chain linkage
+   - Measures performance
+
+2. **DID with Verification Methods**
+   - Tests DID creation with cryptographic keys
+   - Validates verification method structure
+
+3. **Multiple SBT Mints**
+   - Mints 3 SBTs for the same DID
+   - Tests nonce management
+   - Verifies unique token IDs
+
+### 📊 **Transaction Monitoring** (3 tests)
+1. **KILT Transaction Monitoring**
+   - Tracks DID operations
+   - Calculates success metrics
+
+2. **Moonbeam Transaction Monitoring**
+   - Monitors SBT minting
+   - Tracks gas usage
+   - Measures performance
+
+3. **Cross-Chain History**
+   - Validates transaction history tracking
+   - Tests filtering by blockchain
+
+### 🚫 **Error Handling** (3 tests)
+1. **Invalid DID Format**
+   - Tests validation of DID strings
+
+2. **Insufficient Gas**
+   - Tests gas limit errors
+   - Validates error messaging
+
+3. **Network Health**
+   - Checks blockchain connectivity
+   - Monitors network status
+
+### ⚡ **Performance & Reliability** (3 tests)
+1. **Time Constraints**
+   - Validates operations complete within limits
+   - DID operations < 5 seconds
+
+2. **Success Rate**
+   - Ensures > 80% success rate
+   - Tracks reliability metrics
+
+3. **Concurrent Operations**
+   - Tests 3 parallel DID operations
+   - Validates thread safety
+
+### 📈 **System Health** (2 tests)
+1. **System Metrics**
+   - Reports accurate latency
+   - Tracks gas consumption
+
+2. **Error Reporting**
+   - Tests error detection
+   - Validates error categorization
+
+### 📊 **Performance Summary** (1 test)
+- Generates comprehensive performance report
+- Shows timing for all operations
+- Displays success rates
+- Reports health status
+
+---
+
+## Total: 15 Test Cases ✅
+
+---
 
 ## Prerequisites
 
-### 1. Test Environment Setup
+### 1. Environment Variables
+
+Create a `.env.integration` file:
 
 ```bash
-# Copy the environment template
-cp env.e2e.template .env.e2e
+# Enable integration tests
+ENABLE_INTEGRATION_TESTS=true
 
-# Edit .env.e2e with your test configuration
-nano .env.e2e
+# KILT Configuration
+KILT_WSS_ADDRESS="wss://peregrine.kilt.io/parachain-public-ws"
+KILT_TESTNET_MNEMONIC="your twelve word mnemonic phrase here for testing"
+
+# Moonbeam Configuration
+MOONBEAM_RPC_URL="https://rpc.api.moonbase.moonbeam.network"
+MOONBEAM_PRIVATE_KEY="0x...your_private_key_with_DEV_tokens"
+
+# Optional: IPFS (if testing metadata uploads)
+PINATA_API_KEY="your_pinata_api_key"
+PINATA_API_SECRET="your_pinata_secret"
 ```
 
-### 2. Required Environment Variables
+### 2. Testnet Tokens
+
+#### KILT (Peregrine) Tokens:
+1. Visit: https://faucet.peregrine.kilt.io/
+2. Enter your KILT address
+3. Request test tokens
+
+#### Moonbeam (Moonbase Alpha) DEV Tokens:
+1. Visit: https://apps.moonbeam.network/moonbase-alpha/faucet/
+2. Connect wallet or enter address
+3. Request DEV tokens
+
+### 3. Deployed SBT Contract
+
+Deploy the SBT contract to Moonbase Alpha:
 
 ```bash
-# Required: Private key for test wallet
-TEST_PRIVATE_KEY=your_test_wallet_private_key_here
-
-# Optional: Recipient address (defaults to test wallet)
-TEST_RECIPIENT=0x1234567890123456789012345678901234567890
-
-# Optional: Test timeout (default: 5 minutes)
-TEST_TIMEOUT=300000
+npm run deploy:sbt:testnet
 ```
 
-### 3. Test Wallet Setup
+This will save the contract address to `config/deployments.json`.
 
-1. **Create a test wallet** or use an existing one
-2. **Get testnet DEV tokens** from [Moonbase Alpha Faucet](https://faucet.moonbeam.network/)
-3. **Ensure minimum balance** of 0.1 DEV for contract deployment and minting
+---
 
-### 4. Network Access
+## Running the Tests
 
-- **Moonbase Alpha RPC**: `https://rpc.api.moonbase.moonbeam.network`
-- **Chain ID**: 1287
-- **Explorer**: [Moonbase Alpha Moonscan](https://moonbase.moonscan.io/)
+### Run Complete Flow Tests
 
-## Running E2E Tests
-
-### Run All E2E Tests
 ```bash
-npm run test:e2e
+# Load environment variables
+source .env.integration
+
+# Run the integration tests
+npm test -- --testPathPattern=CompleteFlow
+
+# Run with verbose output
+npm test -- --testPathPattern=CompleteFlow --verbose
+
+# Run with coverage
+npm test -- --testPathPattern=CompleteFlow --coverage
 ```
 
-### Run SBT-Specific E2E Tests
+### Run Specific Test Suites
+
 ```bash
-npm run test:sbt:e2e
+# Only complete flow tests
+npm test -- --testPathPattern=CompleteFlow --testNamePattern="Complete Flow"
+
+# Only transaction monitoring tests
+npm test -- --testPathPattern=CompleteFlow --testNamePattern="Transaction Monitoring"
+
+# Only error handling tests
+npm test -- --testPathPattern=CompleteFlow --testNamePattern="Error Handling"
+
+# Only performance tests
+npm test -- --testPathPattern=CompleteFlow --testNamePattern="Performance"
 ```
 
-### Run with Watch Mode
-```bash
-npm run test:e2e:watch
+---
+
+## Test Timeouts
+
+Tests have extended timeouts for blockchain operations:
+
+- **Default Test Timeout**: 10 minutes (600,000ms)
+- **Setup Timeout**: 10 minutes
+- **Cleanup Timeout**: 1 minute
+
+Blockchain operations can be slow on testnets, especially during peak usage.
+
+---
+
+## Expected Output
+
+### Successful Run
+
+```
+🚀 Setting up Complete Flow Integration Tests...
+
+📡 Connecting to KILT testnet...
+✅ KILT connected: 4r1WkS8...
+
+📡 Connecting to Moonbeam testnet...
+✅ Moonbeam connected: 0x1234...
+
+🔧 Initializing services...
+✅ SBT Contract: 0xB63E1e...
+✅ All services initialized
+
+Complete Flow Integration Tests
+  Complete Flow: DID → SBT → Verification
+    ✓ should complete full flow: DID registration → SBT minting → verification
+    ✓ should handle DID registration with verification methods
+    ✓ should handle multiple SBT mints for same DID
+  Transaction Monitoring
+    ✓ should monitor KILT DID operations
+    ✓ should monitor Moonbeam SBT transactions
+    ✓ should track transaction history across both chains
+  Error Handling
+    ✓ should handle invalid DID format gracefully
+    ✓ should handle insufficient gas errors
+    ✓ should handle network disconnection gracefully
+  Performance and Reliability
+    ✓ should complete flow within acceptable time limits
+    ✓ should maintain high success rate across operations
+    ✓ should handle concurrent operations safely
+  System Health and Metrics
+    ✓ should report accurate system metrics
+    ✓ should detect and report errors appropriately
+  Performance Summary
+    ✓ should generate comprehensive performance report
+
+🧹 Cleaning up...
+✅ Cleanup complete
+
+Test Suites: 1 passed, 1 total
+Tests:       15 passed, 15 total
+Time:        180.5s
 ```
 
-### Run with Coverage
-```bash
-npm run test:e2e:coverage
-```
+---
 
-### Run All Tests (Unit + E2E)
-```bash
-npm run test:all
-```
+## Performance Metrics
 
-## Test Structure
+The tests track and report:
 
-### 1. Contract Deployment Tests
-- Deploy SBT contract to Moonbase Alpha
-- Verify contract deployment
-- Submit contract for verification on block explorer
+### Timing Metrics
+- **DID Registration**: ~500-2000ms
+- **SBT Minting**: ~10-30 seconds
+- **Verification**: ~100-500ms
+- **Total Flow**: < 2 minutes
 
-### 2. Full SBT Minting Flow
-- Connect to deployed contract
-- Estimate gas for minting transaction
-- Execute minting with real blockchain transaction
-- Verify token ownership and metadata
-- Validate metadata accessibility
+### Success Metrics
+- **KILT Success Rate**: > 80%
+- **Moonbeam Success Rate**: > 80%
+- **Overall Success Rate**: > 85%
 
-### 3. Error Scenario Tests
-- Invalid contract addresses
-- Insufficient gas scenarios
-- Invalid recipient addresses
-- Network disconnection handling
-- Contract method failures
+### Resource Metrics
+- **Gas Usage**: Per transaction
+- **Transaction Costs**: In DEV tokens
+- **Latency**: P50, P95, P99 percentiles
 
-### 4. Transaction Confirmation Tests
-- Verify transaction inclusion in blockchain
-- Wait for transaction confirmation
-- Handle transaction timeouts
-- Retry failed transactions with backoff
-
-### 5. Test Data Cleanup
-- Disconnect services
-- Clean up test resources
-- Generate test reports
-
-## Test Configuration
-
-### Jest Configuration
-- **Config File**: `jest.e2e.config.js`
-- **Test Timeout**: 5 minutes (300,000ms)
-- **Max Workers**: 1 (sequential execution)
-- **Test Environment**: Node.js
-
-### Test Setup Files
-- **Global Setup**: `src/__tests__/setup/global-setup.ts`
-- **Global Teardown**: `src/__tests__/setup/global-teardown.ts`
-- **Test Setup**: `src/__tests__/setup/e2e-setup.ts`
-- **Results Processor**: `src/__tests__/setup/test-results-processor.ts`
-
-## Test Data Management
-
-### Automatic Cleanup
-- Services are disconnected after each test
-- Test resources are cleaned up automatically
-- No persistent test data remains
-
-### Test Isolation
-- Each test runs independently
-- No shared state between tests
-- Fresh contract deployment for each test run
-
-### Resource Management
-- Proper connection/disconnection of services
-- Memory cleanup with garbage collection
-- Timeout management for long-running operations
-
-## Monitoring and Debugging
-
-### Test Output
-- **Verbose Logging**: Detailed test execution logs
-- **Performance Metrics**: Test duration and performance data
-- **Error Details**: Comprehensive error reporting
-
-### Test Reports
-- **JUnit XML**: `test-results/e2e/junit.xml`
-- **Detailed JSON**: `test-results/e2e/detailed-report.json`
-- **Console Summary**: Real-time test progress
-
-### Debugging Tips
-1. **Check Wallet Balance**: Ensure sufficient DEV tokens
-2. **Verify Network**: Confirm Moonbase Alpha connectivity
-3. **Review Logs**: Check detailed test execution logs
-4. **Block Explorer**: Verify transactions on Moonscan
+---
 
 ## Troubleshooting
 
-### Common Issues
+### Test Skipped
 
-#### 1. Insufficient Balance
 ```
-Error: Insufficient balance. Need at least 0.1 DEV
-```
-**Solution**: Get more testnet DEV from the faucet
-
-#### 2. Network Connection Issues
-```
-Error: Failed to connect to Moonbase Alpha
-```
-**Solution**: Check internet connection and RPC endpoint
-
-#### 3. Transaction Timeout
-```
-Error: Transaction timeout
-```
-**Solution**: Increase `TEST_TIMEOUT` or check network congestion
-
-#### 4. Invalid Private Key
-```
-Error: Invalid wallet configuration
-```
-**Solution**: Verify `TEST_PRIVATE_KEY` format and validity
-
-### Environment Issues
-
-#### Missing Environment Variables
-```bash
-# Check required variables
-echo $TEST_PRIVATE_KEY
-echo $TEST_RECIPIENT
+⚠️ Integration tests skipped. Set ENABLE_INTEGRATION_TESTS=true to enable.
 ```
 
-#### Network Configuration
-```bash
-# Test network connectivity
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
-  https://rpc.api.moonbase.moonbeam.network
+**Solution**: Set `ENABLE_INTEGRATION_TESTS=true` in your environment.
+
+### No Deployed Contract
+
+```
+Error: No deployed SBT contract found. Run: npm run deploy:sbt:testnet
 ```
 
-## Best Practices
+**Solution**: Deploy the SBT contract first.
 
-### 1. Test Environment
-- Use dedicated test wallets
-- Keep test data separate from production
-- Regular cleanup of test resources
+### Insufficient Funds
 
-### 2. Test Execution
-- Run E2E tests in CI/CD pipelines
-- Monitor test execution time
-- Set appropriate timeouts
+```
+Error: insufficient funds for gas * price + value
+```
 
-### 3. Error Handling
-- Comprehensive error scenarios
-- Graceful failure handling
-- Proper resource cleanup on errors
+**Solution**: Get more testnet tokens from the faucets.
 
-### 4. Documentation
-- Keep test documentation updated
-- Document test environment setup
-- Record known issues and solutions
+### Connection Timeout
+
+```
+Error: Connection timeout after 60000ms
+```
+
+**Solutions**:
+- Check your internet connection
+- Verify RPC endpoints are accessible
+- Try a different RPC endpoint
+- Testnet might be experiencing issues
+
+### Transaction Timeout
+
+```
+Error: Transaction confirmation timeout
+```
+
+**Solutions**:
+- Testnet might be congested
+- Increase gas price
+- Retry the test
+- Check testnet status
+
+---
 
 ## CI/CD Integration
 
 ### GitHub Actions Example
+
 ```yaml
-- name: Run E2E Tests
-  run: npm run test:e2e
-  env:
-    TEST_PRIVATE_KEY: ${{ secrets.TEST_PRIVATE_KEY }}
-    TEST_RECIPIENT: ${{ secrets.TEST_RECIPIENT }}
+name: Integration Tests
+
+on: [push, pull_request]
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+      
+      - name: Install Dependencies
+        run: npm ci
+      
+      - name: Run Integration Tests
+        env:
+          ENABLE_INTEGRATION_TESTS: true
+          KILT_WSS_ADDRESS: ${{ secrets.KILT_WSS_ADDRESS }}
+          KILT_TESTNET_MNEMONIC: ${{ secrets.KILT_TESTNET_MNEMONIC }}
+          MOONBEAM_RPC_URL: ${{ secrets.MOONBEAM_RPC_URL }}
+          MOONBEAM_PRIVATE_KEY: ${{ secrets.MOONBEAM_PRIVATE_KEY }}
+        run: npm test -- --testPathPattern=CompleteFlow
 ```
 
-### Docker Integration
-```bash
-# Run E2E tests in Docker
-docker run --env-file .env.e2e keypass-sdk npm run test:e2e
-```
+---
+
+## Test Coverage Goals
+
+- **Statement Coverage**: > 90%
+- **Branch Coverage**: > 85%
+- **Function Coverage**: > 90%
+- **Line Coverage**: > 90%
+
+---
 
 ## Contributing
 
-When adding new E2E tests:
-1. Follow the existing test structure
-2. Add proper cleanup and error handling
-3. Update documentation
-4. Ensure tests are isolated and reliable
-5. Add appropriate timeouts for long-running operations
+When adding new test cases:
 
-## Support
+1. Follow the existing structure
+2. Use descriptive test names
+3. Add appropriate timeouts
+4. Include console logging for visibility
+5. Measure and report performance
+6. Handle errors gracefully
+7. Clean up resources in `afterAll`
 
-For issues with E2E tests:
-1. Check the troubleshooting section
-2. Review test logs and reports
-3. Verify environment configuration
-4. Check network connectivity and wallet balance
+---
+
+## Related Documentation
+
+- [KILT DID Integration](../../did/README.md)
+- [Moonbeam SBT Integration](../../contracts/README.md)
+- [Blockchain Monitor](../../monitoring/README.md)
+- [Error Handling](../../errors/README.md)
+
+---
+
+**Last Updated**: October 19, 2025  
+**Test Count**: 15 test cases  
+**Status**: ✅ Production-Ready
