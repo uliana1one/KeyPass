@@ -1,7 +1,7 @@
 /**
  * Blockchain-Specific Error Handling
  * 
- * Comprehensive error types, codes, and utilities for KILT and Moonbeam blockchain operations.
+ * Comprehensive error types, codes, and utilities for Moonbeam blockchain operations.
  * Provides structured error handling with categorization, severity levels, and factory functions.
  */
 
@@ -31,65 +31,6 @@ export enum ErrorCategory {
 }
 
 /**
- * KILT-specific error codes
- */
-export enum KILTErrorCode {
-  // Connection errors (1000-1099)
-  CONNECTION_FAILED = 'KILT_1000',
-  CONNECTION_TIMEOUT = 'KILT_1001',
-  CONNECTION_LOST = 'KILT_1002',
-  RPC_ERROR = 'KILT_1003',
-  WEBSOCKET_ERROR = 'KILT_1004',
-  CONNECTION_ERROR = 'KILT_1005',
-  
-  // DID errors (1100-1199)
-  DID_NOT_FOUND = 'KILT_1100',
-  DID_ALREADY_EXISTS = 'KILT_1101',
-  DID_CREATION_FAILED = 'KILT_1102',
-  DID_UPDATE_FAILED = 'KILT_1103',
-  DID_DELETION_FAILED = 'KILT_1104',
-  DID_INVALID_FORMAT = 'KILT_1105',
-  DID_RESOLUTION_FAILED = 'KILT_1106',
-  
-  // Transaction errors (1200-1299)
-  TRANSACTION_FAILED = 'KILT_1200',
-  TRANSACTION_TIMEOUT = 'KILT_1201',
-  TRANSACTION_REVERTED = 'KILT_1202',
-  TRANSACTION_REJECTED = 'KILT_1203',
-  INSUFFICIENT_BALANCE = 'KILT_1204',
-  NONCE_TOO_LOW = 'KILT_1205',
-  NONCE_TOO_HIGH = 'KILT_1206',
-  GAS_LIMIT_EXCEEDED = 'KILT_1207',
-  TRANSACTION_ALREADY_IMPORTED = 'KILT_1208',
-  TRANSACTION_NOT_FOUND = 'KILT_1209',
-  BATCH_INTERRUPTED = 'KILT_1210',
-  
-  // Pallet errors (1300-1399)
-  PALLET_DID_ERROR = 'KILT_1300',
-  PALLET_ATTESTATION_ERROR = 'KILT_1301',
-  PALLET_DELEGATION_ERROR = 'KILT_1302',
-  PALLET_CTYPE_ERROR = 'KILT_1303',
-  
-  // Validation errors (1400-1499)
-  INVALID_ADDRESS = 'KILT_1400',
-  INVALID_SIGNATURE = 'KILT_1401',
-  INVALID_EXTRINSIC = 'KILT_1402',
-  INVALID_METADATA = 'KILT_1403',
-  INVALID_KEY_TYPE = 'KILT_1404',
-  
-  // Account errors (1500-1599)
-  ACCOUNT_NOT_FOUND = 'KILT_1500',
-  ACCOUNT_LOCKED = 'KILT_1501',
-  INSUFFICIENT_FUNDS = 'KILT_1502',
-  
-  // Network errors (1600-1699)
-  NETWORK_ERROR = 'KILT_1600',
-  NETWORK_CONGESTION = 'KILT_1601',
-  BLOCK_NOT_FOUND = 'KILT_1602',
-  CHAIN_SYNCING = 'KILT_1603',
-}
-
-/**
  * Moonbeam-specific error codes
  */
 export enum MoonbeamErrorCode {
@@ -108,6 +49,7 @@ export enum MoonbeamErrorCode {
   CONTRACT_INVALID_ABI = 'MOONBEAM_2104',
   CONTRACT_INVALID_BYTECODE = 'MOONBEAM_2105',
   CONTRACT_INSUFFICIENT_GAS = 'MOONBEAM_2106',
+  CONTRACT_CALL_FAILED = 'MOONBEAM_2107',
   
   // Transaction errors (2200-2299)
   TRANSACTION_FAILED = 'MOONBEAM_2200',
@@ -121,212 +63,134 @@ export enum MoonbeamErrorCode {
   NONCE_TOO_HIGH = 'MOONBEAM_2208',
   GAS_LIMIT_EXCEEDED = 'MOONBEAM_2209',
   INTRINSIC_GAS_TOO_LOW = 'MOONBEAM_2210',
+  TRANSACTION_NOT_FOUND = 'MOONBEAM_2211',
   
   // SBT errors (2300-2399)
   SBT_MINT_FAILED = 'MOONBEAM_2300',
   SBT_BURN_FAILED = 'MOONBEAM_2301',
   SBT_TRANSFER_BLOCKED = 'MOONBEAM_2302',
   SBT_TOKEN_NOT_FOUND = 'MOONBEAM_2303',
-  SBT_MAX_SUPPLY_EXCEEDED = 'MOONBEAM_2304',
-  SBT_ALREADY_REVOKED = 'MOONBEAM_2305',
-  SBT_NOT_OWNER = 'MOONBEAM_2306',
+  SBT_METADATA_INVALID = 'MOONBEAM_2304',
+  SBT_VERIFICATION_FAILED = 'MOONBEAM_2305',
   
-  // Validation errors (2400-2499)
-  INVALID_ADDRESS = 'MOONBEAM_2400',
-  INVALID_SIGNATURE = 'MOONBEAM_2401',
-  INVALID_TRANSACTION = 'MOONBEAM_2402',
-  INVALID_GAS_PRICE = 'MOONBEAM_2403',
-  INVALID_CHAIN_ID = 'MOONBEAM_2404',
-  INVALID_PARAMETERS = 'MOONBEAM_2405',
-  GAS_ESTIMATION_FAILED = 'MOONBEAM_2406',
+  // DID errors (2400-2499)
+  DID_NOT_FOUND = 'MOONBEAM_2400',
+  DID_ALREADY_EXISTS = 'MOONBEAM_2401',
+  DID_CREATION_FAILED = 'MOONBEAM_2402',
+  DID_UPDATE_FAILED = 'MOONBEAM_2403',
+  DID_DELETION_FAILED = 'MOONBEAM_2404',
+  DID_VERIFICATION_FAILED = 'MOONBEAM_2405',
+  DID_DOCUMENT_INVALID = 'MOONBEAM_2406',
+  DID_CONTROLLER_INVALID = 'MOONBEAM_2407',
   
-  // Account errors (2500-2599)
-  ACCOUNT_NOT_FOUND = 'MOONBEAM_2500',
-  INSUFFICIENT_FUNDS = 'MOONBEAM_2501',
+  // Gas errors (2500-2599)
+  GAS_PRICE_TOO_LOW = 'MOONBEAM_2500',
+  GAS_LIMIT_TOO_LOW = 'MOONBEAM_2501',
+  GAS_ESTIMATION_FAILED = 'MOONBEAM_2502',
+  GAS_PRICE_FETCH_FAILED = 'MOONBEAM_2503',
   
-  // Network errors (2600-2699)
-  NETWORK_ERROR = 'MOONBEAM_2600',
-  NETWORK_CONGESTION = 'MOONBEAM_2601',
-  BLOCK_NOT_FOUND = 'MOONBEAM_2602',
+  // Account errors (2600-2699)
+  ACCOUNT_NOT_FOUND = 'MOONBEAM_2600',
+  ACCOUNT_BALANCE_INSUFFICIENT = 'MOONBEAM_2601',
+  ACCOUNT_LOCKED = 'MOONBEAM_2602',
+  ACCOUNT_INVALID = 'MOONBEAM_2603',
+  PRIVATE_KEY_INVALID = 'MOONBEAM_2604',
+  MNEMONIC_INVALID = 'MOONBEAM_2605',
   
-  // IPFS/Metadata errors (2700-2799)
-  IPFS_UPLOAD_FAILED = 'MOONBEAM_2700',
-  IPFS_RETRIEVAL_FAILED = 'MOONBEAM_2701',
-  METADATA_INVALID = 'MOONBEAM_2702',
+  // Validation errors (2700-2799)
+  INVALID_ADDRESS = 'MOONBEAM_2700',
+  INVALID_HASH = 'MOONBEAM_2701',
+  INVALID_SIGNATURE = 'MOONBEAM_2702',
+  INVALID_PARAMETERS = 'MOONBEAM_2703',
+  INVALID_NETWORK = 'MOONBEAM_2704',
+  INVALID_CHAIN_ID = 'MOONBEAM_2705',
+  INVALID_BLOCK_NUMBER = 'MOONBEAM_2706',
   
-  // System errors (2800-2899)
-  DEPENDENCY_ERROR = 'MOONBEAM_2800',
-}
-
-/**
- * Error code type union
- */
-export type BlockchainErrorCode = KILTErrorCode | MoonbeamErrorCode;
-
-/**
- * Error context for detailed error information
- */
-export interface ErrorContext {
-  operation?: string;
-  blockchain?: 'kilt' | 'moonbeam';
-  transactionHash?: string;
-  blockNumber?: number;
-  address?: string;
-  contractAddress?: string;
-  tokenId?: string;
-  gasUsed?: string;
-  timestamp?: number;
-  retryable?: boolean;
-  retryAttempt?: number;
-  metadata?: Record<string, any>;
+  // Network errors (2800-2899)
+  NETWORK_ERROR = 'MOONBEAM_2800',
+  NETWORK_TIMEOUT = 'MOONBEAM_2801',
+  NETWORK_UNREACHABLE = 'MOONBEAM_2802',
+  NETWORK_CONGESTION = 'MOONBEAM_2803',
+  NETWORK_FORK_DETECTED = 'MOONBEAM_2804',
+  
+  // Configuration errors (2900-2999)
+  CONFIG_INVALID = 'MOONBEAM_2900',
+  CONFIG_MISSING = 'MOONBEAM_2901',
+  CONFIG_NETWORK_MISMATCH = 'MOONBEAM_2902',
+  CONFIG_RPC_URL_INVALID = 'MOONBEAM_2903',
+  CONFIG_PRIVATE_KEY_MISSING = 'MOONBEAM_2904',
+  CONFIG_CONTRACT_ADDRESS_INVALID = 'MOONBEAM_2905',
+  
+  // Dependency errors (3000-3099)
+  DEPENDENCY_ERROR = 'MOONBEAM_3000',
+  DEPENDENCY_MISSING = 'MOONBEAM_3001',
+  DEPENDENCY_VERSION_MISMATCH = 'MOONBEAM_3002',
+  DEPENDENCY_LOAD_FAILED = 'MOONBEAM_3003',
 }
 
 /**
  * Base blockchain error class
  */
-export class BlockchainError extends WalletError {
-  public readonly code: BlockchainErrorCode;
+export class BlockchainError extends Error {
+  public readonly code: string;
   public readonly category: ErrorCategory;
   public readonly severity: ErrorSeverity;
-  public readonly blockchain?: 'kilt' | 'moonbeam';
-  public readonly context?: ErrorContext;
-  public readonly originalError?: Error;
-  public readonly retryable: boolean;
+  public readonly blockchain?: 'moonbeam';
+  public readonly timestamp: number;
+  public readonly context?: Record<string, any>;
 
   constructor(
     message: string,
-    code: BlockchainErrorCode,
-    category: ErrorCategory,
-    severity: ErrorSeverity,
-    context?: ErrorContext,
-    originalError?: Error
+    code: string,
+    category: ErrorCategory = ErrorCategory.UNKNOWN,
+    severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+    blockchain?: 'moonbeam',
+    context?: Record<string, any>
   ) {
-    super(message, code as string);
+    super(message);
     this.name = 'BlockchainError';
     this.code = code;
     this.category = category;
     this.severity = severity;
-    this.blockchain = context?.blockchain;
+    this.blockchain = blockchain;
+    this.timestamp = Date.now();
     this.context = context;
-    this.originalError = originalError;
-    this.retryable = context?.retryable ?? this.isRetryableByDefault();
   }
 
   /**
-   * Determine if error is retryable by default based on category
-   */
-  private isRetryableByDefault(): boolean {
-    // Network errors are typically retryable
-    if (this.category === ErrorCategory.NETWORK) {
-      return true;
-    }
-
-    // Some transaction errors are retryable
-    if (this.category === ErrorCategory.TRANSACTION) {
-      const retryableCodes = [
-        KILTErrorCode.TRANSACTION_TIMEOUT,
-        KILTErrorCode.NONCE_TOO_LOW,
-        MoonbeamErrorCode.TRANSACTION_TIMEOUT,
-        MoonbeamErrorCode.TRANSACTION_UNDERPRICED,
-        MoonbeamErrorCode.REPLACEMENT_UNDERPRICED,
-        MoonbeamErrorCode.NONCE_TOO_LOW,
-      ];
-      return retryableCodes.includes(this.code as any);
-    }
-
-    // User and validation errors are not retryable
-    if (this.category === ErrorCategory.USER || this.category === ErrorCategory.VALIDATION) {
-      return false;
-    }
-
-    return false;
-  }
-
-  /**
-   * Get formatted error message
-   */
-  public getFormattedMessage(): string {
-    let formatted = `[${this.code}] ${this.message}`;
-
-    if (this.context) {
-      const contextParts: string[] = [];
-
-      if (this.context.blockchain) {
-        contextParts.push(`blockchain: ${this.context.blockchain}`);
-      }
-      if (this.context.operation) {
-        contextParts.push(`operation: ${this.context.operation}`);
-      }
-      if (this.context.transactionHash) {
-        contextParts.push(`tx: ${this.context.transactionHash.substring(0, 10)}...`);
-      }
-      if (this.context.blockNumber) {
-        contextParts.push(`block: ${this.context.blockNumber}`);
-      }
-      if (this.context.address) {
-        contextParts.push(`address: ${this.context.address.substring(0, 10)}...`);
-      }
-
-      if (contextParts.length > 0) {
-        formatted += ` (${contextParts.join(', ')})`;
-      }
-    }
-
-    return formatted;
-  }
-
-  /**
-   * Get error details as JSON
-   */
-  public toJSON(): Record<string, any> {
-    return {
-      name: this.name,
-      message: this.message,
-      code: this.code,
-      category: this.category,
-      severity: this.severity,
-      retryable: this.retryable,
-      context: this.context,
-      timestamp: Date.now(),
-    };
-  }
-
-  /**
-   * Get user-friendly error message
+   * Convert error to user-friendly message
    */
   public toUserMessage(): string {
-    return ErrorMessageFormatter.forUser(this);
+    switch (this.category) {
+      case ErrorCategory.NETWORK:
+        return 'Network connection issue. Please check your internet connection and try again.';
+      case ErrorCategory.CONTRACT:
+        return 'Smart contract error. Please try again or contact support.';
+      case ErrorCategory.USER:
+        return this.message;
+      case ErrorCategory.TRANSACTION:
+        return 'Transaction failed. Please check your balance and try again.';
+      case ErrorCategory.VALIDATION:
+        return 'Invalid input. Please check your data and try again.';
+      case ErrorCategory.CONFIGURATION:
+        return 'Configuration error. Please contact support.';
+      default:
+        return 'An unexpected error occurred. Please try again.';
+    }
   }
 
   /**
-   * Get developer-friendly error message
+   * Convert error to developer-friendly message
    */
   public toDeveloperMessage(): string {
-    return ErrorMessageFormatter.forDeveloper(this);
+    return `${this.name} [${this.code}]: ${this.message}`;
   }
 
   /**
-   * Get logging-friendly error message
+   * Convert error to log message
    */
   public toLogMessage(): string {
-    return ErrorMessageFormatter.forLogging(this);
-  }
-}
-
-/**
- * KILT-specific error class
- */
-export class KILTBlockchainError extends BlockchainError {
-  constructor(
-    message: string,
-    code: KILTErrorCode,
-    category: ErrorCategory,
-    severity: ErrorSeverity,
-    context?: ErrorContext,
-    originalError?: Error
-  ) {
-    super(message, code, category, severity, { ...context, blockchain: 'kilt' }, originalError);
-    this.name = 'KILTBlockchainError';
+    return `${this.name} [${this.code}] [${this.severity}] [${this.category}]: ${this.message}`;
   }
 }
 
@@ -335,43 +199,93 @@ export class KILTBlockchainError extends BlockchainError {
  */
 export class MoonbeamBlockchainError extends BlockchainError {
   constructor(
-    message: string,
     code: MoonbeamErrorCode,
-    category: ErrorCategory,
-    severity: ErrorSeverity,
-    context?: ErrorContext,
-    originalError?: Error
+    message: string,
+    category: ErrorCategory = ErrorCategory.UNKNOWN,
+    severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+    context?: Record<string, any>
   ) {
-    super(message, code, category, severity, { ...context, blockchain: 'moonbeam' }, originalError);
+    super(message, code, category, severity, 'moonbeam', context);
     this.name = 'MoonbeamBlockchainError';
   }
 }
 
 /**
- * Error factory functions
+ * Error factory for creating blockchain errors
  */
 export class BlockchainErrorFactory {
   /**
-   * Create KILT connection error
+   * Create a Moonbeam connection error
    */
-  static kiltConnectionError(message: string, context?: ErrorContext, originalError?: Error): KILTBlockchainError {
-    return new KILTBlockchainError(
+  static moonbeamConnectionError(message: string, context?: Record<string, any>): MoonbeamBlockchainError {
+    return new MoonbeamBlockchainError(
+      MoonbeamErrorCode.CONNECTION_FAILED,
       message,
-      KILTErrorCode.CONNECTION_FAILED,
       ErrorCategory.NETWORK,
       ErrorSeverity.CRITICAL,
-      context,
-      originalError
+      context
     );
   }
 
   /**
-   * Create KILT DID not found error
+   * Create a Moonbeam contract error
    */
-  static kiltDIDNotFound(did: string, context?: ErrorContext): KILTBlockchainError {
-    return new KILTBlockchainError(
-      `DID not found: ${did}`,
-      KILTErrorCode.DID_NOT_FOUND,
+  static moonbeamContractError(code: MoonbeamErrorCode, message: string, context?: Record<string, any>): MoonbeamBlockchainError {
+    return new MoonbeamBlockchainError(
+      code,
+      message,
+      ErrorCategory.CONTRACT,
+      ErrorSeverity.HIGH,
+      context
+    );
+  }
+
+  /**
+   * Create a Moonbeam transaction error
+   */
+  static moonbeamTransactionError(code: MoonbeamErrorCode, message: string, context?: Record<string, any>): MoonbeamBlockchainError {
+    return new MoonbeamBlockchainError(
+      code,
+      message,
+      ErrorCategory.TRANSACTION,
+      ErrorSeverity.HIGH,
+      context
+    );
+  }
+
+  /**
+   * Create a Moonbeam DID error
+   */
+  static moonbeamDIDError(code: MoonbeamErrorCode, message: string, context?: Record<string, any>): MoonbeamBlockchainError {
+    return new MoonbeamBlockchainError(
+      code,
+      message,
+      ErrorCategory.CONTRACT,
+      ErrorSeverity.HIGH,
+      context
+    );
+  }
+
+  /**
+   * Create a Moonbeam SBT error
+   */
+  static moonbeamSBTError(code: MoonbeamErrorCode, message: string, context?: Record<string, any>): MoonbeamBlockchainError {
+    return new MoonbeamBlockchainError(
+      code,
+      message,
+      ErrorCategory.CONTRACT,
+      ErrorSeverity.HIGH,
+      context
+    );
+  }
+
+  /**
+   * Create a Moonbeam validation error
+   */
+  static moonbeamValidationError(code: MoonbeamErrorCode, message: string, context?: Record<string, any>): MoonbeamBlockchainError {
+    return new MoonbeamBlockchainError(
+      code,
+      message,
       ErrorCategory.VALIDATION,
       ErrorSeverity.MEDIUM,
       context
@@ -379,459 +293,228 @@ export class BlockchainErrorFactory {
   }
 
   /**
-   * Create KILT transaction failed error
+   * Create a Moonbeam user error
    */
-  static kiltTransactionFailed(message: string, context?: ErrorContext, originalError?: Error): KILTBlockchainError {
-    return new KILTBlockchainError(
+  static moonbeamUserError(code: MoonbeamErrorCode, message: string, context?: Record<string, any>): MoonbeamBlockchainError {
+    return new MoonbeamBlockchainError(
+      code,
       message,
-      KILTErrorCode.TRANSACTION_FAILED,
-      ErrorCategory.TRANSACTION,
-      ErrorSeverity.HIGH,
-      context,
-      originalError
-    );
-  }
-
-  /**
-   * Create KILT insufficient balance error
-   */
-  static kiltInsufficientBalance(address: string, context?: ErrorContext): KILTBlockchainError {
-    return new KILTBlockchainError(
-      `Insufficient balance for address: ${address}`,
-      KILTErrorCode.INSUFFICIENT_BALANCE,
       ErrorCategory.USER,
-      ErrorSeverity.MEDIUM,
-      { ...context, address, retryable: false }
+      ErrorSeverity.LOW,
+      context
     );
   }
 
   /**
-   * Create KILT invalid address error
+   * Create error from error code
    */
-  static kiltInvalidAddress(address: string, context?: ErrorContext): KILTBlockchainError {
-    return new KILTBlockchainError(
-      `Invalid KILT address: ${address}`,
-      KILTErrorCode.INVALID_ADDRESS,
-      ErrorCategory.VALIDATION,
-      ErrorSeverity.MEDIUM,
-      { ...context, address, retryable: false }
-    );
-  }
-
-  /**
-   * Create KILT transaction not found error
-   */
-  static kiltTransactionNotFound(txHash: string, context?: ErrorContext): KILTBlockchainError {
-    return new KILTBlockchainError(
-      `Transaction not found: ${txHash}`,
-      KILTErrorCode.TRANSACTION_NOT_FOUND,
-      ErrorCategory.TRANSACTION,
-      ErrorSeverity.MEDIUM,
-      { ...context, txHash }
-    );
-  }
-
-  /**
-   * Create Moonbeam connection error
-   */
-  static moonbeamConnectionError(message: string, context?: ErrorContext, originalError?: Error): MoonbeamBlockchainError {
-    return new MoonbeamBlockchainError(
-      message,
-      MoonbeamErrorCode.CONNECTION_FAILED,
-      ErrorCategory.NETWORK,
-      ErrorSeverity.CRITICAL,
-      context,
-      originalError
-    );
-  }
-
-  /**
-   * Create Moonbeam contract error
-   */
-  static moonbeamContractError(message: string, context?: ErrorContext, originalError?: Error): MoonbeamBlockchainError {
-    return new MoonbeamBlockchainError(
-      message,
-      MoonbeamErrorCode.CONTRACT_EXECUTION_FAILED,
-      ErrorCategory.CONTRACT,
-      ErrorSeverity.HIGH,
-      context,
-      originalError
-    );
-  }
-
-  /**
-   * Create Moonbeam transaction failed error
-   */
-  static moonbeamTransactionFailed(message: string, context?: ErrorContext, originalError?: Error): MoonbeamBlockchainError {
-    return new MoonbeamBlockchainError(
-      message,
-      MoonbeamErrorCode.TRANSACTION_FAILED,
-      ErrorCategory.TRANSACTION,
-      ErrorSeverity.HIGH,
-      context,
-      originalError
-    );
-  }
-
-  /**
-   * Create Moonbeam transaction reverted error
-   */
-  static moonbeamTransactionReverted(message: string, context?: ErrorContext, originalError?: Error): MoonbeamBlockchainError {
-    return new MoonbeamBlockchainError(
-      message,
-      MoonbeamErrorCode.TRANSACTION_REVERTED,
-      ErrorCategory.TRANSACTION,
-      ErrorSeverity.HIGH,
-      { ...context, retryable: false },
-      originalError
-    );
-  }
-
-  /**
-   * Create Moonbeam insufficient balance error
-   */
-  static moonbeamInsufficientBalance(address: string, context?: ErrorContext): MoonbeamBlockchainError {
-    return new MoonbeamBlockchainError(
-      `Insufficient balance for address: ${address}`,
-      MoonbeamErrorCode.INSUFFICIENT_BALANCE,
-      ErrorCategory.USER,
-      ErrorSeverity.MEDIUM,
-      { ...context, address, retryable: false }
-    );
-  }
-
-  /**
-   * Create Moonbeam SBT mint failed error
-   */
-  static moonbeamSBTMintFailed(message: string, context?: ErrorContext, originalError?: Error): MoonbeamBlockchainError {
-    return new MoonbeamBlockchainError(
-      message,
-      MoonbeamErrorCode.SBT_MINT_FAILED,
-      ErrorCategory.CONTRACT,
-      ErrorSeverity.HIGH,
-      context,
-      originalError
-    );
-  }
-
-  /**
-   * Create Moonbeam invalid address error
-   */
-  static moonbeamInvalidAddress(address: string, context?: ErrorContext): MoonbeamBlockchainError {
-    return new MoonbeamBlockchainError(
-      `Invalid Moonbeam address: ${address}`,
-      MoonbeamErrorCode.INVALID_ADDRESS,
-      ErrorCategory.VALIDATION,
-      ErrorSeverity.MEDIUM,
-      { ...context, address, retryable: false }
-    );
-  }
-
-  /**
-   * Create IPFS upload failed error
-   */
-  static ipfsUploadFailed(message: string, context?: ErrorContext, originalError?: Error): MoonbeamBlockchainError {
-    return new MoonbeamBlockchainError(
-      message,
-      MoonbeamErrorCode.IPFS_UPLOAD_FAILED,
-      ErrorCategory.NETWORK,
-      ErrorSeverity.MEDIUM,
-      { ...context, retryable: true },
-      originalError
-    );
-  }
-
-  /**
-   * Create error from specific error code
-   */
-  static fromCode(
-    blockchain: 'kilt' | 'moonbeam',
-    code: BlockchainErrorCode,
-    message: string,
-    context?: ErrorContext
-  ): BlockchainError {
-    // Extract numeric part of error code
-    const codeStr = String(code);
-    const numericMatch = codeStr.match(/(\d+)/);
-    const codeNumber = numericMatch ? parseInt(numericMatch[1]) : 0;
-
-    let category = ErrorCategory.SYSTEM;
-    let severity = ErrorSeverity.MEDIUM;
-
-    if (blockchain === 'kilt') {
-      // KILT error code ranges
-      if (codeNumber >= 1000 && codeNumber < 1100) {
-        // Connection errors
+  static fromCode(code: string, message?: string, context?: Record<string, any>): BlockchainError {
+    // Determine blockchain and error code
+    if (code.startsWith('MOONBEAM_')) {
+      const moonbeamCode = code as MoonbeamErrorCode;
+      const errorMessage = message || this.getDefaultMessage(moonbeamCode);
+      
+      // Determine category based on error code range
+      let category: ErrorCategory;
+      const codeNum = parseInt(code.split('_')[1]);
+      
+      if (codeNum >= 2000 && codeNum < 2100) {
         category = ErrorCategory.NETWORK;
-        severity = ErrorSeverity.CRITICAL;
-      } else if (codeNumber >= 1100 && codeNumber < 1200) {
-        // DID errors
-        category = ErrorCategory.USER;
-        severity = ErrorSeverity.MEDIUM;
-      } else if (codeNumber >= 1200 && codeNumber < 1300) {
-        // Transaction errors
-        category = ErrorCategory.TRANSACTION;
-        severity = ErrorSeverity.HIGH;
-      } else if (codeNumber >= 1300 && codeNumber < 1400) {
-        // Pallet errors
-        category = ErrorCategory.SYSTEM;
-        severity = ErrorSeverity.HIGH;
-      } else if (codeNumber >= 1400 && codeNumber < 1500) {
-        // Validation errors
-        category = ErrorCategory.VALIDATION;
-        severity = ErrorSeverity.LOW;
-      } else if (codeNumber >= 1500 && codeNumber < 1600) {
-        // Account errors
-        category = ErrorCategory.USER;
-        severity = ErrorSeverity.MEDIUM;
-      } else if (codeNumber >= 1600 && codeNumber < 1700) {
-        // Network errors
-        category = ErrorCategory.NETWORK;
-        severity = ErrorSeverity.HIGH;
-      }
-
-      return new KILTBlockchainError(message, code as KILTErrorCode, category, severity, context);
-    } else {
-      // Moonbeam error code ranges
-      if (codeNumber >= 2000 && codeNumber < 2100) {
-        // Connection errors
-        category = ErrorCategory.NETWORK;
-        severity = ErrorSeverity.CRITICAL;
-      } else if (codeNumber >= 2100 && codeNumber < 2200) {
-        // Contract errors
+      } else if (codeNum >= 2100 && codeNum < 2200) {
         category = ErrorCategory.CONTRACT;
-        severity = ErrorSeverity.HIGH;
-      } else if (codeNumber >= 2200 && codeNumber < 2300) {
-        // Transaction errors
+      } else if (codeNum >= 2200 && codeNum < 2300) {
         category = ErrorCategory.TRANSACTION;
-        severity = ErrorSeverity.HIGH;
-      } else if (codeNumber >= 2300 && codeNumber < 2400) {
-        // SBT errors
+      } else if (codeNum >= 2300 && codeNum < 2400) {
         category = ErrorCategory.CONTRACT;
-        severity = ErrorSeverity.HIGH;
-      } else if (codeNumber >= 2400 && codeNumber < 2500) {
-        // Validation errors
-        category = ErrorCategory.VALIDATION;
-        severity = ErrorSeverity.LOW;
-      } else if (codeNumber >= 2500 && codeNumber < 2600) {
-        // Account errors
+      } else if (codeNum >= 2400 && codeNum < 2500) {
+        category = ErrorCategory.CONTRACT;
+      } else if (codeNum >= 2500 && codeNum < 2600) {
+        category = ErrorCategory.TRANSACTION;
+      } else if (codeNum >= 2600 && codeNum < 2700) {
         category = ErrorCategory.USER;
-        severity = ErrorSeverity.MEDIUM;
-      } else if (codeNumber >= 2600 && codeNumber < 2700) {
-        // Network errors
+      } else if (codeNum >= 2700 && codeNum < 2800) {
+        category = ErrorCategory.VALIDATION;
+      } else if (codeNum >= 2800 && codeNum < 2900) {
         category = ErrorCategory.NETWORK;
-        severity = ErrorSeverity.HIGH;
-      } else if (codeNumber >= 2700 && codeNumber < 2800) {
-        // IPFS/Metadata errors
-        category = ErrorCategory.NETWORK;
-        severity = ErrorSeverity.MEDIUM;
-      } else if (codeNumber >= 2800 && codeNumber < 2900) {
-        // System errors
-        category = ErrorCategory.SYSTEM;
-        severity = ErrorSeverity.HIGH;
+      } else if (codeNum >= 2900 && codeNum < 3000) {
+        category = ErrorCategory.CONFIGURATION;
+      } else {
+        category = ErrorCategory.UNKNOWN;
       }
 
       // Special case overrides
       if (code === MoonbeamErrorCode.TRANSACTION_REVERTED) {
         category = ErrorCategory.CONTRACT;
-      } else if (code === MoonbeamErrorCode.GAS_ESTIMATION_FAILED) {
+      }
+      if (code === MoonbeamErrorCode.GAS_ESTIMATION_FAILED) {
         category = ErrorCategory.USER;
       }
 
-      return new MoonbeamBlockchainError(message, code as MoonbeamErrorCode, category, severity, context);
+      // Determine severity
+      let severity: ErrorSeverity;
+      if (codeNum >= 2000 && codeNum < 2100) {
+        severity = ErrorSeverity.CRITICAL; // Connection errors
+      } else if (codeNum >= 2200 && codeNum < 2300) {
+        severity = ErrorSeverity.HIGH; // Transaction errors
+      } else if (codeNum >= 2600 && codeNum < 2700) {
+        severity = ErrorSeverity.LOW; // User errors
+      } else {
+        severity = ErrorSeverity.MEDIUM;
+      }
+
+      return new MoonbeamBlockchainError(moonbeamCode, errorMessage, category, severity, context);
     }
+
+    // Fallback for unknown codes
+    return new BlockchainError(
+      message || 'Unknown error',
+      code,
+      ErrorCategory.UNKNOWN,
+      ErrorSeverity.MEDIUM,
+      undefined,
+      context
+    );
   }
 
   /**
-   * Parse error from unknown source and create appropriate blockchain error
+   * Get default message for error code
    */
-  static fromUnknown(error: unknown, blockchain: 'kilt' | 'moonbeam', context?: ErrorContext): BlockchainError {
-    if (error instanceof BlockchainError) {
-      return error;
-    }
+  private static getDefaultMessage(code: MoonbeamErrorCode): string {
+    const messages: Record<MoonbeamErrorCode, string> = {
+      [MoonbeamErrorCode.CONNECTION_FAILED]: 'Failed to connect to Moonbeam network',
+      [MoonbeamErrorCode.CONNECTION_TIMEOUT]: 'Connection to Moonbeam network timed out',
+      [MoonbeamErrorCode.CONNECTION_LOST]: 'Connection to Moonbeam network lost',
+      [MoonbeamErrorCode.RPC_ERROR]: 'RPC error occurred',
+      [MoonbeamErrorCode.PROVIDER_ERROR]: 'Provider error occurred',
+      [MoonbeamErrorCode.CONTRACT_NOT_FOUND]: 'Contract not found',
+      [MoonbeamErrorCode.CONTRACT_EXECUTION_FAILED]: 'Contract execution failed',
+      [MoonbeamErrorCode.CONTRACT_DEPLOYMENT_FAILED]: 'Contract deployment failed',
+      [MoonbeamErrorCode.CONTRACT_CALL_REVERTED]: 'Contract call reverted',
+      [MoonbeamErrorCode.CONTRACT_INVALID_ABI]: 'Invalid contract ABI',
+      [MoonbeamErrorCode.CONTRACT_INVALID_BYTECODE]: 'Invalid contract bytecode',
+      [MoonbeamErrorCode.CONTRACT_INSUFFICIENT_GAS]: 'Insufficient gas for contract execution',
+      [MoonbeamErrorCode.CONTRACT_CALL_FAILED]: 'Contract call failed',
+      [MoonbeamErrorCode.TRANSACTION_FAILED]: 'Transaction failed',
+      [MoonbeamErrorCode.TRANSACTION_TIMEOUT]: 'Transaction timed out',
+      [MoonbeamErrorCode.TRANSACTION_REVERTED]: 'Transaction reverted',
+      [MoonbeamErrorCode.TRANSACTION_REJECTED]: 'Transaction rejected',
+      [MoonbeamErrorCode.TRANSACTION_UNDERPRICED]: 'Transaction underpaid',
+      [MoonbeamErrorCode.REPLACEMENT_UNDERPRICED]: 'Replacement transaction underpaid',
+      [MoonbeamErrorCode.INSUFFICIENT_BALANCE]: 'Insufficient balance',
+      [MoonbeamErrorCode.NONCE_TOO_LOW]: 'Nonce too low',
+      [MoonbeamErrorCode.NONCE_TOO_HIGH]: 'Nonce too high',
+      [MoonbeamErrorCode.GAS_LIMIT_EXCEEDED]: 'Gas limit exceeded',
+      [MoonbeamErrorCode.INTRINSIC_GAS_TOO_LOW]: 'Intrinsic gas too low',
+      [MoonbeamErrorCode.TRANSACTION_NOT_FOUND]: 'Transaction not found',
+      [MoonbeamErrorCode.SBT_MINT_FAILED]: 'SBT minting failed',
+      [MoonbeamErrorCode.SBT_BURN_FAILED]: 'SBT burning failed',
+      [MoonbeamErrorCode.SBT_TRANSFER_BLOCKED]: 'SBT transfer blocked',
+      [MoonbeamErrorCode.SBT_TOKEN_NOT_FOUND]: 'SBT token not found',
+      [MoonbeamErrorCode.SBT_METADATA_INVALID]: 'SBT metadata invalid',
+      [MoonbeamErrorCode.SBT_VERIFICATION_FAILED]: 'SBT verification failed',
+      [MoonbeamErrorCode.DID_NOT_FOUND]: 'DID not found',
+      [MoonbeamErrorCode.DID_ALREADY_EXISTS]: 'DID already exists',
+      [MoonbeamErrorCode.DID_CREATION_FAILED]: 'DID creation failed',
+      [MoonbeamErrorCode.DID_UPDATE_FAILED]: 'DID update failed',
+      [MoonbeamErrorCode.DID_DELETION_FAILED]: 'DID deletion failed',
+      [MoonbeamErrorCode.DID_VERIFICATION_FAILED]: 'DID verification failed',
+      [MoonbeamErrorCode.DID_DOCUMENT_INVALID]: 'DID document invalid',
+      [MoonbeamErrorCode.DID_CONTROLLER_INVALID]: 'DID controller invalid',
+      [MoonbeamErrorCode.GAS_PRICE_TOO_LOW]: 'Gas price too low',
+      [MoonbeamErrorCode.GAS_LIMIT_TOO_LOW]: 'Gas limit too low',
+      [MoonbeamErrorCode.GAS_ESTIMATION_FAILED]: 'Gas estimation failed',
+      [MoonbeamErrorCode.GAS_PRICE_FETCH_FAILED]: 'Failed to fetch gas price',
+      [MoonbeamErrorCode.ACCOUNT_NOT_FOUND]: 'Account not found',
+      [MoonbeamErrorCode.ACCOUNT_BALANCE_INSUFFICIENT]: 'Account balance insufficient',
+      [MoonbeamErrorCode.ACCOUNT_LOCKED]: 'Account locked',
+      [MoonbeamErrorCode.ACCOUNT_INVALID]: 'Invalid account',
+      [MoonbeamErrorCode.PRIVATE_KEY_INVALID]: 'Invalid private key',
+      [MoonbeamErrorCode.MNEMONIC_INVALID]: 'Invalid mnemonic',
+      [MoonbeamErrorCode.INVALID_ADDRESS]: 'Invalid address',
+      [MoonbeamErrorCode.INVALID_HASH]: 'Invalid hash',
+      [MoonbeamErrorCode.INVALID_SIGNATURE]: 'Invalid signature',
+      [MoonbeamErrorCode.INVALID_PARAMETERS]: 'Invalid parameters',
+      [MoonbeamErrorCode.INVALID_NETWORK]: 'Invalid network',
+      [MoonbeamErrorCode.INVALID_CHAIN_ID]: 'Invalid chain ID',
+      [MoonbeamErrorCode.INVALID_BLOCK_NUMBER]: 'Invalid block number',
+      [MoonbeamErrorCode.NETWORK_ERROR]: 'Network error',
+      [MoonbeamErrorCode.NETWORK_TIMEOUT]: 'Network timeout',
+      [MoonbeamErrorCode.NETWORK_UNREACHABLE]: 'Network unreachable',
+      [MoonbeamErrorCode.NETWORK_CONGESTION]: 'Network congestion',
+      [MoonbeamErrorCode.NETWORK_FORK_DETECTED]: 'Network fork detected',
+      [MoonbeamErrorCode.CONFIG_INVALID]: 'Invalid configuration',
+      [MoonbeamErrorCode.CONFIG_MISSING]: 'Missing configuration',
+      [MoonbeamErrorCode.CONFIG_NETWORK_MISMATCH]: 'Network configuration mismatch',
+      [MoonbeamErrorCode.CONFIG_RPC_URL_INVALID]: 'Invalid RPC URL',
+      [MoonbeamErrorCode.CONFIG_PRIVATE_KEY_MISSING]: 'Private key missing',
+      [MoonbeamErrorCode.CONFIG_CONTRACT_ADDRESS_INVALID]: 'Invalid contract address',
+      [MoonbeamErrorCode.DEPENDENCY_ERROR]: 'Dependency error',
+      [MoonbeamErrorCode.DEPENDENCY_MISSING]: 'Dependency missing',
+      [MoonbeamErrorCode.DEPENDENCY_VERSION_MISMATCH]: 'Dependency version mismatch',
+      [MoonbeamErrorCode.DEPENDENCY_LOAD_FAILED]: 'Dependency load failed',
+    };
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const originalError = error instanceof Error ? error : undefined;
-
-    // Try to infer error type from message
-    const lowerMessage = errorMessage.toLowerCase();
-
-    if (blockchain === 'kilt') {
-      // KILT-specific error detection
-      if (lowerMessage.includes('connection') || lowerMessage.includes('websocket')) {
-        return BlockchainErrorFactory.kiltConnectionError(errorMessage, context, originalError);
-      }
-      if (lowerMessage.includes('insufficient') && lowerMessage.includes('balance')) {
-        return BlockchainErrorFactory.kiltInsufficientBalance(context?.address || 'unknown', context);
-      }
-      if (lowerMessage.includes('did not found')) {
-        return BlockchainErrorFactory.kiltDIDNotFound(context?.address || 'unknown', context);
-      }
-      if (lowerMessage.includes('invalid') && lowerMessage.includes('address')) {
-        return BlockchainErrorFactory.kiltInvalidAddress(context?.address || 'unknown', context);
-      }
-
-      // Default KILT transaction error
-      return BlockchainErrorFactory.kiltTransactionFailed(errorMessage, context, originalError);
-    } else {
-      // Moonbeam-specific error detection
-      if (lowerMessage.includes('connection') || lowerMessage.includes('provider')) {
-        return BlockchainErrorFactory.moonbeamConnectionError(errorMessage, context, originalError);
-      }
-      if (lowerMessage.includes('reverted')) {
-        return BlockchainErrorFactory.moonbeamTransactionReverted(errorMessage, context, originalError);
-      }
-      if (lowerMessage.includes('insufficient') && lowerMessage.includes('balance')) {
-        return BlockchainErrorFactory.moonbeamInsufficientBalance(context?.address || 'unknown', context);
-      }
-      if (lowerMessage.includes('invalid') && lowerMessage.includes('address')) {
-        return BlockchainErrorFactory.moonbeamInvalidAddress(context?.address || 'unknown', context);
-      }
-      if (lowerMessage.includes('contract')) {
-        return BlockchainErrorFactory.moonbeamContractError(errorMessage, context, originalError);
-      }
-      if (lowerMessage.includes('ipfs')) {
-        return BlockchainErrorFactory.ipfsUploadFailed(errorMessage, context, originalError);
-      }
-
-      // Default Moonbeam transaction error
-      return BlockchainErrorFactory.moonbeamTransactionFailed(errorMessage, context, originalError);
-    }
+    return messages[code] || 'Unknown error';
   }
 }
 
 /**
- * Error message formatter
+ * Utility functions for error handling
  */
-export class ErrorMessageFormatter {
+export class ErrorUtils {
   /**
-   * Format error for user display (simplified, user-friendly)
+   * Check if error is a Moonbeam error
    */
-  static forUser(error: BlockchainError): string {
-    const categoryMessages: Record<ErrorCategory, string> = {
-      [ErrorCategory.NETWORK]: 'Network connection issue',
-      [ErrorCategory.CONTRACT]: 'Smart contract error',
-      [ErrorCategory.USER]: 'Invalid input or insufficient funds',
-      [ErrorCategory.TRANSACTION]: 'Transaction failed',
-      [ErrorCategory.VALIDATION]: 'Validation error',
-      [ErrorCategory.CONFIGURATION]: 'Configuration error',
-      [ErrorCategory.UNKNOWN]: 'An error occurred',
-    };
-
-    let message = categoryMessages[error.category] || 'An error occurred';
-
-    // Add specific details for common user errors
-    if (error.code === KILTErrorCode.INSUFFICIENT_BALANCE || error.code === MoonbeamErrorCode.INSUFFICIENT_BALANCE) {
-      message = 'Insufficient funds to complete this transaction';
-    } else if (error.code === KILTErrorCode.INVALID_ADDRESS || error.code === MoonbeamErrorCode.INVALID_ADDRESS) {
-      message = 'Invalid address format';
-    } else if (error.code === MoonbeamErrorCode.TRANSACTION_REVERTED) {
-      message = 'Transaction was rejected by the blockchain';
-    } else if (error.code === MoonbeamErrorCode.IPFS_UPLOAD_FAILED) {
-      message = 'Failed to upload metadata';
-    }
-
-    // Add retry suggestion if applicable (and not already included)
-    if (error.retryable && !message.includes('try again')) {
-      message += '. Please try again';
-    }
-
-    return message;
+  static isMoonbeamError(error: any): error is MoonbeamBlockchainError {
+    return error instanceof MoonbeamBlockchainError;
   }
 
   /**
-   * Format error for developer/debug display (detailed)
+   * Check if error is retryable
    */
-  static forDeveloper(error: BlockchainError): string {
-    return error.getFormattedMessage();
+  static isRetryableError(error: BlockchainError): boolean {
+    const retryableCodes = [
+      MoonbeamErrorCode.CONNECTION_FAILED,
+      MoonbeamErrorCode.CONNECTION_TIMEOUT,
+      MoonbeamErrorCode.CONNECTION_LOST,
+      MoonbeamErrorCode.RPC_ERROR,
+      MoonbeamErrorCode.NETWORK_ERROR,
+      MoonbeamErrorCode.NETWORK_TIMEOUT,
+      MoonbeamErrorCode.NETWORK_UNREACHABLE,
+      MoonbeamErrorCode.TRANSACTION_TIMEOUT,
+      MoonbeamErrorCode.GAS_PRICE_FETCH_FAILED,
+    ];
+
+    return retryableCodes.includes(error.code as MoonbeamErrorCode);
+  }
+
+  /**
+   * Get retry delay for error
+   */
+  static getRetryDelay(error: BlockchainError, attempt: number): number {
+    const baseDelay = 1000; // 1 second
+    const maxDelay = 30000; // 30 seconds
+    const delay = baseDelay * Math.pow(2, attempt - 1);
+    return Math.min(delay, maxDelay);
   }
 
   /**
    * Format error for logging
    */
-  static forLogging(error: BlockchainError): string {
-    const parts = [
-      `[${error.severity.toUpperCase()}]`,
-      `[${error.category.toUpperCase()}]`,
-      error.getFormattedMessage(),
-    ];
-
-    if (error.originalError) {
-      parts.push(`Original: ${error.originalError.message}`);
-      if (error.originalError.stack) {
-        parts.push(`Stack: ${error.originalError.stack}`);
-      }
+  static formatForLogging(error: Error): string {
+    if (error instanceof BlockchainError) {
+      return error.toLogMessage();
     }
+    return `${error.name}: ${error.message}`;
+  }
 
-    return parts.join(' | ');
+  /**
+   * Format error for user display
+   */
+  static formatForUser(error: Error): string {
+    if (error instanceof BlockchainError) {
+      return error.toUserMessage();
+    }
+    return 'An unexpected error occurred. Please try again.';
   }
 }
-
-/**
- * Utility function to check if error is retryable
- */
-export function isRetryableError(error: unknown): boolean {
-  if (error instanceof BlockchainError) {
-    return error.retryable;
-  }
-
-  // Check message for common retryable patterns
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-  const retryablePatterns = [
-    'timeout',
-    'network',
-    'connection',
-    'temporary',
-    'busy',
-    'rate limit',
-    'too many requests',
-    'nonce too low',
-    'underpriced',
-  ];
-
-  return retryablePatterns.some(pattern => message.includes(pattern));
-}
-
-/**
- * Utility function to get error severity
- */
-export function getErrorSeverity(error: unknown): ErrorSeverity {
-  if (error instanceof BlockchainError) {
-    return error.severity;
-  }
-
-  // Default severity based on message
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-
-  if (message.includes('critical') || message.includes('fatal')) {
-    return ErrorSeverity.CRITICAL;
-  }
-  if (message.includes('failed')) {
-    return ErrorSeverity.HIGH;
-  }
-  if (message.includes('warning') || message.includes('invalid')) {
-    return ErrorSeverity.MEDIUM;
-  }
-
-  return ErrorSeverity.LOW;
-}
-
-/**
- * Check if error is a KILT blockchain error
- */
-export function isKILTError(error: unknown): error is KILTBlockchainError {
-  return error instanceof KILTBlockchainError;
-}
-
-/**
- * Check if error is a Moonbeam blockchain error
- */
-export function isMoonbeamError(error: unknown): error is MoonbeamBlockchainError {
-  return error instanceof MoonbeamBlockchainError;
-}
-
-/**
- * Export error factory with alias
- */
-export { BlockchainErrorFactory as ErrorFactory };
-
