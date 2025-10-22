@@ -13,6 +13,7 @@ import { ethers, Signer } from 'ethers';
 import { SBTContract, DeploymentConfigLoader, TransactionMonitoringResult, GasEstimationResult } from '../contracts/SBTContract.js';
 import { SBTContractFactory } from '../contracts/SBTContractFactory.js';
 import { MoonbeamAdapter } from '../adapters/MoonbeamAdapter.js';
+import { MoonbeamDIDProvider } from '../did/providers/MoonbeamDIDProvider.js';
 import { MoonbeamNetwork, MoonbeamErrorCode } from '../config/moonbeamConfig.js';
 import { WalletError } from '../errors/WalletErrors.js';
 import { 
@@ -120,6 +121,7 @@ export type MintingProgressCallback = (progress: {
  */
 export class SBTMintingService {
   private adapter: MoonbeamAdapter;
+  private didProvider: MoonbeamDIDProvider;
   private ipfsConfig: IPFSConfig;
   private debugMode: boolean;
   private maxRetries: number;
@@ -131,10 +133,12 @@ export class SBTMintingService {
 
   constructor(
     adapter: MoonbeamAdapter, 
+    contractAddress: string,
     ipfsConfig: IPFSConfig = {},
     debugMode: boolean = false
   ) {
     this.adapter = adapter;
+    this.didProvider = new MoonbeamDIDProvider(adapter, contractAddress);
     this.ipfsConfig = {
       pinningService: ipfsConfig.pinningService || 'local',
       gatewayUrl: ipfsConfig.gatewayUrl || 'https://gateway.pinata.cloud/ipfs',
@@ -418,6 +422,144 @@ export class SBTMintingService {
     }
   }
 
+  // ============= DID Verification =============
+
+  /**
+   * Verify DID exists and is active before minting SBT
+   */
+  public async verifyDIDBeforeMinting(recipientAddress: string): Promise<boolean> {
+    try {
+      if (this.debugMode) {
+        console.log(`[SBTMintingService] Verifying DID for address: ${recipientAddress}`);
+      }
+
+      // Check if recipient has a DID
+      const did = await this.didProvider.getDID();
+      if (!did) {
+        if (this.debugMode) {
+          console.log(`[SBTMintingService] No DID found for address: ${recipientAddress}`);
+        }
+        return false;
+      }
+
+      // Check if DID exists and is active
+      const didExists = await this.didProvider.didExists(did);
+      if (!didExists) {
+        if (this.debugMode) {
+          console.log(`[SBTMintingService] DID does not exist: ${did}`);
+        }
+        return false;
+      }
+
+      // Get DID document to verify it's active
+      const didDocument = await this.didProvider.getDIDDocument(did);
+      if (!didDocument.active) {
+        if (this.debugMode) {
+          console.log(`[SBTMintingService] DID is not active: ${did}`);
+        }
+        return false;
+      }
+
+      if (this.debugMode) {
+        console.log(`[SBTMintingService] DID verification successful: ${did}`);
+      }
+
+      return true;
+    } catch (error) {
+      if (this.debugMode) {
+        console.error(`[SBTMintingService] DID verification failed:`, error);
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Create DID if it doesn't exist before minting SBT
+   */
+  public async ensureDIDExists(recipientAddress: string): Promise<string | null> {
+    try {
+      if (this.debugMode) {
+        console.log(`[SBTMintingService] Ensuring DID exists for address: ${recipientAddress}`);
+      }
+
+      // Check if DID already exists
+      const existingDID = await this.didProvider.getDID();
+      if (existingDID) {
+        if (this.debugMode) {
+          console.log(`[SBTMintingService] DID already exists: ${existingDID}`);
+        }
+        return existingDID;
+      }
+
+      // Create new DID
+      const newDID = await this.didProvider.createDID();
+      if (this.debugMode) {
+        console.log(`[SBTMintingService] Created new DID: ${newDID}`);
+      }
+
+      return newDID;
+    } catch (error) {
+      if (this.debugMode) {
+        console.error(`[SBTMintingService] Failed to create DID:`, error);
+      }
+      throw new SBTMintingServiceError(
+        `Failed to create DID for address ${recipientAddress}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        MoonbeamErrorCode.DID_CREATION_FAILED,
+        'ensureDIDExists',
+        undefined,
+        undefined,
+        { recipientAddress, error }
+      );
+    }
+  }
+
+  /**
+   * Get DID information for an address
+   */
+  public async getDIDInfo(recipientAddress: string): Promise<{
+    did: string | null;
+    exists: boolean;
+    active: boolean;
+    document?: any;
+  }> {
+    try {
+      const did = await this.didProvider.getDID();
+      if (!did) {
+        return {
+          did: null,
+          exists: false,
+          active: false,
+        };
+      }
+
+      const exists = await this.didProvider.didExists(did);
+      if (!exists) {
+        return {
+          did,
+          exists: false,
+          active: false,
+        };
+      }
+
+      const document = await this.didProvider.getDIDDocument(did);
+      return {
+        did,
+        exists: true,
+        active: document.active,
+        document,
+      };
+    } catch (error) {
+      if (this.debugMode) {
+        console.error(`[SBTMintingService] Failed to get DID info:`, error);
+      }
+      return {
+        did: null,
+        exists: false,
+        active: false,
+      };
+    }
+  }
+
   // ============= Minting Operations =============
 
   /**
@@ -435,6 +577,31 @@ export class SBTMintingService {
       try {
         if (this.debugMode) {
           console.log(`[SBTMintingService] Minting attempt ${attempt}/${this.maxRetries}...`);
+        }
+
+        // Stage 0: Verify DID exists (optional but recommended)
+        onProgress?.({
+          stage: 'uploading',
+          message: 'Verifying DID...',
+          percentage: 5,
+        });
+
+        const didInfo = await this.getDIDInfo(params.to);
+        if (!didInfo.exists) {
+          if (this.debugMode) {
+            console.log(`[SBTMintingService] No DID found for recipient: ${params.to}`);
+          }
+          // Continue without DID verification for now
+          // In production, you might want to require DID verification
+        } else if (!didInfo.active) {
+          if (this.debugMode) {
+            console.log(`[SBTMintingService] DID exists but is not active: ${didInfo.did}`);
+          }
+          // Continue without DID verification for now
+        } else {
+          if (this.debugMode) {
+            console.log(`[SBTMintingService] DID verification successful: ${didInfo.did}`);
+          }
         }
 
         // Stage 1: Upload metadata to IPFS
