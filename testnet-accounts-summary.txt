@@ -1,15 +1,15 @@
 # Test Account Summary
-Generated: 2025-10-20T21:12:52.389Z
+Generated: 2025-10-22T04:36:52.765Z
 
 ## KILT Account (Peregrine Testnet)
-Address: 4pRJCAzA432j6BStZVHpPgHPyAvMYYt28xQPpGJmMucLMa1g
-Mnemonic: item chase loan spawn rhythm jazz win attitude sadness rocket carry hollow
+Address: 4o1wrD1mTt6ckP7aDWKNhe1MqeuSdXDKoWhzHm8suLrVENaN
+Mnemonic: moment develop giant embrace wet sad rocket chicken moon glimpse blame enact
 Faucet: https://faucet.peregrine.kilt.io/
 
 ## Moonbeam Account (Moonbase Alpha)  
-Address: 0x9a56DE46B2288041797BEBc911dD6E8Dd3875b72
-Private Key: 0x70a9672c4ecaec119377d000d70eb11d21d80db4ee89aa99c3927dced32869c6
-Mnemonic: goat power dawn affair casino accuse poem toe fat noise nut beauty
+Address: 0x277D2d189e0caAaa60910b9Dec3f77c0d6Dcdb6d
+Private Key: 0x41c11df12f3ae8c7f88a6e06c5cd80db928ab2ca949e728d809de4b75630678d
+Mnemonic: funny hour proud squirrel question usual snack keen chapter scene swap paddle
 Faucet: https://apps.moonbeam.network/moonbase-alpha/faucet/
 
 ## ⚠️  IMPORTANT SECURITY NOTES
@@ -31,4 +31,4 @@ Faucet: https://apps.moonbeam.network/moonbase-alpha/faucet/
 
 4. Verify you have tokens:
    - KILT: Check balance at https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fperegrine.kilt.io#/accounts
-   - Moonbeam: Check balance at https://moonbase.moonscan.io/address/0x9a56DE46B2288041797BEBc911dD6E8Dd3875b72
+   - Moonbeam: Check balance at https://moonbase.moonscan.io/address/0x277D2d189e0caAaa60910b9Dec3f77c0d6Dcdb6d

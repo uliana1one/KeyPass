@@ -3,14 +3,14 @@
 import { ApiPromise, WsProvider } from '@polkadot/api';
 
 async function checkBalance() {
-  const address = '4q1LY1GB7VoN6aSvNKagRYTrZCi9oytxwUsjN3JM6yKabR6p';
+  const address = '5FhWbpsvAxTNRZ9iCQ6q7bPqdpTCYzM6wbpx28V7nZQqMYf3';
   
   console.log('🔍 Checking KILT balance...');
   console.log(`Address: ${address}\n`);
 
   try {
-    // Connect to KILT Peregrine testnet
-    const provider = new WsProvider('wss://peregrine.kilt.io/parachain-public-ws');
+    // Connect to KILT Peregrine testnet (official endpoint)
+    const provider = new WsProvider('wss://peregrine.kilt.io');
     const api = await ApiPromise.create({ provider });
 
     console.log('✅ Connected to KILT Peregrine testnet');
@@ -29,10 +29,10 @@ async function checkBalance() {
     const totalKilt = Number(free + reserved) / 1e15;
 
     console.log('\n💰 Balance:');
-    console.log(`   Free:     ${freeKilt.toFixed(4)} KILT`);
-    console.log(`   Reserved: ${reservedKilt.toFixed(4)} KILT`);
-    console.log(`   Frozen:   ${frozenKilt.toFixed(4)} KILT`);
-    console.log(`   Total:    ${totalKilt.toFixed(4)} KILT\n`);
+    console.log(`   Free:     ${freeKilt.toFixed(4)} PILT`);
+    console.log(`   Reserved: ${reservedKilt.toFixed(4)} PILT`);
+    console.log(`   Frozen:   ${frozenKilt.toFixed(4)} PILT`);
+    console.log(`   Total:    ${totalKilt.toFixed(4)} PILT\n`);
 
     if (totalKilt > 0) {
       console.log('✅ Tokens received! You can run the tests now.');
