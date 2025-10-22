@@ -1,7 +1,7 @@
 /**
- * Blockchain Monitor - Cross-Chain Transaction and Health Monitoring
+ * Blockchain Monitor - Moonbeam Transaction and Health Monitoring
  * 
- * Provides comprehensive monitoring for KILT and Moonbeam blockchain operations:
+ * Provides comprehensive monitoring for Moonbeam blockchain operations:
  * - Real-time transaction status tracking
  * - Automatic failure detection and retry coordination
  * - Performance metrics collection (latency, success rates, costs)
@@ -11,16 +11,14 @@
  * - Gas price tracking and recommendations
  */
 
-import { ApiPromise } from '@polkadot/api';
 import { ethers } from 'ethers';
-import { KiltAdapter } from '../adapters/KiltAdapter.js';
 import { MoonbeamAdapter } from '../adapters/MoonbeamAdapter.js';
-import { KILTTransactionService } from '../did/services/KILTTransactionService.js';
+import { MoonbeamDIDService } from '../did/services/MoonbeamDIDService.js';
 import { 
-  KILTTransactionResult, 
-  KILTError, 
-  KILTErrorType 
-} from '../did/types/KILTTypes.js';
+  MoonbeamTransactionResult, 
+  MoonbeamError, 
+  MoonbeamErrorType 
+} from '../did/types/MoonbeamTypes.js';
 import { MoonbeamErrorCode } from '../config/moonbeamConfig.js';
 import { WalletError } from '../errors/WalletErrors.js';
 
@@ -28,7 +26,6 @@ import { WalletError } from '../errors/WalletErrors.js';
  * Blockchain types for monitoring
  */
 export enum BlockchainType {
-  KILT = 'kilt',
   MOONBEAM = 'moonbeam',
 }
 
@@ -209,9 +206,8 @@ const DEFAULT_CONFIG: MonitoringConfig = {
  */
 export class BlockchainMonitor {
   private config: MonitoringConfig;
-  private kiltAdapter?: KiltAdapter;
   private moonbeamAdapter?: MoonbeamAdapter;
-  private kiltTransactionService?: KILTTransactionService;
+  private moonbeamDIDService?: MoonbeamDIDService;
   
   // Transaction tracking
   private transactions: Map<string, MonitoredTransaction> = new Map();
@@ -236,27 +232,14 @@ export class BlockchainMonitor {
   }
 
   /**
-   * Initialize monitoring with blockchain adapters
+   * Initialize monitoring with Moonbeam adapter
    */
   public async initialize(
-    kiltAdapter?: KiltAdapter,
-    moonbeamAdapter?: MoonbeamAdapter
+    moonbeamAdapter?: MoonbeamAdapter,
+    moonbeamDIDService?: MoonbeamDIDService
   ): Promise<void> {
-    this.kiltAdapter = kiltAdapter;
     this.moonbeamAdapter = moonbeamAdapter;
-
-    // Initialize KILT transaction service if KILT adapter is provided
-    if (this.kiltAdapter) {
-      try {
-        await this.kiltAdapter.connect();
-        const service = this.kiltAdapter.getTransactionService();
-        if (service) {
-          this.kiltTransactionService = service;
-        }
-      } catch (error) {
-        this.log('error', 'Failed to initialize KILT adapter:', error);
-      }
-    }
+    this.moonbeamDIDService = moonbeamDIDService;
 
     // Initialize Moonbeam adapter
     if (this.moonbeamAdapter) {
@@ -276,13 +259,13 @@ export class BlockchainMonitor {
       this.startHealthChecks();
     }
 
-    this.log('info', 'BlockchainMonitor initialized');
+    this.log('info', 'BlockchainMonitor initialized for Moonbeam');
   }
 
   /**
-   * Monitor a KILT transaction
+   * Monitor a Moonbeam DID transaction
    */
-  public async monitorKILTTransaction(
+  public async monitorMoonbeamDIDTransaction(
     txHash: string,
     operation: string = 'unknown',
     options: {
@@ -291,8 +274,8 @@ export class BlockchainMonitor {
     } = {}
   ): Promise<MonitoredTransaction> {
     const transaction: MonitoredTransaction = {
-      id: `kilt-${txHash}`,
-      blockchain: BlockchainType.KILT,
+      id: `moonbeam-did-${txHash}`,
+      blockchain: BlockchainType.MOONBEAM,
       hash: txHash,
       status: TransactionStatus.PENDING,
       submittedAt: Date.now(),
@@ -305,20 +288,27 @@ export class BlockchainMonitor {
     this.emit('transaction:started', transaction);
 
     try {
-      // Wait for transaction confirmation
-      if (this.kiltTransactionService) {
-        await this.kiltTransactionService.waitForConfirmation(txHash);
-        
-        // Get transaction details
-        const status = this.kiltTransactionService.getTransactionStatus(txHash);
-        if (status) {
-          transaction.status = status.status === 'confirmed' 
-            ? TransactionStatus.CONFIRMED 
-            : TransactionStatus.FAILED;
-          transaction.confirmedAt = Date.now();
-          transaction.blockNumber = status.blockNumber;
-          // Note: confirmations field may not be available in all cases
-        }
+      if (!this.moonbeamAdapter) {
+        throw new Error('Moonbeam adapter not initialized');
+      }
+
+      // Wait for confirmation
+      const provider = this.moonbeamAdapter.getProvider();
+      if (!provider) {
+        throw new Error('Moonbeam provider not available');
+      }
+
+      const receipt = await provider.waitForTransaction(txHash, 1, this.config.transactionTimeout);
+      
+      if (receipt) {
+        transaction.status = receipt.status === 1 
+          ? TransactionStatus.CONFIRMED 
+          : TransactionStatus.FAILED;
+        transaction.confirmedAt = Date.now();
+        transaction.blockNumber = receipt.blockNumber;
+        transaction.gasUsed = receipt.gasUsed;
+        transaction.cost = receipt.gasUsed * (receipt.gasPrice || BigInt(0));
+        transaction.confirmations = 1;
       }
 
       this.emit('transaction:confirmed', transaction);
@@ -466,9 +456,9 @@ export class BlockchainMonitor {
   /**
    * Perform health check for KILT
    */
-  public async checkKILTHealth(): Promise<HealthCheckResult> {
+  public async checkMoonbeamDIDHealth(): Promise<HealthCheckResult> {
     const result: HealthCheckResult = {
-      blockchain: BlockchainType.KILT,
+      blockchain: BlockchainType.MOONBEAM,
       status: HealthStatus.HEALTHY,
       timestamp: Date.now(),
       checks: {
@@ -479,51 +469,58 @@ export class BlockchainMonitor {
       },
     };
 
-    if (!this.kiltAdapter) {
+    if (!this.moonbeamAdapter) {
       result.status = HealthStatus.UNHEALTHY;
       result.checks.connection.status = HealthStatus.UNHEALTHY;
-      result.checks.connection.error = 'KILT adapter not initialized';
+      result.checks.connection.error = 'Moonbeam adapter not initialized';
       return result;
     }
 
     try {
       // Check connection
       const startTime = Date.now();
-      const chainInfo = this.kiltAdapter.getChainInfo();
+      const provider = this.moonbeamAdapter.getProvider();
       
-      if (!chainInfo) {
+      if (!provider) {
         result.checks.connection.status = HealthStatus.UNHEALTHY;
-        result.checks.connection.error = 'Not connected';
+        result.checks.connection.error = 'Provider not available';
         result.status = HealthStatus.UNHEALTHY;
       } else {
         result.checks.connection.latencyMs = Date.now() - startTime;
       }
 
       // Check block production
-      if (chainInfo) {
-        // Use current time as approximate check (actual block time would require API call)
-        const now = Date.now();
+      if (provider) {
+        const blockNumber = await provider.getBlockNumber();
+        const block = await provider.getBlock(blockNumber);
         
-        result.checks.blockProduction.lastBlockTime = now;
-        result.checks.blockProduction.blockTimeDelta = 0; // Connected means blocks are recent
-
-        result.checks.blockProduction.status = HealthStatus.HEALTHY;
+        if (block) {
+          result.checks.blockProduction.lastBlockTime = block.timestamp * 1000;
+          result.checks.blockProduction.blockTimeDelta = Date.now() - (block.timestamp * 1000);
+          result.checks.blockProduction.status = HealthStatus.HEALTHY;
+        }
       }
 
-      // Check node sync status using adapter method
-      const healthCheckResult = await this.kiltAdapter.performHealthCheck();
-      if (!healthCheckResult) {
-        result.checks.nodeSync.status = HealthStatus.DEGRADED;
-        result.status = HealthStatus.DEGRADED;
+      // Check node sync status
+      const network = await provider.getNetwork();
+      if (network) {
+        result.checks.nodeSync.status = HealthStatus.HEALTHY;
+      }
+
+      // Check gas price
+      const gasPrice = await provider.getGasPrice();
+      if (gasPrice) {
+        result.checks.gasPrice.currentGasPrice = gasPrice;
+        result.checks.gasPrice.status = HealthStatus.HEALTHY;
       }
 
     } catch (error) {
-      this.log('error', 'KILT health check failed:', error);
+      this.log('error', 'Moonbeam DID health check failed:', error);
       result.status = HealthStatus.UNHEALTHY;
       result.checks.connection.error = error instanceof Error ? error.message : 'Unknown error';
     }
 
-    this.healthStatus.set(BlockchainType.KILT, result);
+    this.healthStatus.set(BlockchainType.MOONBEAM, result);
     this.emit('health:updated', result);
     
     return result;
@@ -741,11 +738,8 @@ export class BlockchainMonitor {
    */
   private startHealthChecks(): void {
     this.healthCheckIntervalId = setInterval(async () => {
-      if (this.kiltAdapter) {
-        await this.checkKILTHealth();
-      }
       if (this.moonbeamAdapter) {
-        await this.checkMoonbeamHealth();
+        await this.checkMoonbeamDIDHealth();
       }
     }, this.config.healthCheckInterval);
   }
