@@ -3,7 +3,9 @@
 import { ethers } from 'ethers';
 
 async function checkBalance() {
-  const address = '0x2bd536440C77CFB8B81fA931aFF11Bb095AD82C8';
+  const privateKey = process.env.MOONBEAM_PRIVATE_KEY || '0x41c11df12f3ae8c7f88a6e06c5cd80db928ab2ca949e728d809de4b75630678d';
+  const wallet = new ethers.Wallet(privateKey);
+  const address = wallet.address;
   
   console.log('🔍 Checking Moonbeam balance...');
   console.log(`Address: ${address}\n`);
