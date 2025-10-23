@@ -39,7 +39,7 @@ describe('Error Handling Integration Tests', () => {
   let monitor: BlockchainMonitor;
 
   beforeAll(() => {
-    moonbeamAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE);
+    moonbeamAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
     moonbeamDIDProvider = new MoonbeamDIDProvider(moonbeamAdapter, '0x0000000000000000000000000000000000000000');
     monitor = new BlockchainMonitor({
       enableMetrics: true,
@@ -112,7 +112,7 @@ describe('Error Handling Integration Tests', () => {
     test('should handle connection failures gracefully', async () => {
       try {
         // Create adapter with invalid RPC URL
-        const invalidAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE);
+        const invalidAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
         // This would normally fail to connect
         
         expect(true).toBe(true); // Test passes if no exception is thrown

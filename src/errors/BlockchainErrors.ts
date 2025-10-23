@@ -138,6 +138,8 @@ export class BlockchainError extends Error {
   public readonly blockchain?: 'moonbeam';
   public readonly timestamp: number;
   public readonly context?: Record<string, any>;
+  public readonly transactionHash?: string;
+  public readonly blockNumber?: number;
 
   constructor(
     message: string,
@@ -155,6 +157,8 @@ export class BlockchainError extends Error {
     this.blockchain = blockchain;
     this.timestamp = Date.now();
     this.context = context;
+    this.transactionHash = context?.transactionHash;
+    this.blockNumber = context?.blockNumber;
   }
 
   /**
@@ -356,6 +360,8 @@ export class BlockchainErrorFactory {
         severity = ErrorSeverity.CRITICAL; // Connection errors
       } else if (codeNum >= 2200 && codeNum < 2300) {
         severity = ErrorSeverity.HIGH; // Transaction errors
+      } else if (codeNum >= 2300 && codeNum < 2500) {
+        severity = ErrorSeverity.HIGH; // Contract errors (including DID/SBT)
       } else if (codeNum >= 2600 && codeNum < 2700) {
         severity = ErrorSeverity.LOW; // User errors
       } else {

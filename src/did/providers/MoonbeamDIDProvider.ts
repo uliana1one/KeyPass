@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { MoonbeamAdapter } from '../../adapters/MoonbeamAdapter';
-import { MoonbeamDIDService, DIDDocument, VerificationMethod, ServiceEndpoint } from './MoonbeamDIDService';
+import { MoonbeamDIDService } from '../services/MoonbeamDIDService';
 import { BlockchainError, MoonbeamBlockchainError, MoonbeamErrorCode } from '../../errors/BlockchainErrors';
 
 /**

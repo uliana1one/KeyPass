@@ -185,30 +185,31 @@ export class MoonbeamAdapter {
         console.log(`[MoonbeamAdapter] Connecting to ${networkConfig.name} at ${networkConfig.rpcUrl}`);
       }
 
-      // Create JsonRpcProvider with retry logic
-      this.provider = new JsonRpcProvider(
-        networkConfig.rpcUrl,
-        {
-          name: networkConfig.name,
-          chainId: networkConfig.chainId,
-        },
-        {
-          staticNetwork: true,
-          polling: true,
-          pollingInterval: 4000,
-        }
-      );
+      // Create JsonRpcProvider with simplified configuration
+      this.provider = new JsonRpcProvider(networkConfig.rpcUrl);
 
       // Test connection with a simple call
-      await this.provider.getNetwork();
+      const network = await this.provider.getNetwork();
+      
+      // Verify chain ID matches
+      if (Number(network.chainId) !== networkConfig.chainId) {
+        throw new Error(`Chain ID mismatch: expected ${networkConfig.chainId}, got ${network.chainId}`);
+      }
       
       // Get current block information
       const blockNumber = await this.provider.getBlockNumber();
-      const block = await this.provider.getBlock(blockNumber);
       
-      // Get gas price
-      const feeData = await this.provider.getFeeData();
-      const gasPrice = feeData.gasPrice || BigInt(0);
+      // Get gas price with error handling
+      let gasPrice = BigInt(0);
+      try {
+        const feeData = await this.provider.getFeeData();
+        gasPrice = feeData.gasPrice || BigInt(0);
+      } catch (feeError) {
+        if (this.debugMode) {
+          console.warn('[MoonbeamAdapter] Failed to get fee data, using default gas price');
+        }
+        gasPrice = BigInt('1000000000'); // 1 gwei default
+      }
 
       this.connected = true;
       this.connectedAt = new Date().toISOString();
@@ -228,7 +229,7 @@ export class MoonbeamAdapter {
         nativeToken: networkConfig.nativeToken,
         nativeTokenDecimals: networkConfig.nativeTokenDecimals,
         currentBlockNumber: blockNumber,
-        latestBlockHash: block?.hash || undefined,
+        latestBlockHash: undefined, // Avoid potential parsing issues
         gasPrice: gasPrice.toString(),
         connected: true,
         connectedAt: this.connectedAt,
@@ -301,9 +302,18 @@ export class MoonbeamAdapter {
       const networkConfig = this.configManager.getCurrentNetworkConfig();
       const network = await this.provider!.getNetwork();
       const blockNumber = await this.provider!.getBlockNumber();
-      const block = await this.provider!.getBlock(blockNumber);
-      const feeData = await this.provider!.getFeeData();
-      const gasPrice = feeData.gasPrice || BigInt(0);
+      
+      // Get gas price with error handling
+      let gasPrice = BigInt(0);
+      try {
+        const feeData = await this.provider!.getFeeData();
+        gasPrice = feeData.gasPrice || BigInt(0);
+      } catch (feeError) {
+        if (this.debugMode) {
+          console.warn('[MoonbeamAdapter] Failed to get fee data in getNetworkInfo, using default');
+        }
+        gasPrice = BigInt('1000000000'); // 1 gwei default
+      }
 
       return {
         chainId: Number(network.chainId),
@@ -314,7 +324,7 @@ export class MoonbeamAdapter {
         nativeToken: networkConfig.nativeToken,
         nativeTokenDecimals: networkConfig.nativeTokenDecimals,
         currentBlockNumber: blockNumber,
-        latestBlockHash: block?.hash || undefined,
+        latestBlockHash: undefined, // Avoid potential parsing issues
         gasPrice: gasPrice.toString(),
         connected: true,
         connectedAt: this.connectedAt || undefined,

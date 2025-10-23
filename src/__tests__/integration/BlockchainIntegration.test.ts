@@ -60,7 +60,7 @@ describeIntegration('Blockchain Integration Tests', () => {
 
     // Setup Moonbeam
     console.log('📡 Initializing Moonbeam adapter...');
-    moonbeamAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE);
+    moonbeamAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
     
     const provider = moonbeamAdapter.getProvider();
     if (!provider) throw new Error('Moonbeam provider not available');
@@ -350,7 +350,7 @@ describeIntegration('Blockchain Integration Tests', () => {
       
       try {
         // Create an adapter with invalid RPC URL
-        const invalidAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE);
+        const invalidAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
         // This would normally fail to connect
         
         console.log(`✅ Network error handling test completed\n`);
