@@ -7,6 +7,10 @@ import { SBTSection } from './components/SBTSection';
 import { DIDWizard, DIDCreationResult } from './components/DIDWizard';
 import { DIDDocumentViewer } from './components/DIDDocumentViewer';
 import { CredentialSection } from './components/CredentialSection';
+import { CompleteFlowDemo } from './components/CompleteFlowDemo';
+import { PerformanceMonitor } from './components/PerformanceMonitor';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorDisplay } from './components/ErrorDisplay';
 
 // Types
 interface Wallet {
@@ -243,7 +247,8 @@ function App() {
   const [loginResult, setLoginResult] = useState<LoginResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showDIDWizard, setShowDIDWizard] = useState(false);
+  const [showCompleteFlow, setShowCompleteFlow] = useState(false);
+  const [showPerformanceMonitor, setShowPerformanceMonitor] = useState(false);
 
   // Load wallets when chain type is selected
   useEffect(() => {
@@ -473,11 +478,14 @@ function App() {
     }
   };
 
-  const handleBackToChain = () => {
-    setCurrentView('login');
-    setCurrentChainType(null);
-    resetSelection();
-    setError(null);
+  const handleCompleteFlowComplete = (result: any) => {
+    console.log('Complete flow finished:', result);
+    setShowCompleteFlow(false);
+    // Optionally show success message or update UI
+  };
+
+  const handleCompleteFlowCancel = () => {
+    setShowCompleteFlow(false);
   };
 
   // Render functions
@@ -699,6 +707,18 @@ function App() {
           <button className="clear-data-button" onClick={handleClearAllData}>
             Clear All Data
           </button>
+          <button 
+            className="complete-flow-button" 
+            onClick={() => setShowCompleteFlow(true)}
+          >
+            🚀 Complete Flow Demo
+          </button>
+          <button 
+            className="performance-button" 
+            onClick={() => setShowPerformanceMonitor(!showPerformanceMonitor)}
+          >
+            📊 Performance Monitor
+          </button>
         </div>
       </div>
       {/* SBT Section */}
@@ -723,6 +743,26 @@ function App() {
           walletAddress={loginResult.address}
           chainType={loginResult.chainType as 'polkadot' | 'ethereum'}
           useRealData={true} // Set to true to enable real data fetching
+        />
+      )}
+
+      {/* Complete Flow Demo */}
+      {showCompleteFlow && loginResult?.address && (
+        <ErrorBoundary>
+          <CompleteFlowDemo
+            walletAddress={loginResult.address}
+            chainType={loginResult.chainType as 'polkadot' | 'ethereum'}
+            onComplete={handleCompleteFlowComplete}
+            onCancel={handleCompleteFlowCancel}
+          />
+        </ErrorBoundary>
+      )}
+
+      {/* Performance Monitor */}
+      {showPerformanceMonitor && (
+        <PerformanceMonitor 
+          showDetails={true}
+          autoRefresh={true}
         />
       )}
     </div>
@@ -782,26 +822,28 @@ function App() {
   );
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>KeyPass Multi-Chain Auth</h1>
-        <p>Secure authentication for Polkadot and Ethereum</p>
-        
-        {currentView === 'login' && renderLogin()}
-        {currentView === 'wallet-selection' && renderWalletSelection()}
-        {currentView === 'did-creation' && renderDIDCreation()}
-        {currentView === 'profile' && renderProfile()}
-        {currentView === 'did-management' && renderDIDManagement()}
-        
-        <div className="footer">
-          <p>
-            <a href="https://github.com/uliana1one/keypass" target="_blank" rel="noopener noreferrer">
-              View on GitHub
-            </a>
-          </p>
-        </div>
-      </header>
-    </div>
+    <ErrorBoundary>
+      <div className="App">
+        <header className="App-header">
+          <h1>KeyPass Multi-Chain Auth</h1>
+          <p>Secure authentication for Polkadot and Ethereum</p>
+          
+          {currentView === 'login' && renderLogin()}
+          {currentView === 'wallet-selection' && renderWalletSelection()}
+          {currentView === 'did-creation' && renderDIDCreation()}
+          {currentView === 'profile' && renderProfile()}
+          {currentView === 'did-management' && renderDIDManagement()}
+          
+          <div className="footer">
+            <p>
+              <a href="https://github.com/uliana1one/keypass" target="_blank" rel="noopener noreferrer">
+                View on GitHub
+              </a>
+            </p>
+          </div>
+        </header>
+      </div>
+    </ErrorBoundary>
   );
 }
 

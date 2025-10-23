@@ -2,7 +2,7 @@
  * CompleteFlowDemo Component
  * 
  * Demonstrates the complete end-to-end flow:
- * 1. KILT DID Registration (Peregrine Testnet)
+ * 1. Moonbeam DID Registration (Moonbase Alpha)
  * 2. Moonbeam SBT Minting (Moonbase Alpha)
  * 3. Verification
  * 
@@ -39,8 +39,8 @@ interface CompleteFlowDemoProps {
 interface FlowResult {
   did: string;
   sbtTokenId: string;
-  kiltTxHash: string;
-  moonbeamTxHash: string;
+  moonbeamDidTxHash: string;
+  moonbeamSbtTxHash: string;
   totalDuration: number;
   totalGasUsed: string;
 }
@@ -55,7 +55,7 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
     {
       id: 'init',
       title: 'Initialize Services',
-      description: 'Connecting to KILT and Moonbeam networks',
+      description: 'Connecting to Moonbeam network',
       status: 'pending'
     },
     {
@@ -66,8 +66,8 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
     },
     {
       id: 'did-registration',
-      title: 'Register DID on KILT',
-      description: 'Creating decentralized identifier on Peregrine testnet',
+      title: 'Register DID on Moonbeam',
+      description: 'Creating decentralized identifier on Moonbase Alpha',
       status: 'pending'
     },
     {
@@ -104,7 +104,6 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
 
   // Environment check
   const [envStatus, setEnvStatus] = useState({
-    kiltConfigured: false,
     moonbeamConfigured: false,
     ipfsConfigured: false
   });
@@ -115,7 +114,6 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
 
   const checkEnvironment = () => {
     setEnvStatus({
-      kiltConfigured: !!process.env.REACT_APP_KILT_WSS_ADDRESS && !!process.env.REACT_APP_KILT_TESTNET_MNEMONIC,
       moonbeamConfigured: !!process.env.REACT_APP_MOONBEAM_RPC_URL && !!process.env.REACT_APP_SBT_CONTRACT_ADDRESS,
       ipfsConfigured: !!process.env.REACT_APP_PINATA_API_KEY
     });
@@ -128,8 +126,8 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
   };
 
   const startFlow = async () => {
-    if (!envStatus.kiltConfigured || !envStatus.moonbeamConfigured) {
-      alert('Please configure environment variables. Check .env file.');
+    if (!envStatus.moonbeamConfigured) {
+      alert('Please configure Moonbeam environment variables. Check .env file.');
       return;
     }
 
@@ -150,20 +148,20 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
         await simulateDelay(1000);
         return { 
           success: true,
-          gasEstimate: '0.001 KILT + 0.0015 DEV'
+          gasEstimate: '0.002 DEV'
         };
       });
 
-      // Step 3: DID Registration on KILT
+      // Step 3: DID Registration on Moonbeam
       const didResult = await executeStep('did-registration', async () => {
         // Real implementation would use:
-        // const kiltAdapter = new KiltAdapter(KILTNetwork.PEREGRINE);
-        // await kiltAdapter.connect();
-        // const kiltProvider = new KILTDIDProvider(kiltAdapter);
-        // const did = await kiltProvider.createDid(walletAddress);
+        // const moonbeamAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
+        // await moonbeamAdapter.connect();
+        // const moonbeamProvider = new MoonbeamDIDProvider(moonbeamAdapter);
+        // const did = await moonbeamProvider.createDid(walletAddress);
         
         await simulateDelay(3000);
-        const mockDid = `did:kilt:4${walletAddress.substring(0, 46)}`;
+        const mockDid = `did:moonbeam:${walletAddress}`;
         const mockTxHash = '0x' + Array(64).fill(0).map(() => 
           Math.floor(Math.random() * 16).toString(16)
         ).join('');
@@ -172,14 +170,14 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
           success: true,
           did: mockDid,
           txHash: mockTxHash,
-          gasUsed: '0.001 KILT'
+          gasUsed: '0.001 DEV'
         };
       });
 
       setFlowResult(prev => ({ 
         ...prev, 
         did: didResult.did,
-        kiltTxHash: didResult.txHash 
+        moonbeamDidTxHash: didResult.txHash 
       }));
 
       // Step 4: Verify DID
@@ -211,7 +209,7 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
         // Real implementation would use:
         // const moonbeamAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
         // await moonbeamAdapter.connect();
-        // const mintingService = new SBTMintingService(moonbeamAdapter, contractAddress, kiltProvider);
+        // const mintingService = new SBTMintingService(moonbeamAdapter, contractAddress, moonbeamProvider);
         // const result = await mintingService.mintSBT({
         //   recipient: walletAddress,
         //   metadataURI: `ipfs://${metadataResult.ipfsHash}`,
@@ -228,14 +226,14 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
           success: true,
           tokenId: mockTokenId,
           txHash: mockTxHash,
-          gasUsed: '0.0015 DEV'
+          gasUsed: '0.001 DEV'
         };
       });
 
       setFlowResult(prev => ({
         ...prev,
         sbtTokenId: sbtResult.tokenId,
-        moonbeamTxHash: sbtResult.txHash
+        moonbeamSbtTxHash: sbtResult.txHash
       }));
 
       // Step 7: Verify SBT
@@ -249,10 +247,10 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
       const finalResult: FlowResult = {
         did: flowResult.did!,
         sbtTokenId: flowResult.sbtTokenId!,
-        kiltTxHash: flowResult.kiltTxHash!,
-        moonbeamTxHash: flowResult.moonbeamTxHash!,
+        moonbeamDidTxHash: flowResult.moonbeamDidTxHash!,
+        moonbeamSbtTxHash: flowResult.moonbeamSbtTxHash!,
         totalDuration,
-        totalGasUsed: '0.001 KILT + 0.0015 DEV'
+        totalGasUsed: '0.002 DEV'
       };
 
       setFlowResult(finalResult);
@@ -326,17 +324,13 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
     <div className="complete-flow-demo">
       <div className="flow-header">
         <h2>🚀 Complete Integration Flow</h2>
-        <p>End-to-end demonstration: KILT DID → Moonbeam SBT</p>
+        <p>End-to-end demonstration: Moonbeam DID → Moonbeam SBT</p>
       </div>
 
       {/* Environment Status */}
       <div className="environment-check">
         <h3>Environment Status</h3>
         <div className="env-status-grid">
-          <div className={`env-item ${envStatus.kiltConfigured ? 'configured' : 'missing'}`}>
-            <span className="env-icon">{envStatus.kiltConfigured ? '✅' : '⚠️'}</span>
-            <span>KILT Configuration</span>
-          </div>
           <div className={`env-item ${envStatus.moonbeamConfigured ? 'configured' : 'missing'}`}>
             <span className="env-icon">{envStatus.moonbeamConfigured ? '✅' : '⚠️'}</span>
             <span>Moonbeam Configuration</span>
@@ -346,9 +340,9 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
             <span>IPFS Configuration</span>
           </div>
         </div>
-        {(!envStatus.kiltConfigured || !envStatus.moonbeamConfigured) && (
+        {!envStatus.moonbeamConfigured && (
           <div className="env-warning">
-            ⚠️ Please configure environment variables in <code>.env</code> file
+            ⚠️ Please configure Moonbeam environment variables in <code>.env</code> file
           </div>
         )}
       </div>
@@ -441,7 +435,7 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
         <button
           className="btn btn-primary"
           onClick={startFlow}
-          disabled={isRunning || !envStatus.kiltConfigured || !envStatus.moonbeamConfigured}
+          disabled={isRunning || !envStatus.moonbeamConfigured}
         >
           {isRunning ? '⏳ Running...' : '🚀 Start Complete Flow'}
         </button>
@@ -471,9 +465,9 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
           <div className="help-content">
             <h4>Flow Overview:</h4>
             <ol>
-              <li><strong>Initialize:</strong> Connect to KILT Peregrine and Moonbeam Moonbase Alpha testnets</li>
+              <li><strong>Initialize:</strong> Connect to Moonbeam Moonbase Alpha testnet</li>
               <li><strong>Estimate Gas:</strong> Calculate transaction costs before execution</li>
-              <li><strong>DID Registration:</strong> Create a decentralized identifier on KILT blockchain</li>
+              <li><strong>DID Registration:</strong> Create a decentralized identifier on Moonbeam blockchain</li>
               <li><strong>DID Verification:</strong> Confirm the DID is registered and accessible</li>
               <li><strong>Metadata Upload:</strong> Upload SBT metadata to IPFS for decentralized storage</li>
               <li><strong>SBT Minting:</strong> Mint a soulbound token on Moonbeam linked to your DID</li>
@@ -482,15 +476,12 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
 
             <h4>Required Setup:</h4>
             <p>Create a <code>.env</code> file with:</p>
-            <pre>{`REACT_APP_KILT_WSS_ADDRESS=wss://peregrine.kilt.io
-REACT_APP_KILT_TESTNET_MNEMONIC=your twelve word mnemonic
-REACT_APP_MOONBEAM_RPC_URL=https://rpc.api.moonbase.moonbeam.network
+            <pre>{`REACT_APP_MOONBEAM_RPC_URL=https://rpc.api.moonbase.moonbeam.network
 REACT_APP_SBT_CONTRACT_ADDRESS=0xYourContractAddress
 REACT_APP_PINATA_API_KEY=your-api-key`}</pre>
 
             <h4>Get Testnet Tokens:</h4>
             <ul>
-              <li><a href="https://faucet.peregrine.kilt.io/" target="_blank" rel="noopener noreferrer">KILT Faucet</a></li>
               <li><a href="https://apps.moonbeam.network/moonbase-alpha/faucet/" target="_blank" rel="noopener noreferrer">Moonbeam Faucet</a></li>
             </ul>
           </div>
