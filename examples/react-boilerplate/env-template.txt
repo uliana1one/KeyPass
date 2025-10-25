@@ -32,4 +32,20 @@ REACT_APP_MOONBEAM_CHAIN_ID=1287
 # For Moonriver, use:
 # REACT_APP_MOONBEAM_RPC_URL=https://rpc.api.moonriver.moonbeam.network
 # REACT_APP_MOONBEAM_NETWORK=moonriver
-# REACT_APP_MOONBEAM_CHAIN_ID=1285 
+# REACT_APP_MOONBEAM_CHAIN_ID=1285
+
+# KILT Configuration
+# KILT Spiritnet (Testnet) - Default configuration
+REACT_APP_KILT_WSS_URL=wss://spiritnet.kilt.io
+REACT_APP_KILT_NETWORK=spiritnet
+REACT_APP_KILT_CHAIN_ID=38
+
+# For KILT Mainnet, use:
+# REACT_APP_KILT_WSS_URL=wss://kilt-rpc.dwellir.com
+# REACT_APP_KILT_NETWORK=mainnet
+# REACT_APP_KILT_CHAIN_ID=38
+
+# For KILT Peregrine (Testnet), use:
+# REACT_APP_KILT_WSS_URL=wss://peregrine.kilt.io
+# REACT_APP_KILT_NETWORK=peregrine
+# REACT_APP_KILT_CHAIN_ID=38 
