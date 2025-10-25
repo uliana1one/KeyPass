@@ -136,8 +136,9 @@ export const TransactionStatus: React.FC<TransactionStatusProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          {/* Progress Bar */}
-          {progress > 0 && (
+          <>
+            {/* Progress Bar */}
+            {progress > 0 && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Progress</span>
@@ -193,7 +194,8 @@ export const TransactionStatus: React.FC<TransactionStatusProps> = ({
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Gas Information</label>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                {gasEstimate && (
+                <>
+                  {gasEstimate && (
                   <div className="bg-gray-50 p-2 rounded">
                     <div className="font-medium">Estimated</div>
                     <div className="text-gray-600">{formatGas(gasEstimate)}</div>
@@ -217,6 +219,7 @@ export const TransactionStatus: React.FC<TransactionStatusProps> = ({
                     <div className="text-gray-600">{formatGasCost(gasUsed, gasPrice)}</div>
                   </div>
                 )}
+                </>
               </div>
             </div>
           )}
@@ -259,6 +262,7 @@ export const TransactionStatus: React.FC<TransactionStatusProps> = ({
               </div>
             </div>
           )}
+          </>
         </div>
 
         {/* Footer */}

@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
+// Import real blockchain components from local source
+import { MoonbeamAdapter } from '../keypass/adapters/MoonbeamAdapter';
+import { MoonbeamNetwork } from '../keypass/config/moonbeamConfig';
+import { MoonbeamDIDProvider } from '../keypass/did/providers/MoonbeamDIDProvider';
+import { BlockchainMonitor } from '../keypass/monitoring/BlockchainMonitor';
+import { useErrorHandling } from '../hooks/useErrorHandling';
+import { usePerformanceMetrics } from '../hooks/usePerformanceMetrics';
+
 // Types for DID creation
 export interface DIDCreationOptions {
   type: 'basic' | 'advanced';
@@ -55,6 +63,44 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<any>(null);
+  const [moonbeamAdapter, setMoonbeamAdapter] = useState<MoonbeamAdapter | null>(null);
+  const [didProvider, setDidProvider] = useState<MoonbeamDIDProvider | null>(null);
+  const [monitor, setMonitor] = useState<BlockchainMonitor | null>(null);
+
+  // Initialize error handling and performance tracking
+  const { handleError, clearError } = useErrorHandling();
+  const { trackOperation } = usePerformanceMetrics();
+
+  // Initialize blockchain services
+  const initializeServices = async () => {
+    try {
+      if (chainType === 'ethereum') {
+        // Initialize Moonbeam adapter for Ethereum-compatible chains
+        const adapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
+        await adapter.connect();
+        setMoonbeamAdapter(adapter);
+
+        // Initialize DID provider
+        const contractAddress = process.env.REACT_APP_SBT_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
+        const provider = new MoonbeamDIDProvider(adapter, contractAddress);
+        setDidProvider(provider);
+
+        // Initialize blockchain monitor
+        const blockchainMonitor = new BlockchainMonitor({
+          maxRetries: 3,
+          retryDelay: 1000
+        });
+        await blockchainMonitor.initialize(adapter);
+        setMonitor(blockchainMonitor);
+
+        return { adapter, provider, blockchainMonitor };
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to initialize services:', error);
+      throw error;
+    }
+  };
   const [newAttributeKey, setNewAttributeKey] = useState('');
   const [newAttributeValue, setNewAttributeValue] = useState('');
 
@@ -382,23 +428,50 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
     const handleCreateDID = async () => {
       try {
         setLoading(true);
-        setError(null);
+        clearError();
         
-        // Call real authentication to create actual DID
         let result: DIDCreationResult;
         
-        if (chainType === 'polkadot') {
-          // For Polkadot, we need to simulate the authentication since we don't have the real wallet connection here
-          // In a real implementation, this would call the actual authentication flow
-          const mockDid = `did:key:z${chainType}${walletAddress.slice(-8)}${Date.now()}`;
-          result = {
-            did: mockDid,
-            didDocument: previewData,
-            options: didOptions,
-            createdAt: new Date().toISOString()
-          };
+        if (chainType === 'ethereum') {
+          // Use real Moonbeam blockchain for DID creation
+          const services = await initializeServices();
+          
+          if (!services?.provider) {
+            throw new Error('Failed to initialize Moonbeam services');
+          }
+
+          // Create DID on Moonbeam blockchain
+          result = await trackOperation(
+            'did-creation',
+            'DID Creation',
+            async () => {
+              const didResult = await services.provider.createDID(walletAddress);
+              
+              return {
+                did: didResult.did,
+                didDocument: {
+                  ...previewData,
+                  id: didResult.did,
+                  verificationMethod: [{
+                    id: `${didResult.did}#key-1`,
+                    type: 'EcdsaSecp256k1RecoveryMethod2020',
+                    controller: didResult.did,
+                    blockchainAccountId: `${walletAddress}@eip155:1287`
+                  }],
+                  service: didOptions.includeServices ? [{
+                    id: `${didResult.did}#service-1`,
+                    type: 'KeyPassService',
+                    serviceEndpoint: 'https://keypass.io/service'
+                  }] : []
+                },
+                options: didOptions,
+                createdAt: new Date().toISOString(),
+                txHash: didResult.txHash
+              };
+            }
+          );
         } else {
-          // For Ethereum, same approach
+          // For Polkadot, use mock implementation (since we're focusing on Moonbeam)
           const mockDid = `did:key:z${chainType}${walletAddress.slice(-8)}${Date.now()}`;
           result = {
             did: mockDid,
@@ -408,12 +481,15 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
           };
         }
         
-        // Simulate the creation process
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
         onComplete(result);
       } catch (err: any) {
-        setError(`Failed to create DID: ${err.message}`);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to create DID';
+        handleError(err as Error, {
+          showToast: true,
+          logToConsole: true,
+          retryable: true
+        });
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }

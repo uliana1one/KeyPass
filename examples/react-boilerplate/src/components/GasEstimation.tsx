@@ -161,31 +161,33 @@ export const GasEstimation: React.FC<GasEstimationProps> = ({
         <div className="space-y-3">
           {/* Gas Limit */}
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="font-medium text-gray-700 mb-1">Gas Limit</div>
-              <div className="text-gray-900 font-mono">{formatGas(estimate.gasLimit)}</div>
-            </div>
+            <>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="font-medium text-gray-700 mb-1">Gas Limit</div>
+                <div className="text-gray-900 font-mono">{formatGas(estimate.gasLimit)}</div>
+              </div>
 
-            {/* Gas Price */}
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="font-medium text-gray-700 mb-1">Gas Price</div>
-              <div className="text-gray-900">{formatGasPrice(estimate.gasPrice)}</div>
-            </div>
+              {/* Gas Price */}
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="font-medium text-gray-700 mb-1">Gas Price</div>
+                <div className="text-gray-900">{formatGasPrice(estimate.gasPrice)}</div>
+              </div>
 
-            {/* EIP-1559 Fees (if available) */}
-            {estimate.maxFeePerGas && estimate.maxPriorityFeePerGas && (
-              <>
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="font-medium text-blue-700 mb-1">Max Fee Per Gas</div>
-                  <div className="text-blue-900">{formatEIP1559Fee(estimate.maxFeePerGas)}</div>
-                </div>
+              {/* EIP-1559 Fees (if available) */}
+              {estimate.maxFeePerGas && estimate.maxPriorityFeePerGas && (
+                <>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <div className="font-medium text-blue-700 mb-1">Max Fee Per Gas</div>
+                    <div className="text-blue-900">{formatEIP1559Fee(estimate.maxFeePerGas)}</div>
+                  </div>
 
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="font-medium text-blue-700 mb-1">Max Priority Fee</div>
-                  <div className="text-blue-900">{formatEIP1559Fee(estimate.maxPriorityFeePerGas)}</div>
-                </div>
-              </>
-            )}
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <div className="font-medium text-blue-700 mb-1">Max Priority Fee</div>
+                    <div className="text-blue-900">{formatEIP1559Fee(estimate.maxPriorityFeePerGas)}</div>
+                  </div>
+                </>
+              )}
+            </>
           </div>
 
           {/* Total Cost */}

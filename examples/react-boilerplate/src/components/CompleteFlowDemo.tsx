@@ -17,6 +17,15 @@
 import React, { useState, useEffect } from 'react';
 import './CompleteFlowDemo.css';
 
+// Import real KeyPass SDK components from local source
+import { MoonbeamAdapter } from '../keypass/adapters/MoonbeamAdapter';
+import { MoonbeamNetwork } from '../keypass/config/moonbeamConfig';
+import { MoonbeamDIDProvider } from '../keypass/did/providers/MoonbeamDIDProvider';
+import { SBTMintingService } from '../keypass/services/SBTMintingService';
+import { BlockchainMonitor } from '../keypass/monitoring/BlockchainMonitor';
+import { ethers } from 'ethers';
+import { ipfsService } from '../services/ipfsService';
+
 // Types
 interface FlowStep {
   id: string;
@@ -100,6 +109,9 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
   const [isRunning, setIsRunning] = useState(false);
   const [flowResult, setFlowResult] = useState<Partial<FlowResult>>({});
   const [startTime, setStartTime] = useState<number>(0);
+  const [moonbeamAdapter, setMoonbeamAdapter] = useState<MoonbeamAdapter | null>(null);
+  const [didProvider, setDidProvider] = useState<MoonbeamDIDProvider | null>(null);
+  const [monitor, setMonitor] = useState<BlockchainMonitor | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Environment check
@@ -117,6 +129,33 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
       moonbeamConfigured: !!process.env.REACT_APP_MOONBEAM_RPC_URL && !!process.env.REACT_APP_SBT_CONTRACT_ADDRESS,
       ipfsConfigured: !!process.env.REACT_APP_PINATA_API_KEY
     });
+  };
+
+  const initializeServices = async () => {
+    try {
+      // Initialize Moonbeam adapter
+      const adapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
+      await adapter.connect();
+      setMoonbeamAdapter(adapter);
+
+      // Initialize DID provider
+      const contractAddress = process.env.REACT_APP_SBT_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
+      const provider = new MoonbeamDIDProvider(adapter, contractAddress);
+      setDidProvider(provider);
+
+      // Initialize blockchain monitor
+      const blockchainMonitor = new BlockchainMonitor({
+        maxRetries: 3,
+        retryDelay: 1000
+      });
+      await blockchainMonitor.initialize(adapter);
+      setMonitor(blockchainMonitor);
+
+      return { adapter, provider, blockchainMonitor };
+    } catch (error) {
+      console.error('Failed to initialize services:', error);
+      throw error;
+    }
   };
 
   const updateStepStatus = (stepId: string, updates: Partial<FlowStep>) => {
@@ -137,39 +176,42 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
 
     try {
       // Step 1: Initialize Services
-      await executeStep('init', async () => {
-        // This would import and initialize real SDK services
-        await simulateDelay(1500);
-        return { success: true };
+      const services = await executeStep('init', async () => {
+        return await initializeServices();
       });
 
       // Step 2: Estimate Gas
       await executeStep('estimate-gas', async () => {
-        await simulateDelay(1000);
+        if (!services.adapter) throw new Error('Adapter not initialized');
+        
+        // Get current gas price
+        const feeData = await services.adapter.getProvider()!.getFeeData();
+        const gasPrice = feeData.gasPrice || BigInt('1000000000'); // 1 gwei default
+        
+        // Estimate gas for DID registration (approximate)
+        const estimatedDidGas = BigInt('100000'); // ~100k gas for DID registration
+        const estimatedSbtGas = BigInt('150000'); // ~150k gas for SBT minting
+        
+        const totalGasCost = (estimatedDidGas + estimatedSbtGas) * gasPrice;
+        const gasCostInDev = Number(totalGasCost) / 1e18; // Convert wei to DEV
+        
         return { 
           success: true,
-          gasEstimate: '0.002 DEV'
+          gasEstimate: `${gasCostInDev.toFixed(4)} DEV`,
+          gasPrice: gasPrice.toString()
         };
       });
 
       // Step 3: DID Registration on Moonbeam
       const didResult = await executeStep('did-registration', async () => {
-        // Real implementation would use:
-        // const moonbeamAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
-        // await moonbeamAdapter.connect();
-        // const moonbeamProvider = new MoonbeamDIDProvider(moonbeamAdapter);
-        // const did = await moonbeamProvider.createDid(walletAddress);
+        if (!services.provider) throw new Error('DID provider not initialized');
         
-        await simulateDelay(3000);
-        const mockDid = `did:moonbeam:${walletAddress}`;
-        const mockTxHash = '0x' + Array(64).fill(0).map(() => 
-          Math.floor(Math.random() * 16).toString(16)
-        ).join('');
+        const did = await services.provider.createDid(walletAddress);
         
         return {
           success: true,
-          did: mockDid,
-          txHash: mockTxHash,
+          did: did.did,
+          txHash: did.txHash,
           gasUsed: '0.001 DEV'
         };
       });
@@ -182,50 +224,67 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
 
       // Step 4: Verify DID
       await executeStep('did-verification', async () => {
-        await simulateDelay(2000);
+        if (!services.provider || !didResult.did) throw new Error('DID provider or DID not available');
+        
+        const didDocument = await services.provider.resolveDid(didResult.did);
+        if (!didDocument) throw new Error('DID not found on blockchain');
+        
         return { success: true };
       });
 
       // Step 5: Upload Metadata to IPFS
       const metadataResult = await executeStep('metadata-upload', async () => {
-        // Real implementation would use:
-        // const metadata = {
-        //   name: "KeyPass Identity SBT",
-        //   description: `Soulbound token for ${flowResult.did}`,
-        //   image: "ipfs://...",
-        //   attributes: [...]
-        // };
-        // const ipfsHash = await uploadToIPFS(metadata);
+        const metadata = {
+          name: "KeyPass Identity SBT",
+          description: `Soulbound token for ${didResult.did}`,
+          image: "ipfs://QmTest123...",
+          attributes: [
+            { trait_type: "DID", value: didResult.did },
+            { trait_type: "Type", value: "Identity" },
+            { trait_type: "Blockchain", value: "Moonbeam" },
+            { trait_type: "Created", value: new Date().toISOString() }
+          ]
+        };
         
-        await simulateDelay(2000);
+        // Upload to IPFS using real service
+        const ipfsHash = await ipfsService.uploadMetadata(metadata);
+        
         return {
           success: true,
-          ipfsHash: 'QmTest123...'
+          ipfsHash: ipfsHash,
+          metadata
         };
       });
 
       // Step 6: Mint SBT on Moonbeam
       const sbtResult = await executeStep('sbt-minting', async () => {
-        // Real implementation would use:
-        // const moonbeamAdapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
-        // await moonbeamAdapter.connect();
-        // const mintingService = new SBTMintingService(moonbeamAdapter, contractAddress, moonbeamProvider);
-        // const result = await mintingService.mintSBT({
-        //   recipient: walletAddress,
-        //   metadataURI: `ipfs://${metadataResult.ipfsHash}`,
-        //   didDocument: flowResult.did
-        // });
+        if (!services.adapter || !services.provider) throw new Error('Services not initialized');
         
-        await simulateDelay(4000);
-        const mockTokenId = Math.floor(Math.random() * 10000).toString();
-        const mockTxHash = '0x' + Array(64).fill(0).map(() => 
-          Math.floor(Math.random() * 16).toString(16)
-        ).join('');
+        const contractAddress = process.env.REACT_APP_SBT_CONTRACT_ADDRESS;
+        if (!contractAddress) throw new Error('SBT contract address not configured');
+        
+        const mintingService = new SBTMintingService(
+          services.adapter,
+          contractAddress as `0x${string}`,
+          services.provider
+        );
+        
+        // Create a mock wallet for testing
+        const mockWallet = new ethers.Wallet('0x' + '0'.repeat(64), services.adapter.getProvider()!);
+        
+        const result = await mintingService.mintSBT(
+          contractAddress as `0x${string}`,
+          {
+            to: walletAddress as `0x${string}`,
+            metadata: metadataResult.metadata
+          },
+          mockWallet
+        );
         
         return {
           success: true,
-          tokenId: mockTokenId,
-          txHash: mockTxHash,
+          tokenId: result.tokenId.toString(),
+          txHash: result.transactionHash,
           gasUsed: '0.001 DEV'
         };
       });
@@ -238,7 +297,23 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
 
       // Step 7: Verify SBT
       await executeStep('sbt-verification', async () => {
-        await simulateDelay(2000);
+        if (!services.adapter || !sbtResult.tokenId) throw new Error('Services or token ID not available');
+        
+        const contractAddress = process.env.REACT_APP_SBT_CONTRACT_ADDRESS;
+        if (!contractAddress) throw new Error('SBT contract address not configured');
+        
+        // Verify SBT ownership
+        const contract = new ethers.Contract(
+          contractAddress,
+          ['function ownerOf(uint256) view returns (address)'],
+          services.adapter.getProvider()!
+        );
+        
+        const owner = await contract.ownerOf(sbtResult.tokenId);
+        if (owner.toLowerCase() !== walletAddress.toLowerCase()) {
+          throw new Error('SBT ownership verification failed');
+        }
+        
         return { success: true };
       });
 

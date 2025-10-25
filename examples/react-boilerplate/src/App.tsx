@@ -238,7 +238,7 @@ const authenticateWithEthereum = async (account: Account): Promise<LoginResult> 
 
 function App() {
   // State management
-  const [currentView, setCurrentView] = useState<'login' | 'wallet-selection' | 'did-creation' | 'profile' | 'did-management'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'chain-selection' | 'wallet-selection' | 'did-creation' | 'profile' | 'did-management'>('login');
   const [currentChainType, setCurrentChainType] = useState<'polkadot' | 'ethereum' | null>(null);
   const [availableWallets, setAvailableWallets] = useState<Wallet[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
@@ -418,6 +418,11 @@ function App() {
 
   const handleDIDCreationCancel = () => {
     setCurrentView('wallet-selection');
+    setError(null);
+  };
+
+  const handleBackToChain = () => {
+    setCurrentView('chain-selection');
     setError(null);
   };
 
@@ -829,6 +834,7 @@ function App() {
           <p>Secure authentication for Polkadot and Ethereum</p>
           
           {currentView === 'login' && renderLogin()}
+          {currentView === 'chain-selection' && renderLogin()}
           {currentView === 'wallet-selection' && renderWalletSelection()}
           {currentView === 'did-creation' && renderDIDCreation()}
           {currentView === 'profile' && renderProfile()}

@@ -155,28 +155,29 @@ export const SBTCard: React.FC<SBTCardProps> = ({
 
       {/* Token Info */}
       <div className="sbt-content">
-        <h3 className="sbt-title">
-          {token.name}
-        </h3>
-        
-        <p className="sbt-description">
-          {token.description}
-        </p>
+        <>
+          <h3 className="sbt-title">
+            {token.name}
+          </h3>
+          
+          <p className="sbt-description">
+            {token.description}
+          </p>
 
-        {/* Issuer Info */}
-        <div className="sbt-issuer">
-          <div className="sbt-issuer-avatar">
-            <span className="sbt-issuer-initial">
-              {token.issuerName.charAt(0).toUpperCase()}
+          {/* Issuer Info */}
+          <div className="sbt-issuer">
+            <div className="sbt-issuer-avatar">
+              <span className="sbt-issuer-initial">
+                {token.issuerName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <span className="sbt-issuer-name">
+              {token.issuerName}
             </span>
           </div>
-          <span className="sbt-issuer-name">
-            {token.issuerName}
-          </span>
-        </div>
 
-        {/* Token Details */}
-        <div className="sbt-details">
+          {/* Token Details */}
+          <div className="sbt-details">
           <div className="sbt-detail-row">
             <span>Chain:</span>
             <span className="sbt-detail-value">{token.chainType}</span>
@@ -227,7 +228,8 @@ export const SBTCard: React.FC<SBTCardProps> = ({
             </div>
             
             <div className="sbt-transaction-info">
-              {transactionHash && (
+              <>
+                {transactionHash && (
                 <div className="sbt-transaction-row">
                   <span className="sbt-transaction-label">TX Hash:</span>
                   <div className="sbt-transaction-value">
@@ -264,9 +266,11 @@ export const SBTCard: React.FC<SBTCardProps> = ({
                   <span className="sbt-transaction-value">{formatGas(gasUsed)}</span>
                 </div>
               )}
+              </>
             </div>
           </div>
         )}
+      </>
       </div>
     </div>
   );

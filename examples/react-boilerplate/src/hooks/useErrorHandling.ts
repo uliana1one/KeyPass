@@ -121,7 +121,7 @@ export const useErrorHandling = () => {
         'RPC_ERROR',
         'TRANSACTION_TIMEOUT',
       ];
-      return retryableCodes.some(code => error.code.includes(code));
+      return retryableCodes.some(code => (error.code as string).includes(code));
     }
 
     // Check error message for retryable patterns
