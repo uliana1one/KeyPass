@@ -94,6 +94,18 @@
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* KILT-specific button styling */
+.login-button.kilt {
+  color: #8b5cf6;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.login-button.kilt:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.1);
+  box-shadow: 0 15px 30px rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
 .error {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -167,6 +179,13 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #3b82f6;
+}
+
+/* KILT-specific chain badge */
+.chain-badge:contains("KILT") {
+  color: #8b5cf6;
+  border-color: rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.1);
 }
 
 .profile-info {
