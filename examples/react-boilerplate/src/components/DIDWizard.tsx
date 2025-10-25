@@ -5,6 +5,7 @@ import { MoonbeamAdapter } from '../keypass/adapters/MoonbeamAdapter';
 import { MoonbeamNetwork } from '../keypass/config/moonbeamConfig';
 import { MoonbeamDIDProvider } from '../keypass/did/providers/MoonbeamDIDProvider';
 import { BlockchainMonitor } from '../keypass/monitoring/BlockchainMonitor';
+import { KiltDIDProvider } from './KiltDIDProvider';
 import { useErrorHandling } from '../hooks/useErrorHandling';
 import { usePerformanceMetrics } from '../hooks/usePerformanceMetrics';
 
@@ -27,7 +28,7 @@ export interface DIDCreationResult {
 
 interface DIDWizardProps {
   walletAddress: string;
-  chainType: 'polkadot' | 'ethereum';
+  chainType: 'polkadot' | 'ethereum' | 'kilt';
   accountName: string;
   onComplete: (result: DIDCreationResult) => void;
   onCancel: () => void;
@@ -472,6 +473,29 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
               };
             }
           );
+        } else if (chainType === 'kilt') {
+          // For KILT, use mock implementation for now
+          const mockDid = `did:kilt:${walletAddress}`;
+          result = {
+            did: mockDid,
+            didDocument: {
+              ...previewData,
+              id: mockDid,
+              verificationMethod: [{
+                id: `${mockDid}#key-1`,
+                type: 'Sr25519VerificationKey2020',
+                controller: mockDid,
+                publicKeyMultibase: `z${walletAddress}`
+              }],
+              service: didOptions.includeServices ? [{
+                id: `${mockDid}#service-1`,
+                type: 'KILTService',
+                serviceEndpoint: 'https://kilt.io/service'
+              }] : []
+            },
+            options: didOptions,
+            createdAt: new Date().toISOString()
+          };
         } else {
           // For Polkadot, use mock implementation (since we're focusing on Moonbeam)
           const mockDid = `did:key:z${chainType}${walletAddress.slice(-8)}${Date.now()}`;

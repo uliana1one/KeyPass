@@ -864,7 +864,7 @@ function App() {
         <CredentialSection
           did={loginResult.did}
           walletAddress={loginResult.address}
-          chainType={loginResult.chainType as 'polkadot' | 'ethereum'}
+          chainType={loginResult.chainType as 'polkadot' | 'ethereum' | 'kilt'}
           useRealData={true} // Set to true to enable real data fetching
         />
       )}
@@ -874,7 +874,7 @@ function App() {
         <ErrorBoundary>
           <CompleteFlowDemo
             walletAddress={loginResult.address}
-            chainType={loginResult.chainType as 'polkadot' | 'ethereum'}
+            chainType={loginResult.chainType as 'polkadot' | 'ethereum' | 'kilt'}
             onComplete={handleCompleteFlowComplete}
             onCancel={handleCompleteFlowCancel}
           />
