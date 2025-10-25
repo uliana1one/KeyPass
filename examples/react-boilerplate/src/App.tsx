@@ -140,6 +140,57 @@ const detectEthereumWallets = async (): Promise<Wallet[]> => {
   return wallets;
 };
 
+const detectKiltWallets = async (): Promise<Wallet[]> => {
+  const wallets: Wallet[] = [];
+  
+  // Wait for extensions to load
+  await new Promise(resolve => setTimeout(resolve, 200));
+  
+  if (window.injectedWeb3) {
+    const extensions = Object.keys(window.injectedWeb3);
+    
+    for (const extensionName of extensions) {
+      const extension = window.injectedWeb3[extensionName];
+      let displayName = extensionName;
+      let status = 'Available';
+      
+      // Map extension names to display names for KILT
+      if (extensionName === 'polkadot-js') {
+        displayName = 'Polkadot.js Extension (KILT)';
+      } else if (extensionName === 'talisman') {
+        displayName = 'Talisman (KILT)';
+      } else if (extensionName === 'subwallet-js') {
+        displayName = 'SubWallet (KILT)';
+      }
+      
+      // Check if extension is available
+      if (!extension.enable) {
+        status = 'Not Compatible';
+      }
+      
+      wallets.push({
+        id: `kilt-${extensionName}`,
+        name: displayName,
+        status: status,
+        available: extension.enable !== undefined,
+        extension: extension
+      });
+    }
+  }
+  
+  if (wallets.length === 0) {
+    wallets.push({
+      id: 'kilt-none',
+      name: 'No KILT wallets detected',
+      status: 'Install Polkadot.js or Talisman for KILT',
+      available: false,
+      extension: null
+    });
+  }
+  
+  return wallets;
+};
+
 // Account fetching functions
 const getPolkadotAccounts = async (wallet: Wallet): Promise<Account[]> => {
   try {
@@ -176,6 +227,25 @@ const getEthereumAccounts = async (wallet: Wallet): Promise<Account[]> => {
       throw new Error('User rejected the connection request');
     }
     throw new Error(`Failed to get accounts: ${error.message}`);
+  }
+};
+
+const getKiltAccounts = async (wallet: Wallet): Promise<Account[]> => {
+  try {
+    const injectedExtension = await wallet.extension.enable('KeyPass KILT Demo');
+    if (!injectedExtension) {
+      throw new Error('Failed to enable KILT extension');
+    }
+    
+    const accounts = await injectedExtension.accounts.get();
+    return accounts.map((account: any) => ({
+      address: account.address,
+      name: account.name || 'KILT Account',
+      meta: account.meta,
+      injectedExtension: injectedExtension
+    }));
+  } catch (error: any) {
+    throw new Error(`Failed to get KILT accounts: ${error.message}`);
   }
 };
 
@@ -236,10 +306,37 @@ const authenticateWithEthereum = async (account: Account): Promise<LoginResult> 
   }
 };
 
+const authenticateWithKilt = async (account: Account): Promise<LoginResult> => {
+  try {
+    // Create message to sign
+    const message = `KeyPass KILT Login\nIssued At: ${new Date().toISOString()}\nNonce: ${Math.random().toString(36).substring(7)}\nAddress: ${account.address}`;
+    
+    // Sign the message
+    const signature = await account.injectedExtension.signer.signRaw({
+      address: account.address,
+      data: message,
+      type: 'bytes'
+    });
+
+    return {
+      address: account.address,
+      did: `did:kilt:${account.address}`,
+      chainType: 'kilt',
+      signature: signature.signature,
+      message: message,
+      issuedAt: new Date().toISOString(),
+      nonce: Math.random().toString(36).substring(7),
+      accountName: account.name
+    };
+  } catch (error: any) {
+    throw new Error(`KILT signing failed: ${error.message}`);
+  }
+};
+
 function App() {
   // State management
   const [currentView, setCurrentView] = useState<'login' | 'chain-selection' | 'wallet-selection' | 'did-creation' | 'profile' | 'did-management'>('login');
-  const [currentChainType, setCurrentChainType] = useState<'polkadot' | 'ethereum' | null>(null);
+  const [currentChainType, setCurrentChainType] = useState<'polkadot' | 'ethereum' | 'kilt' | null>(null);
   const [availableWallets, setAvailableWallets] = useState<Wallet[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   const [availableAccounts, setAvailableAccounts] = useState<Account[]>([]);
@@ -265,8 +362,12 @@ function App() {
       let wallets: Wallet[];
       if (currentChainType === 'polkadot') {
         wallets = await detectPolkadotWallets();
-      } else {
+      } else if (currentChainType === 'ethereum') {
         wallets = await detectEthereumWallets();
+      } else if (currentChainType === 'kilt') {
+        wallets = await detectKiltWallets();
+      } else {
+        wallets = [];
       }
       
       setAvailableWallets(wallets);
@@ -277,7 +378,7 @@ function App() {
     }
   };
 
-  const handleChainSelection = (chainType: 'polkadot' | 'ethereum') => {
+  const handleChainSelection = (chainType: 'polkadot' | 'ethereum' | 'kilt') => {
     setCurrentChainType(chainType);
     setCurrentView('wallet-selection');
     setError(null);
@@ -300,8 +401,12 @@ function App() {
       let accounts: Account[];
       if (currentChainType === 'polkadot') {
         accounts = await getPolkadotAccounts(wallet);
-      } else {
+      } else if (currentChainType === 'ethereum') {
         accounts = await getEthereumAccounts(wallet);
+      } else if (currentChainType === 'kilt') {
+        accounts = await getKiltAccounts(wallet);
+      } else {
+        accounts = [];
       }
       
       setAvailableAccounts(accounts);
@@ -357,8 +462,12 @@ function App() {
       let result: LoginResult;
       if (currentChainType === 'polkadot') {
         result = await authenticateWithPolkadot(selectedAccount);
-      } else {
+      } else if (currentChainType === 'ethereum') {
         result = await authenticateWithEthereum(selectedAccount);
+      } else if (currentChainType === 'kilt') {
+        result = await authenticateWithKilt(selectedAccount);
+      } else {
+        throw new Error('Invalid chain type');
       }
       
       // Use existing DID data
@@ -513,6 +622,14 @@ function App() {
         >
           Login with Ethereum
         </button>
+        
+        <button 
+          className="login-button kilt"
+          onClick={() => handleChainSelection('kilt')}
+          disabled={loading}
+        >
+          Login with KILT
+        </button>
       </div>
       
       {error && (
@@ -526,6 +643,7 @@ function App() {
         <ul>
           <li><strong>For Polkadot:</strong> Install <a href="https://polkadot.js.org/extension/" target="_blank" rel="noopener noreferrer">Polkadot.js</a> or <a href="https://talisman.xyz/" target="_blank" rel="noopener noreferrer">Talisman</a></li>
           <li><strong>For Ethereum:</strong> Install <a href="https://metamask.io/" target="_blank" rel="noopener noreferrer">MetaMask</a> or another Ethereum wallet</li>
+          <li><strong>For KILT:</strong> Install <a href="https://polkadot.js.org/extension/" target="_blank" rel="noopener noreferrer">Polkadot.js</a> or <a href="https://talisman.xyz/" target="_blank" rel="noopener noreferrer">Talisman</a> for KILT network</li>
           <li><strong>HTTPS:</strong> This demo requires HTTPS in production</li>
         </ul>
       </div>
@@ -537,7 +655,7 @@ function App() {
       <button className="back-button" onClick={handleBackToChain}>
         ← Back to Chain Selection
       </button>
-      <h3>Choose Your {currentChainType === 'polkadot' ? 'Polkadot' : 'Ethereum'} Wallet</h3>
+      <h3>Choose Your {currentChainType === 'polkadot' ? 'Polkadot' : currentChainType === 'ethereum' ? 'Ethereum' : 'KILT'} Wallet</h3>
       
       {loading && !selectedWallet && (
         <div className="loading">Loading wallets...</div>
@@ -654,7 +772,7 @@ function App() {
       <h2>Authentication Successful!</h2>
       <div className="profile-card">
         <div className="chain-badge">
-          {loginResult?.chainType === 'polkadot' ? 'Polkadot' : 'Ethereum'}
+          {loginResult?.chainType === 'polkadot' ? 'Polkadot' : loginResult?.chainType === 'ethereum' ? 'Ethereum' : 'KILT'}
         </div>
         
         <div className="profile-info">
@@ -831,7 +949,7 @@ function App() {
       <div className="App">
         <header className="App-header">
           <h1>KeyPass Multi-Chain Auth</h1>
-          <p>Secure authentication for Polkadot and Ethereum</p>
+          <p>Secure authentication for Polkadot, Ethereum, and KILT</p>
           
           {currentView === 'login' && renderLogin()}
           {currentView === 'chain-selection' && renderLogin()}
