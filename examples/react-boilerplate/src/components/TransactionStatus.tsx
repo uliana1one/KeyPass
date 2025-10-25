@@ -2,7 +2,7 @@ import React from 'react';
 import { ethers } from 'ethers';
 
 export interface TransactionStatusProps {
-  status: 'idle' | 'preparing' | 'minting' | 'confirming' | 'success' | 'error';
+  status: 'pending' | 'idle' | 'preparing' | 'minting' | 'confirming' | 'success' | 'error';
   progress?: number;
   message?: string;
   error?: string;

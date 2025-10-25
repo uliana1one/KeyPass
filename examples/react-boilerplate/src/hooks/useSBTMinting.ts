@@ -4,12 +4,12 @@ import {
   sbtService, 
   SBTMintRequest, 
   SBTMintResult, 
-  SBTMintStatus 
+  SBTMintingStatus 
 } from '../services/sbtService';
 
 export interface UseSBTMintingReturn {
   // State
-  status: SBTMintStatus;
+  status: SBTMintingStatus;
   isMinting: boolean;
   isAvailable: boolean;
   providerStatus: ReturnType<typeof sbtService.getProviderStatus>;
@@ -23,7 +23,9 @@ export interface UseSBTMintingReturn {
 }
 
 export function useSBTMinting(): UseSBTMintingReturn {
-  const [status, setStatus] = useState<SBTMintStatus>(sbtService.getMintingStatus());
+  const [status, setStatus] = useState<SBTMintingStatus>({
+    status: 'pending'
+  });
   const [isAvailable, setIsAvailable] = useState<boolean>(sbtService.isMintingAvailable());
   const [providerStatus, setProviderStatus] = useState(sbtService.getProviderStatus());
 

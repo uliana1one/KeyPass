@@ -112,7 +112,7 @@ export interface BatchMintingResult {
  * Interface for minting progress callback
  */
 export type MintingProgressCallback = (progress: {
-  stage: 'uploading' | 'estimating' | 'minting' | 'confirming' | 'completed';
+  stage: 'uploading' | 'estimating' | 'checking' | 'minting' | 'confirming' | 'completed';
   message: string;
   percentage: number;
   data?: any;
@@ -140,9 +140,11 @@ export class SBTMintingService {
     debugMode: boolean = false
   ) {
     this.adapter = adapter;
-    this.didProvider = new MoonbeamDIDProvider(adapter, contractAddress);
+    this.didProvider = new MoonbeamDIDProvider(adapter, contractAddress as `0x${string}`);
     this.ipfsConfig = {
-      pinningService: ipfsConfig.pinningService || 'local',
+      pinningService: ipfsConfig.pinningService || 'pinata',
+      apiKey: process.env.REACT_APP_PINATA_API_KEY,
+      apiSecret: process.env.REACT_APP_PINATA_SECRET_KEY,
       gatewayUrl: ipfsConfig.gatewayUrl || 'https://gateway.pinata.cloud/ipfs',
       ...ipfsConfig,
     };
@@ -386,43 +388,6 @@ export class SBTMintingService {
 
   // ============= Gas Estimation =============
 
-  /**
-   * Estimate gas for minting transaction using enhanced SBTContract
-   */
-  public async estimateMintingGas(
-    contractAddress: SBTContractAddress,
-    recipient: SBTContractAddress,
-    tokenURI: string,
-    signer: Signer
-  ): Promise<GasEstimationResult> {
-    try {
-      if (this.debugMode) {
-        console.log('[SBTMintingService] Estimating gas for minting...');
-      }
-
-      const contract = await this.getContract(contractAddress, signer);
-      const gasEstimate = await contract.estimateMintGas(recipient, tokenURI);
-
-      if (this.debugMode) {
-        console.log('[SBTMintingService] Gas estimation:', {
-          gasLimit: gasEstimate.gasLimit.toString(),
-          cost: gasEstimate.estimatedCostInEther,
-        });
-      }
-
-      return gasEstimate;
-    } catch (error) {
-      throw new SBTMintingServiceError(
-        `Failed to estimate gas: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        MoonbeamErrorCode.CONTRACT_ERROR,
-        'estimateMintingGas',
-        undefined,
-        undefined,
-        { contractAddress, recipient, tokenURI },
-        error
-      );
-    }
-  }
 
   // ============= DID Verification =============
 
@@ -682,188 +647,229 @@ export class SBTMintingService {
       return this.mockMintSBT(contractAddress, params, signer, onProgress);
     }
 
-    let lastError: Error | null = null;
+    // Use real blockchain implementation
+    return this.realMintSBT(contractAddress, params, signer, onProgress);
+  }
 
-    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-      try {
-        if (this.debugMode) {
-          console.log(`[SBTMintingService] Minting attempt ${attempt}/${this.maxRetries}...`);
-        }
-
-        // Stage 0: Verify DID exists (optional but recommended)
-        onProgress?.({
-          stage: 'uploading',
-          message: 'Verifying DID...',
-          percentage: 5,
-        });
-
-        const didInfo = await this.getDIDInfo(params.to);
-        if (!didInfo.exists) {
-          if (this.debugMode) {
-            console.log(`[SBTMintingService] No DID found for recipient: ${params.to}`);
-          }
-          // Continue without DID verification for now
-          // In production, you might want to require DID verification
-        } else if (!didInfo.active) {
-          if (this.debugMode) {
-            console.log(`[SBTMintingService] DID exists but is not active: ${didInfo.did}`);
-          }
-          // Continue without DID verification for now
-        } else {
-          if (this.debugMode) {
-            console.log(`[SBTMintingService] DID verification successful: ${didInfo.did}`);
-          }
-        }
-
-        // Stage 1: Upload metadata to IPFS
-        onProgress?.({
-          stage: 'uploading',
-          message: 'Uploading metadata to IPFS...',
-          percentage: 10,
-        });
-
-        let metadataUri = params.tokenURI;
-        if (params.metadata && !params.tokenURI) {
-          const ipfsResult = await this.uploadMetadataToIPFS(params.metadata);
-          metadataUri = ipfsResult.uri;
-          
-          if (this.debugMode) {
-            console.log('[SBTMintingService] Metadata uploaded:', ipfsResult.uri);
-          }
-        }
-
-        if (!metadataUri) {
-          throw new Error('No metadata URI provided');
-        }
-
-        // Stage 2: Estimate gas
-        onProgress?.({
-          stage: 'estimating',
-          message: 'Estimating transaction gas...',
-          percentage: 25,
-        });
-
-        const contract = await this.getContract(contractAddress, signer);
-        const gasEstimate = await contract.estimateMintGas(params.to, metadataUri);
-
-        if (this.debugMode) {
-          console.log('[SBTMintingService] Gas estimate:', gasEstimate.estimatedCostInEther);
-        }
-
-        // Stage 3: Execute minting transaction
-        onProgress?.({
-          stage: 'minting',
-          message: 'Submitting minting transaction...',
-          percentage: 40,
-        });
-
-        const { transaction, monitoring, tokenId } = await contract.mint(
-          params.to,
-          metadataUri,
-          {
-            gasLimit: params.gasLimit || gasEstimate.gasLimit,
-            gasPrice: params.gasPrice,
-            maxFeePerGas: params.maxFeePerGas || gasEstimate.maxFeePerGas,
-            maxPriorityFeePerGas: params.maxPriorityFeePerGas || gasEstimate.maxPriorityFeePerGas,
-            value: params.value,
-            confirmations: this.requiredConfirmations,
-            timeout: this.confirmationTimeout,
-          }
-        );
-
-        if (!tokenId) {
-          throw new Error('Token ID not found in transaction events');
-        }
-
-        // Stage 4: Wait for confirmations
-        onProgress?.({
-          stage: 'confirming',
-          message: `Waiting for ${this.requiredConfirmations} confirmations...`,
-          percentage: 70,
-          data: { transactionHash: transaction.hash },
-        });
-
-        if (this.debugMode) {
-          console.log('[SBTMintingService] Transaction confirmed:', {
-            hash: monitoring.transactionHash,
-            block: monitoring.blockNumber,
-            gasUsed: monitoring.gasUsed.toString(),
-            cost: ethers.formatEther(monitoring.totalCost),
-          });
-        }
-
-        // Stage 5: Complete
-        onProgress?.({
-          stage: 'completed',
-          message: 'Minting completed successfully!',
-          percentage: 100,
-          data: { tokenId: tokenId.toString(), transactionHash: monitoring.transactionHash },
-        });
-
-        const result: SBTMintingResult = {
-          tokenId,
-          transactionHash: monitoring.transactionHash,
-          blockNumber: monitoring.blockNumber,
-          gasUsed: monitoring.gasUsed,
-          effectiveGasPrice: monitoring.effectiveGasPrice || BigInt(0),
-          totalCost: monitoring.totalCost,
-          totalCostInEther: ethers.formatEther(monitoring.totalCost),
-          metadataUri,
-          contractAddress,
-          recipient: params.to,
-          mintedAt: new Date().toISOString(),
-          confirmations: this.requiredConfirmations,
-          timestamp: monitoring.timestamp,
-          success: true,
-        };
-
-        if (this.debugMode) {
-          console.log('[SBTMintingService] Minting successful:', result);
-        }
-
-        return result;
-
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Unknown error');
-
-        if (this.debugMode) {
-          console.warn(`[SBTMintingService] Attempt ${attempt} failed:`, lastError.message);
-        }
-
-        // Check if error is retryable
-        if (this.isNonRetryableError(lastError)) {
-          throw new SBTMintingServiceError(
-            `Minting failed: ${lastError.message}`,
-            MoonbeamErrorCode.TRANSACTION_ERROR,
-            'mintSBT',
-            undefined,
-            undefined,
-            params,
-            lastError
-          );
-        }
-
-        // Wait before retry with exponential backoff
-        if (attempt < this.maxRetries) {
-          const delay = this.retryDelay * Math.pow(2, attempt - 1);
-          if (this.debugMode) {
-            console.log(`[SBTMintingService] Retrying in ${delay}ms...`);
-          }
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
+  /**
+   * Check wallet balance before transaction
+   */
+  private async checkWalletBalance(signer: Signer, estimatedCost: bigint): Promise<void> {
+    try {
+      const address = await signer.getAddress();
+      const balance = await signer.provider?.getBalance(address);
+      
+      if (!balance) {
+        throw new Error('Unable to fetch wallet balance');
       }
+      
+      if (balance < estimatedCost) {
+        const balanceInEther = ethers.formatEther(balance);
+        const costInEther = ethers.formatEther(estimatedCost);
+        throw new Error(
+          `Insufficient balance. Required: ${costInEther} ETH, Available: ${balanceInEther} ETH`
+        );
+      }
+      
+      if (this.debugMode) {
+        console.log(`[SBTMintingService] Balance check passed: ${ethers.formatEther(balance)} ETH`);
+      }
+    } catch (error) {
+      throw new SBTMintingServiceError(
+        `Balance check failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        MoonbeamErrorCode.WALLET_ERROR,
+        'checkWalletBalance',
+        undefined,
+        undefined,
+        undefined,
+        error
+      );
     }
+  }
 
-    // All retries failed
-    throw new SBTMintingServiceError(
-      `Minting failed after ${this.maxRetries} attempts: ${lastError?.message}`,
-      MoonbeamErrorCode.TRANSACTION_ERROR,
-      'mintSBT',
-      undefined,
-      undefined,
-      params,
-      lastError
-    );
+  /**
+   * Real SBT minting with blockchain integration
+   */
+  private async realMintSBT(
+    contractAddress: SBTContractAddress,
+    params: SBTMintParams,
+    signer: Signer,
+    onProgress?: MintingProgressCallback
+  ): Promise<SBTMintingResult> {
+    try {
+      // Stage 1: Upload metadata to IPFS
+      onProgress?.({
+        stage: 'uploading',
+        message: 'Uploading metadata to IPFS...',
+        percentage: 10,
+      });
+
+      let metadataUri = params.tokenURI;
+      if (params.metadata && !params.tokenURI) {
+        const ipfsResult = await this.uploadMetadataToIPFS(params.metadata);
+        metadataUri = ipfsResult.uri;
+      }
+
+      if (!metadataUri) {
+        throw new Error('No metadata URI provided');
+      }
+
+      // Stage 2: Estimate gas
+      onProgress?.({
+        stage: 'estimating',
+        message: 'Estimating transaction gas...',
+        percentage: 25,
+      });
+
+      const gasEstimate = await this.estimateMintingGas(contractAddress, params.to, metadataUri);
+
+      // Stage 2.5: Check wallet balance
+      onProgress?.({
+        stage: 'checking',
+        message: 'Checking wallet balance...',
+        percentage: 30,
+      });
+
+      await this.checkWalletBalance(signer, gasEstimate.estimatedCost);
+
+      // Stage 3: Execute minting transaction
+      onProgress?.({
+        stage: 'minting',
+        message: 'Submitting minting transaction...',
+        percentage: 40,
+      });
+
+      const contract = new ethers.Contract(
+        contractAddress,
+        [
+          'function mintSBT(address to, string memory metadataUri) external',
+          'event SBTMinted(address indexed to, uint256 indexed tokenId, string metadataUri, uint256 timestamp)'
+        ],
+        signer
+      );
+
+      const tx = await contract.mintSBT(params.to, metadataUri, {
+        gasLimit: gasEstimate.gasLimit,
+        gasPrice: gasEstimate.gasPrice
+      });
+
+      // Stage 4: Wait for confirmations
+      onProgress?.({
+        stage: 'confirming',
+        message: 'Waiting for confirmations...',
+        percentage: 60,
+      });
+
+      const receipt = await tx.wait();
+      
+      if (!receipt) {
+        throw new Error('Transaction receipt not found');
+      }
+
+      // Extract token ID from event logs
+      const mintEvent = receipt.logs.find((log: any) => {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          return parsed?.name === 'SBTMinted';
+        } catch {
+          return false;
+        }
+      });
+
+      if (!mintEvent) {
+        throw new Error('SBTMinted event not found in transaction logs');
+      }
+
+      const parsedEvent = contract.interface.parseLog(mintEvent);
+      const tokenId = parsedEvent?.args?.tokenId;
+
+      if (!tokenId) {
+        throw new Error('Token ID not found in mint event');
+      }
+
+      onProgress?.({
+        stage: 'completed',
+        message: 'SBT minted successfully!',
+        percentage: 100,
+      });
+
+      return {
+        tokenId: BigInt(tokenId.toString()),
+        transactionHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed,
+        effectiveGasPrice: receipt.gasPrice || BigInt(0),
+        totalCost: BigInt(receipt.gasUsed) * (receipt.gasPrice || BigInt(0)),
+        totalCostInEther: ethers.formatEther(BigInt(receipt.gasUsed) * (receipt.gasPrice || BigInt(0))),
+        metadataUri,
+        recipient: params.to,
+        contractAddress,
+        mintedAt: new Date().toISOString(),
+        confirmations: receipt.confirmations,
+        timestamp: Date.now(),
+        success: true,
+      };
+    } catch (error) {
+      throw new SBTMintingServiceError(
+        `Real SBT minting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        MoonbeamErrorCode.TRANSACTION_ERROR,
+        'realMintSBT',
+        undefined,
+        undefined,
+        params.metadata,
+        error
+      );
+    }
+  }
+
+  /**
+   * Estimate gas for minting transaction
+   */
+  private async estimateMintingGas(
+    contractAddress: SBTContractAddress,
+    recipient: string,
+    metadataUri: string
+  ): Promise<GasEstimationResult> {
+    try {
+      const provider = this.adapter.getProvider();
+      if (!provider) {
+        throw new Error('Provider not available');
+      }
+      
+      const feeData = await provider.getFeeData();
+      
+      // Estimate gas for mintSBT function
+      const contract = new ethers.Contract(
+        contractAddress,
+        ['function mintSBT(address to, string memory metadataUri) external'],
+        provider
+      );
+      
+      const gasEstimate = await contract.mintSBT.estimateGas(recipient, metadataUri);
+      
+      const gasLimit = gasEstimate + BigInt(10000); // Add buffer
+      const gasPrice = feeData.gasPrice || BigInt(1000000000); // 1 gwei fallback
+      const estimatedCost = gasLimit * gasPrice;
+      
+      return {
+        gasLimit,
+        gasPrice,
+        maxFeePerGas: feeData.maxFeePerGas || undefined,
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas || undefined,
+        estimatedCost,
+        estimatedCostInEther: ethers.formatEther(estimatedCost),
+        baseFee: undefined,
+        priorityFee: feeData.maxPriorityFeePerGas || undefined
+      };
+    } catch (error) {
+      // Fallback gas estimation
+      return {
+        gasLimit: BigInt(300000),
+        gasPrice: BigInt(1000000000),
+        estimatedCost: BigInt(300000 * 1000000000),
+        estimatedCostInEther: '0.0003'
+      };
+    }
   }
 
   /**

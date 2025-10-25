@@ -1,10 +1,11 @@
 /**
- * Simplified Moonbeam DID Provider for React environment
+ * Real Moonbeam DID Provider with blockchain integration
  */
 
 import { ethers } from 'ethers';
 import { MoonbeamAdapter } from '../../adapters/MoonbeamAdapter';
 import { MoonbeamNetwork, MoonbeamErrorCode } from '../../config/moonbeamConfig';
+import { DIDRegistryService, DIDRegistryAddress } from '../../contracts/DIDRegistryContract';
 
 export interface DIDCreationResult {
   did: string;
@@ -18,11 +19,21 @@ export interface DIDResolutionResult {
 
 export class MoonbeamDIDProvider {
   private adapter: MoonbeamAdapter;
-  private contractAddress: string;
+  private contractAddress: DIDRegistryAddress;
+  private didRegistryService: DIDRegistryService;
+  private provider: ethers.Provider;
+  private signer?: ethers.Signer;
 
-  constructor(adapter: MoonbeamAdapter, contractAddress: string) {
+  constructor(adapter: MoonbeamAdapter, contractAddress: DIDRegistryAddress) {
     this.adapter = adapter;
     this.contractAddress = contractAddress;
+    this.provider = adapter.getProvider()!;
+    this.signer = undefined; // Signer will be provided when needed
+    this.didRegistryService = new DIDRegistryService(
+      contractAddress,
+      this.provider,
+      this.signer
+    );
   }
 
   /**
@@ -30,13 +41,38 @@ export class MoonbeamDIDProvider {
    */
   async createDID(address: string): Promise<DIDCreationResult> {
     try {
-      // For React environment, return a mock DID
-      const mockDid = `did:moonbeam:${address.slice(2)}`;
-      const mockTxHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+      if (!this.signer) {
+        throw new Error('Signer required for DID creation');
+      }
+
+      // Generate DID in format: did:moonbeam:0x...
+      const did = `did:moonbeam:${address.slice(2)}`;
       
+      // Create DID document
+      const didDocument = {
+        '@context': 'https://www.w3.org/ns/did/v1',
+        id: did,
+        verificationMethod: [{
+          id: `${did}#key-1`,
+          type: 'EcdsaSecp256k1RecoveryMethod2020',
+          controller: did,
+          blockchainAccountId: `${address}@eip155:1287`
+        }],
+        authentication: [`${did}#key-1`],
+        assertionMethod: [`${did}#key-1`]
+      };
+
+      // Register DID on blockchain
+      const tx = await this.didRegistryService.registerDID(did, JSON.stringify(didDocument));
+      const receipt = await tx.wait();
+      
+      if (!receipt) {
+        throw new Error('Transaction receipt not found');
+      }
+
       return {
-        did: mockDid,
-        txHash: mockTxHash
+        did,
+        txHash: receipt.hash
       };
     } catch (error) {
       throw new Error(`Failed to create DID: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -48,19 +84,15 @@ export class MoonbeamDIDProvider {
    */
   async resolveDid(did: string): Promise<DIDResolutionResult | null> {
     try {
-      // For React environment, return a mock DID document
+      const didRecord = await this.didRegistryService.getDID(did);
+      
+      if (!didRecord.isActive) {
+        return null;
+      }
+
       return {
         did,
-        didDocument: {
-          '@context': 'https://www.w3.org/ns/did/v1',
-          id: did,
-          verificationMethod: [{
-            id: `${did}#key-1`,
-            type: 'EcdsaSecp256k1RecoveryMethod2020',
-            controller: did,
-            blockchainAccountId: `${did.split(':')[2]}@eip155:1287`
-          }]
-        }
+        didDocument: JSON.parse(didRecord.didDocument)
       };
     } catch (error) {
       console.error('Failed to resolve DID:', error);
@@ -72,16 +104,32 @@ export class MoonbeamDIDProvider {
    * Update a DID document
    */
   async updateDid(did: string, didDocument: any): Promise<void> {
-    // Mock implementation for React environment
-    console.log('Mock DID update:', did, didDocument);
+    try {
+      if (!this.signer) {
+        throw new Error('Signer required for DID update');
+      }
+
+      const tx = await this.didRegistryService.updateDID(did, JSON.stringify(didDocument));
+      await tx.wait();
+    } catch (error) {
+      throw new Error(`Failed to update DID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
    * Deactivate a DID
    */
   async deactivateDid(did: string): Promise<void> {
-    // Mock implementation for React environment
-    console.log('Mock DID deactivation:', did);
+    try {
+      if (!this.signer) {
+        throw new Error('Signer required for DID deactivation');
+      }
+
+      const tx = await this.didRegistryService.deactivateDID(did);
+      await tx.wait();
+    } catch (error) {
+      throw new Error(`Failed to deactivate DID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
@@ -89,8 +137,14 @@ export class MoonbeamDIDProvider {
    */
   async getDID(address: string): Promise<string | null> {
     try {
-      // For React environment, return a mock DID
-      return `did:moonbeam:${address.slice(2)}`;
+      const did = `did:moonbeam:${address.slice(2)}`;
+      const { exists, isActive } = await this.didRegistryService.checkDID(did);
+      
+      if (exists && isActive) {
+        return did;
+      }
+      
+      return null;
     } catch (error) {
       console.error('Failed to get DID:', error);
       return null;
@@ -102,8 +156,9 @@ export class MoonbeamDIDProvider {
    */
   async didExists(address: string): Promise<boolean> {
     try {
-      // For React environment, always return true for mock implementation
-      return true;
+      const did = `did:moonbeam:${address.slice(2)}`;
+      const { exists, isActive } = await this.didRegistryService.checkDID(did);
+      return exists && isActive;
     } catch (error) {
       console.error('Failed to check DID existence:', error);
       return false;
@@ -118,17 +173,8 @@ export class MoonbeamDIDProvider {
       const did = await this.getDID(address);
       if (!did) return null;
 
-      // For React environment, return a mock DID document
-      return {
-        '@context': 'https://www.w3.org/ns/did/v1',
-        id: did,
-        verificationMethod: [{
-          id: `${did}#key-1`,
-          type: 'EcdsaSecp256k1RecoveryMethod2020',
-          controller: did,
-          blockchainAccountId: `${address}@eip155:1287`
-        }]
-      };
+      const result = await this.resolveDid(did);
+      return result?.didDocument || null;
     } catch (error) {
       console.error('Failed to get DID document:', error);
       return null;

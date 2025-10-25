@@ -188,8 +188,8 @@ export const SBTMintingComponent: React.FC<SBTMintingComponentProps> = ({
       <div className="mb-4 p-3 bg-blue-50 rounded-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Provider:</span>
-          <span className={`text-sm ${providerStatus.available ? 'text-green-600' : 'text-red-600'}`}>
-            {providerStatus.available ? 'Connected' : 'Disconnected'}
+          <span className={`text-sm ${providerStatus.connected ? 'text-green-600' : 'text-red-600'}`}>
+            {providerStatus.connected ? 'Connected' : 'Disconnected'}
           </span>
         </div>
         {providerStatus.network && (
@@ -339,7 +339,7 @@ export const SBTMintingComponent: React.FC<SBTMintingComponentProps> = ({
             <p><strong>Token ID:</strong> {status.result.tokenId}</p>
             <p><strong>Transaction:</strong> {status.result.transactionHash}</p>
             <p><strong>Block:</strong> {status.result.blockNumber}</p>
-            <p><strong>Gas Used:</strong> {status.result.gasUsed.toString()}</p>
+            <p><strong>Gas Used:</strong> {status.result.gasUsed?.toString() || 'N/A'}</p>
           </div>
         </div>
       )}

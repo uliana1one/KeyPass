@@ -178,7 +178,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                 key={credential.id}
                 credential={credential}
                 onShare={handleShareCredential}
-                onRevoke={credential.metadata.revocable ? handleRevokeCredential : undefined}
+                onRevoke={credential.metadata?.revocable ? handleRevokeCredential : undefined}
                 onViewDetails={setSelectedCredential}
               />
             ))}

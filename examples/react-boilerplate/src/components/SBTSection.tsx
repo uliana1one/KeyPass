@@ -19,7 +19,13 @@ class RealSBTService {
     try {
       this.adapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
       await this.adapter.connect();
-      this.contractAddress = process.env.REACT_APP_SBT_CONTRACT_ADDRESS || null;
+      this.contractAddress = process.env.REACT_APP_SBT_CONTRACT_ADDRESS || '0x0A6582FE7B47c55d26655A47e5a3bda626Bab898';
+      
+      console.log('Environment variables check:');
+      console.log('All REACT_APP_ vars:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP_')));
+      console.log('REACT_APP_SBT_CONTRACT_ADDRESS:', process.env.REACT_APP_SBT_CONTRACT_ADDRESS);
+      console.log('REACT_APP_DID_CONTRACT_ADDRESS:', process.env.REACT_APP_DID_CONTRACT_ADDRESS);
+      console.log('Contract address:', this.contractAddress);
       
       if (!this.contractAddress) {
         throw new Error('SBT contract address not configured');
@@ -31,11 +37,20 @@ class RealSBTService {
   }
 
   async getTokens(walletAddress: string): Promise<SBTToken[]> {
+    console.log('SBT getTokens called with walletAddress:', walletAddress);
+    console.log('Wallet address type:', typeof walletAddress);
+    console.log('Is valid Ethereum address:', ethers.isAddress(walletAddress));
+    
     if (!this.adapter || !this.contractAddress) {
       await this.initialize();
     }
 
     try {
+      // Ensure we have a valid contract address
+      if (!ethers.isAddress(this.contractAddress!)) {
+        throw new Error(`Invalid contract address: ${this.contractAddress}`);
+      }
+
       const contract = new ethers.Contract(
         this.contractAddress!,
         [
@@ -46,6 +61,14 @@ class RealSBTService {
         ],
         this.adapter!.getProvider()!
       );
+
+      // Check if this is a Polkadot address trying to interact with Ethereum contract
+      if (!ethers.isAddress(walletAddress)) {
+        console.warn(`❌ Polkadot address ${walletAddress} cannot interact with Ethereum SBT contract on Moonbeam.`);
+        console.warn(`💡 To use real SBTs, connect MetaMask to Moonbeam testnet instead of Polkadot wallet.`);
+        console.warn(`🔄 Falling back to mock tokens for demonstration.`);
+        return this.getMockTokens();
+      }
 
       // Get token balance
       const balance = await contract.balanceOf(walletAddress);
@@ -81,7 +104,7 @@ class RealSBTService {
             metadata = {
               name: `SBT Token #${tokenId}`,
               description: 'Soulbound Token',
-              image: 'https://via.placeholder.com/400x300?text=SBT'
+              image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPlNCVDwvdGV4dD48L3N2Zz4='
             };
           }
 
@@ -89,7 +112,7 @@ class RealSBTService {
             id: tokenId.toString(),
             name: metadata.name || `SBT Token #${tokenId}`,
             description: metadata.description || 'Soulbound Token',
-            image: metadata.image || 'https://via.placeholder.com/400x300?text=SBT',
+            image: metadata.image || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPlNCVDwvdGV4dD48L3N2Zz4=',
             issuer: owner,
             issuerName: 'KeyPass System',
             issuedAt: new Date().toISOString(),
@@ -122,9 +145,9 @@ class RealSBTService {
     return [
       {
         id: 'mock-1',
-        name: 'KeyPass Identity SBT',
-        description: 'Soulbound token representing your decentralized identity on Moonbeam.',
-        image: 'https://via.placeholder.com/400x300?text=KeyPass+SBT',
+        name: 'KeyPass Identity SBT (Demo)',
+        description: 'Demo SBT - Connect MetaMask to Moonbeam testnet for real SBTs.',
+        image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPlNCVDwvdGV4dD48L3N2Zz4=',
         issuer: '0x0000000000000000000000000000000000000000',
         issuerName: 'KeyPass System',
         issuedAt: new Date().toISOString(),

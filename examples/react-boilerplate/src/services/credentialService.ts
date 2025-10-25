@@ -82,7 +82,7 @@ export class CredentialService {
   constructor(config: CredentialServiceConfig = {}) {
     this.config = {
       enableZKProofs: true,
-      enableMockData: true,
+      enableMockData: false, // DISABLED - Use real data
       zkProofProvider: 'semaphore',
       ...config
     };
@@ -141,6 +141,7 @@ export class CredentialService {
       return [];
     }
   }
+
 
   /**
    * Get available credential offers

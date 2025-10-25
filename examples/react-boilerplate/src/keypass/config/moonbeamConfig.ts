@@ -91,6 +91,7 @@ export enum MoonbeamErrorCode {
   VALIDATION_ERROR = 'MOONBEAM_VALIDATION_ERROR',
   IPFS_ERROR = 'MOONBEAM_IPFS_ERROR',
   DID_CREATION_FAILED = 'MOONBEAM_DID_CREATION_FAILED',
+  WALLET_ERROR = 'MOONBEAM_WALLET_ERROR',
 }
 
 /**
@@ -104,6 +105,7 @@ export const MoonbeamErrorMessages = {
   [MoonbeamErrorCode.VALIDATION_ERROR]: 'Input validation error',
   [MoonbeamErrorCode.IPFS_ERROR]: 'IPFS storage error',
   [MoonbeamErrorCode.DID_CREATION_FAILED]: 'DID creation failed',
+  [MoonbeamErrorCode.WALLET_ERROR]: 'Wallet operation error',
 } as const;
 
 /**

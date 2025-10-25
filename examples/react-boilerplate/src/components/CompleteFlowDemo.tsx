@@ -139,7 +139,9 @@ export const CompleteFlowDemo: React.FC<CompleteFlowDemoProps> = ({
       setMoonbeamAdapter(adapter);
 
       // Initialize DID provider
-      const contractAddress = process.env.REACT_APP_SBT_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
+      const contractAddress = (process.env.REACT_APP_DID_CONTRACT_ADDRESS || '0x237A636ccdD38cb8Fb19849AB24dF5E7dbcB03e0') as `0x${string}`;
+      console.log('CompleteFlowDemo - DID Contract Address:', contractAddress);
+      console.log('CompleteFlowDemo - Environment REACT_APP_DID_CONTRACT_ADDRESS:', process.env.REACT_APP_DID_CONTRACT_ADDRESS);
       const provider = new MoonbeamDIDProvider(adapter, contractAddress);
       setDidProvider(provider);
 

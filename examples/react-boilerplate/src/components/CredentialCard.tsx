@@ -129,8 +129,8 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
         
         <div className="credential-badges">
           {renderZKProofBadge()}
-          <div className="privacy-badge" title={`Privacy Level: ${credential.metadata.privacy}`}>
-            {getPrivacyIcon(credential.metadata.privacy)}
+          <div className="privacy-badge" title={`Privacy Level: ${credential.metadata?.privacy || 'Unknown'}`}>
+            {getPrivacyIcon(credential.metadata?.privacy)}
           </div>
         </div>
       </div>
@@ -169,11 +169,11 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
       <div className="credential-metadata">
         <div className="metadata-item">
           <span className="metadata-label">Privacy:</span>
-          <span className="metadata-value">{credential.metadata.privacy}</span>
+          <span className="metadata-value">{credential.metadata?.privacy || 'Unknown'}</span>
         </div>
         <div className="metadata-item">
           <span className="metadata-label">Revocable:</span>
-          <span className="metadata-value">{credential.metadata.revocable ? 'Yes' : 'No'}</span>
+          <span className="metadata-value">{credential.metadata?.revocable ? 'Yes' : 'No'}</span>
         </div>
       </div>
 
@@ -197,7 +197,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
             </button>
           )}
           
-          {credential.metadata.revocable && onRevoke && (
+          {credential.metadata?.revocable && onRevoke && (
             <button 
               className="action-button revoke"
               onClick={handleRevoke}
