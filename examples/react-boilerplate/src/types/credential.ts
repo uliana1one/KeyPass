@@ -20,6 +20,7 @@ export interface VerifiableCredential {
     proofPurpose: string;
     jws?: string;
     zkProof?: ZKProof;
+    kiltProof?: KiltProof; // KILT-specific proof
   };
   status: CredentialStatus;
   metadata: {
@@ -27,6 +28,7 @@ export interface VerifiableCredential {
     privacy: PrivacyLevel;
     revocable: boolean;
     transferable: boolean;
+    chainType?: 'polkadot' | 'ethereum' | 'kilt'; // Chain type indicator
   };
 }
 
@@ -36,6 +38,17 @@ export interface ZKProof {
   publicSignals: string[];
   verificationKey: string;
   circuit: string;
+}
+
+export interface KiltProof {
+  type: 'KiltAttestationProof';
+  attestationHash: string;
+  cTypeHash: string;
+  claimHash: string;
+  delegationId?: string;
+  signature: string;
+  blockNumber: number;
+  extrinsicIndex: number;
 }
 
 export interface CredentialRequest {

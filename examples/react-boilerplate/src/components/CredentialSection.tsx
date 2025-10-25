@@ -16,7 +16,7 @@ import { credentialService, CredentialService } from '../services/credentialServ
 interface CredentialSectionProps {
   did: string;
   walletAddress: string;
-  chainType: 'polkadot' | 'ethereum';
+  chainType: 'polkadot' | 'ethereum' | 'kilt';
   useRealData?: boolean; // Toggle between real and mock data
 }
 
@@ -41,11 +41,12 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
     useRealData ? 'real' : 'mock'
   );
 
-  // Configure credential service based on data source
+  // Configure credential service based on data source and chain type
   const configuredCredentialService = new CredentialService({
     enableMockData: dataSource === 'mock',
     enableZKProofs: true,
-    zkProofProvider: 'semaphore'
+    zkProofProvider: chainType === 'kilt' ? 'kilt' : 'semaphore',
+    chainType: chainType
   });
 
   useEffect(() => {
