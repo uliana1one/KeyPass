@@ -1,6 +1,6 @@
 # 🔐 KeyPass React Boilerplate
 
-A complete, ready-to-use React application demonstrating **Moonbeam-only blockchain integration** with KeyPass SDK for DID registration and SBT minting.
+A complete, ready-to-use React application demonstrating **multi-chain blockchain integration** with KeyPass SDK for DID registration (KILT, Moonbeam) and SBT minting.
 
 ## 🚀 Quick Start
 
@@ -11,7 +11,10 @@ Before you begin, ensure you have:
 1. **Node.js 16+** installed ([Download here](https://nodejs.org/))
 2. **A wallet extension** installed:
    - **For Ethereum/Moonbeam**: [MetaMask](https://metamask.io/) or another Ethereum wallet
-3. **Moonbeam testnet tokens** (DEV) from the [Moonbeam Faucet](https://apps.moonbeam.network/moonbase-alpha/faucet/)
+   - **For KILT/Polkadot**: [Polkadot{.js} Extension](https://polkadot.js.org/extension/) or [Talisman](https://www.talisman.one/)
+3. **Testnet tokens**:
+   - **Moonbeam**: DEV tokens from the [Moonbeam Faucet](https://apps.moonbeam.network/moonbase-alpha/faucet/)
+   - **KILT**: KILT tokens from the [KILT Faucet](https://faucet.kilt.io/) (optional)
 
 ### Installation & Setup
 
@@ -28,9 +31,19 @@ Before you begin, ensure you have:
 3. **Configure environment variables:**
    Create a `.env` file in the root directory:
    ```bash
+   # Moonbeam Configuration
    REACT_APP_MOONBEAM_RPC_URL=https://rpc.api.moonbase.moonbeam.network
    REACT_APP_SBT_CONTRACT_ADDRESS=0xYourContractAddress
+   REACT_APP_DID_CONTRACT_ADDRESS=0xYourContractAddress
+   
+   # KILT Configuration  
+   REACT_APP_ENABLE_KILT=true
+   REACT_APP_KILT_NETWORK=spiritnet
+   REACT_APP_KILT_WSS_ENDPOINT=wss://spiritnet.kilt.io
+   
+   # IPFS Configuration
    REACT_APP_PINATA_API_KEY=your-api-key
+   REACT_APP_PINATA_SECRET_KEY=your-secret-key
    ```
 
 4. **Start the development server:**
