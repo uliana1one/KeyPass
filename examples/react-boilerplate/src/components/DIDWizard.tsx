@@ -5,7 +5,7 @@ import { MoonbeamAdapter } from '../keypass/adapters/MoonbeamAdapter';
 import { MoonbeamNetwork } from '../keypass/config/moonbeamConfig';
 import { MoonbeamDIDProvider } from '../keypass/did/providers/MoonbeamDIDProvider';
 import { BlockchainMonitor } from '../keypass/monitoring/BlockchainMonitor';
-import { KiltDIDProvider } from './KiltDIDProvider';
+import { KiltDIDProviderComponent } from './KiltDIDProvider';
 import { useErrorHandling } from '../hooks/useErrorHandling';
 import { usePerformanceMetrics } from '../hooks/usePerformanceMetrics';
 
@@ -605,7 +605,7 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
       description: 'KILT-specific DID creation',
       component: (
         <div className="kilt-provider-step">
-          <KiltDIDProvider
+          <KiltDIDProviderComponent
             account={{
               address: walletAddress,
               name: accountName,
