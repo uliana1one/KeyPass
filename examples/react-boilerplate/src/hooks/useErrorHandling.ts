@@ -55,6 +55,26 @@ export const useErrorHandling = () => {
       errorSeverity = errorObj.severity as 'low' | 'medium' | 'high' | 'critical';
     }
 
+    // KILT-specific error handling
+    if (errorCode?.startsWith('KILT_')) {
+      errorCategory = 'kilt';
+      
+      // Set severity based on KILT error codes
+      if (errorCode.includes('CONNECTION_FAILED') || errorCode.includes('DISCONNECTION_FAILED')) {
+        errorSeverity = 'critical';
+      } else if (errorCode.includes('INSUFFICIENT_FUNDS') || errorCode.includes('TRANSACTION_FAILED')) {
+        errorSeverity = 'high';
+      } else if (errorCode.includes('WALLET_ERROR') || errorCode.includes('SIGNING_FAILED')) {
+        errorSeverity = 'high';
+      } else if (errorCode.includes('DID_ALREADY_EXISTS') || errorCode.includes('DID_NOT_FOUND')) {
+        errorSeverity = 'medium';
+      } else if (errorCode.includes('INVALID_INPUT') || errorCode.includes('INVALID_DID_FORMAT')) {
+        errorSeverity = 'low';
+      } else {
+        errorSeverity = 'medium';
+      }
+    }
+
     const newErrorState: ErrorState = {
       error: errorObj,
       isError: true,
@@ -120,6 +140,12 @@ export const useErrorHandling = () => {
         'TIMEOUT',
         'RPC_ERROR',
         'TRANSACTION_TIMEOUT',
+        // KILT-specific retryable codes
+        'KILT_CONNECTION_FAILED',
+        'KILT_DISCONNECTION_FAILED',
+        'KILT_TRANSACTION_TIMEOUT',
+        'KILT_TRANSACTION_FAILED',
+        'KILT_SIGNING_FAILED',
       ];
       return retryableCodes.some(code => (error.code as string).includes(code));
     }
@@ -154,6 +180,30 @@ export const useErrorHandling = () => {
           return 'Transaction was rejected by the user.';
         case 'GAS_ESTIMATION_FAILED':
           return 'Failed to estimate gas. Please try again or increase gas limit.';
+        
+        // KILT-specific error messages
+        case 'KILT_CONNECTION_FAILED':
+          return 'Failed to connect to KILT network. Please check your connection and try again.';
+        case 'KILT_WALLET_NOT_DETECTED':
+          return 'KILT wallet not detected. Please install Polkadot.js or Talisman extension.';
+        case 'KILT_WALLET_NOT_ENABLED':
+          return 'KILT wallet not enabled. Please enable the extension and try again.';
+        case 'KILT_INSUFFICIENT_FUNDS':
+          return 'Insufficient KILT tokens. Please get testnet tokens from the KILT faucet.';
+        case 'KILT_SIGNING_FAILED':
+          return 'Failed to sign transaction. Please try again.';
+        case 'KILT_DID_ALREADY_EXISTS':
+          return 'KILT DID already exists for this address.';
+        case 'KILT_DID_NOT_FOUND':
+          return 'KILT DID not found. Please create a new DID.';
+        case 'KILT_INVALID_DID_FORMAT':
+          return 'Invalid KILT DID format.';
+        case 'KILT_TRANSACTION_FAILED':
+          return 'KILT transaction failed. Please check your balance and try again.';
+        case 'KILT_TRANSACTION_TIMEOUT':
+          return 'KILT transaction timed out. Please try again.';
+        case 'KILT_INVALID_INPUT':
+          return 'Invalid input for KILT operation.';
         default:
           return error.message;
       }
