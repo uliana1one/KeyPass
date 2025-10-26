@@ -1,183 +1,356 @@
-/**
- * Real Moonbeam DID Provider with blockchain integration
- */
-
 import { ethers } from 'ethers';
 import { MoonbeamAdapter } from '../../adapters/MoonbeamAdapter';
-import { MoonbeamNetwork, MoonbeamErrorCode } from '../../config/moonbeamConfig';
-import { DIDRegistryService, DIDRegistryAddress } from '../../contracts/DIDRegistryContract';
+import { MoonbeamDIDService } from '../services/MoonbeamDIDService';
+import { BlockchainError, MoonbeamBlockchainError, MoonbeamErrorCode } from '../../errors/BlockchainErrors';
 
-export interface DIDCreationResult {
-  did: string;
-  txHash: string;
-}
-
-export interface DIDResolutionResult {
-  did: string;
-  didDocument: any;
-}
-
+/**
+ * Moonbeam DID Provider
+ * Provides a high-level interface for DID operations on Moonbeam
+ */
 export class MoonbeamDIDProvider {
   private adapter: MoonbeamAdapter;
-  private contractAddress: DIDRegistryAddress;
-  private didRegistryService: DIDRegistryService;
-  private provider: ethers.Provider;
-  private signer?: ethers.Signer;
+  private didService: MoonbeamDIDService;
+  private contractAddress: string;
 
-  constructor(adapter: MoonbeamAdapter, contractAddress: DIDRegistryAddress) {
+  constructor(adapter: MoonbeamAdapter, contractAddress: string) {
     this.adapter = adapter;
     this.contractAddress = contractAddress;
-    this.provider = adapter.getProvider()!;
-    this.signer = undefined; // Signer will be provided when needed
-    this.didRegistryService = new DIDRegistryService(
-      contractAddress,
-      this.provider,
-      this.signer
-    );
+    this.didService = new MoonbeamDIDService(adapter, contractAddress);
   }
 
   /**
-   * Create a DID for the given address
+   * Check if the provider is connected
    */
-  async createDID(address: string): Promise<DIDCreationResult> {
+  async isConnected(): Promise<boolean> {
     try {
-      if (!this.signer) {
-        throw new Error('Signer required for DID creation');
+      const provider = this.adapter.getProvider();
+      return provider !== null && provider !== undefined;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get the current wallet address
+   */
+  async getCurrentAddress(): Promise<string> {
+    try {
+      const signer = this.adapter.getSigner();
+      if (!signer) {
+        throw new MoonbeamBlockchainError(
+          MoonbeamErrorCode.CONNECTION_FAILED,
+          'Signer not available',
+          'CONNECTION'
+        );
+      }
+      return await signer.getAddress();
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.CONNECTION_FAILED,
+        `Failed to get current address: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'CONNECTION'
+      );
+    }
+  }
+
+  /**
+   * Create a new DID for the current wallet
+   */
+  async createDID(): Promise<string> {
+    try {
+      const address = await this.getCurrentAddress();
+      
+      // Check if address already has a DID
+      const existingDID = await this.didService.getDIDForAddress(address);
+      if (existingDID && existingDID.length > 0) {
+        throw new MoonbeamBlockchainError(
+          MoonbeamErrorCode.INVALID_PARAMETERS,
+          'Address already has a DID',
+          'USER'
+        );
       }
 
-      // Generate DID in format: did:moonbeam:0x...
-      const did = `did:moonbeam:${address.slice(2)}`;
-      
-      // Create DID document
-      const didDocument = {
+      // Create basic DID document
+      const didDocument = JSON.stringify({
         '@context': 'https://www.w3.org/ns/did/v1',
-        id: did,
-        verificationMethod: [{
-          id: `${did}#key-1`,
-          type: 'EcdsaSecp256k1RecoveryMethod2020',
-          controller: did,
-          blockchainAccountId: `${address}@eip155:1287`
-        }],
-        authentication: [`${did}#key-1`],
-        assertionMethod: [`${did}#key-1`]
-      };
+        id: `did:moonbeam:${address}`,
+        verificationMethod: [],
+        service: []
+      });
 
-      // Register DID on blockchain
-      const tx = await this.didRegistryService.registerDID(did, JSON.stringify(didDocument));
-      const receipt = await tx.wait();
-      
-      if (!receipt) {
-        throw new Error('Transaction receipt not found');
-      }
-
-      return {
-        did,
-        txHash: receipt.hash
-      };
+      return await this.didService.registerDID(didDocument);
     } catch (error) {
-      throw new Error(`Failed to create DID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.TRANSACTION_FAILED,
+        `Failed to create DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'TRANSACTION'
+      );
     }
   }
 
   /**
-   * Resolve a DID
+   * Get DID for the current wallet
    */
-  async resolveDid(did: string): Promise<DIDResolutionResult | null> {
+  async getDID(): Promise<string | null> {
     try {
-      const didRecord = await this.didRegistryService.getDID(did);
-      
-      if (!didRecord.isActive) {
-        return null;
-      }
-
-      return {
-        did,
-        didDocument: JSON.parse(didRecord.didDocument)
-      };
+      const address = await this.getCurrentAddress();
+      const did = await this.didService.getDIDForAddress(address);
+      return did && did.length > 0 ? did : null;
     } catch (error) {
-      console.error('Failed to resolve DID:', error);
-      return null;
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.CONTRACT_CALL_FAILED,
+        `Failed to get DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'CONTRACT'
+      );
     }
   }
 
   /**
-   * Update a DID document
+   * Get DID document
    */
-  async updateDid(did: string, didDocument: any): Promise<void> {
+  async getDIDDocument(did: string): Promise<DIDDocument> {
     try {
-      if (!this.signer) {
-        throw new Error('Signer required for DID update');
-      }
-
-      const tx = await this.didRegistryService.updateDID(did, JSON.stringify(didDocument));
-      await tx.wait();
+      return await this.didService.getDIDDocument(did);
     } catch (error) {
-      throw new Error(`Failed to update DID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.CONTRACT_CALL_FAILED,
+        `Failed to get DID document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'CONTRACT'
+      );
+    }
+  }
+
+  /**
+   * Update DID document
+   */
+  async updateDIDDocument(did: string, didDocument: object): Promise<void> {
+    try {
+      const didDocumentString = JSON.stringify(didDocument);
+      await this.didService.updateDID(did, didDocumentString);
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.TRANSACTION_FAILED,
+        `Failed to update DID document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'TRANSACTION'
+      );
+    }
+  }
+
+  /**
+   * Add a verification method to a DID
+   */
+  async addVerificationMethod(
+    did: string,
+    verificationMethodId: string,
+    verificationMethodType: string,
+    publicKeyMultibase: string
+  ): Promise<void> {
+    try {
+      await this.didService.addVerificationMethod(
+        did,
+        verificationMethodId,
+        verificationMethodType,
+        publicKeyMultibase
+      );
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.TRANSACTION_FAILED,
+        `Failed to add verification method: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'TRANSACTION'
+      );
+    }
+  }
+
+  /**
+   * Remove a verification method from a DID
+   */
+  async removeVerificationMethod(did: string, verificationMethodId: string): Promise<void> {
+    try {
+      await this.didService.removeVerificationMethod(did, verificationMethodId);
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.TRANSACTION_FAILED,
+        `Failed to remove verification method: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'TRANSACTION'
+      );
+    }
+  }
+
+  /**
+   * Get verification method
+   */
+  async getVerificationMethod(verificationMethodId: string): Promise<VerificationMethod> {
+    try {
+      return await this.didService.getVerificationMethod(verificationMethodId);
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.CONTRACT_CALL_FAILED,
+        `Failed to get verification method: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'CONTRACT'
+      );
+    }
+  }
+
+  /**
+   * Add a service endpoint to a DID
+   */
+  async addServiceEndpoint(
+    did: string,
+    serviceEndpointId: string,
+    serviceType: string,
+    serviceEndpointUrl: string
+  ): Promise<void> {
+    try {
+      await this.didService.addServiceEndpoint(
+        did,
+        serviceEndpointId,
+        serviceType,
+        serviceEndpointUrl
+      );
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.TRANSACTION_FAILED,
+        `Failed to add service endpoint: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'TRANSACTION'
+      );
+    }
+  }
+
+  /**
+   * Remove a service endpoint from a DID
+   */
+  async removeServiceEndpoint(did: string, serviceEndpointId: string): Promise<void> {
+    try {
+      await this.didService.removeServiceEndpoint(did, serviceEndpointId);
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.TRANSACTION_FAILED,
+        `Failed to remove service endpoint: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'TRANSACTION'
+      );
+    }
+  }
+
+  /**
+   * Get service endpoint
+   */
+  async getServiceEndpoint(serviceEndpointId: string): Promise<ServiceEndpoint> {
+    try {
+      return await this.didService.getServiceEndpoint(serviceEndpointId);
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.CONTRACT_CALL_FAILED,
+        `Failed to get service endpoint: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'CONTRACT'
+      );
     }
   }
 
   /**
    * Deactivate a DID
    */
-  async deactivateDid(did: string): Promise<void> {
+  async deactivateDID(did: string): Promise<void> {
     try {
-      if (!this.signer) {
-        throw new Error('Signer required for DID deactivation');
+      await this.didService.deactivateDID(did);
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
       }
-
-      const tx = await this.didRegistryService.deactivateDID(did);
-      await tx.wait();
-    } catch (error) {
-      throw new Error(`Failed to deactivate DID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.TRANSACTION_FAILED,
+        `Failed to deactivate DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'TRANSACTION'
+      );
     }
   }
 
   /**
-   * Get DID for an address
+   * Check if a DID exists
    */
-  async getDID(address: string): Promise<string | null> {
+  async didExists(did: string): Promise<boolean> {
     try {
-      const did = `did:moonbeam:${address.slice(2)}`;
-      const { exists, isActive } = await this.didRegistryService.checkDID(did);
-      
-      if (exists && isActive) {
-        return did;
+      return await this.didService.didExists(did);
+    } catch (error) {
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
       }
-      
-      return null;
-    } catch (error) {
-      console.error('Failed to get DID:', error);
-      return null;
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.CONTRACT_CALL_FAILED,
+        `Failed to check DID existence: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'CONTRACT'
+      );
     }
   }
 
   /**
-   * Check if DID exists for an address
+   * Get total number of registered DIDs
    */
-  async didExists(address: string): Promise<boolean> {
+  async getTotalDIDCount(): Promise<number> {
     try {
-      const did = `did:moonbeam:${address.slice(2)}`;
-      const { exists, isActive } = await this.didRegistryService.checkDID(did);
-      return exists && isActive;
+      return await this.didService.getTotalDIDCount();
     } catch (error) {
-      console.error('Failed to check DID existence:', error);
-      return false;
+      if (error instanceof MoonbeamBlockchainError) {
+        throw error;
+      }
+      throw new MoonbeamBlockchainError(
+        MoonbeamErrorCode.CONTRACT_CALL_FAILED,
+        `Failed to get total DID count: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'CONTRACT'
+      );
     }
   }
 
   /**
-   * Get DID document for an address
+   * Get the underlying DID service for advanced operations
    */
-  async getDIDDocument(address: string): Promise<any | null> {
-    try {
-      const did = await this.getDID(address);
-      if (!did) return null;
+  getDIDService(): MoonbeamDIDService {
+    return this.didService;
+  }
 
-      const result = await this.resolveDid(did);
-      return result?.didDocument || null;
-    } catch (error) {
-      console.error('Failed to get DID document:', error);
-      return null;
-    }
+  /**
+   * Get the contract address
+   */
+  getContractAddress(): string {
+    return this.contractAddress;
+  }
+
+  /**
+   * Get the adapter
+   */
+  getAdapter(): MoonbeamAdapter {
+    return this.adapter;
   }
 }

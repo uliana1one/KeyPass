@@ -1,4 +1,4 @@
-import { DIDDocument, Service } from './types';
+import { DIDDocument, Service } from '../types.js';
 
 /**
  * Enumeration of Moonbeam-specific cryptographic key types.

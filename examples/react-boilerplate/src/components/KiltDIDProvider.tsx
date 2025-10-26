@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { KiltAdapter } from '../keypass/adapters/KiltAdapter';
-import { KILTDIDProvider as KILTDIDProviderService } from '../keypass/did/KILTDIDProvider';
-import { KILTConfigManager, KILTNetwork } from '../keypass/config/kiltConfig';
+import { KILTDIDProvider } from '../keypass/did/KILTDIDProvider';
+import { KiltAdapter } from '../../src/adapters/KiltAdapter';
 
 interface KiltDIDProviderProps {
   account: {
@@ -13,145 +12,105 @@ interface KiltDIDProviderProps {
   onError: (error: string) => void;
 }
 
-export const KiltDIDProvider: React.FC<KiltDIDProviderProps> = ({
+export const KiltDIDProviderComponent: React.FC<KiltDIDProviderProps> = ({
   account,
   onDIDCreated,
   onError
 }) => {
-  const [adapter, setAdapter] = useState<KiltAdapter | null>(null);
-  const [didProvider, setDidProvider] = useState<KILTDIDProviderService | null>(null);
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [status, setStatus] = useState<string>('Initializing...');
+  const [didProvider, setDidProvider] = useState<KILTDIDProvider | null>(null);
 
   useEffect(() => {
-    initializeKiltServices();
+    initializeKILT();
+    return () => {
+      cleanup();
+    };
   }, []);
 
-  const initializeKiltServices = async () => {
+  const initializeKILT = async () => {
     try {
-      setLoading(true);
+      setStatus('Connecting to KILT network...');
       
-      // Initialize KILT configuration
-      const configManager = new KILTConfigManager();
-      configManager.setCurrentNetwork(KILTNetwork.SPIRITNET);
-      
-      // Initialize KILT adapter
-      const kiltAdapter = new KiltAdapter({
-        network: KILTNetwork.SPIRITNET,
-        configManager
-      });
-      
-      // Connect to KILT network
+      // Create KILT adapter and DID provider
+      const kiltAdapter = new KiltAdapter();
+      const provider = new KILTDIDProvider(kiltAdapter);
+      setDidProvider(provider);
+
+      // Connect to KILT
       await kiltAdapter.connect();
-      
-      // Initialize DID provider
-      const didProviderService = new KILTDIDProviderService(kiltAdapter);
-      
-      setAdapter(kiltAdapter);
-      setDidProvider(didProviderService);
       setConnected(true);
-      
+      setStatus('Connected to KILT Spiritnet');
     } catch (error: any) {
-      console.error('Failed to initialize KILT services:', error);
-      onError(`Failed to initialize KILT services: ${error.message}`);
-    } finally {
-      setLoading(false);
+      console.error('Failed to initialize KILT:', error);
+      onError(`Failed to connect to KILT: ${error.message}`);
+      setStatus('Connection failed');
+    }
+  };
+
+  const cleanup = async () => {
+    if (didProvider) {
+      try {
+        await didProvider['kiltAdapter']?.disconnect();
+      } catch (error) {
+        console.error('Error cleaning up KILT adapter:', error);
+      }
     }
   };
 
   const createKiltDID = async () => {
-    if (!didProvider || !adapter) {
-      onError('KILT services not initialized');
+    if (!didProvider || !connected) {
+      onError('Not connected to KILT network');
       return;
     }
 
     try {
       setLoading(true);
+      setStatus('Creating DID...');
       
-      // Create DID document
+      // Create DID using real KILT provider
+      const did = await didProvider.createDid(account.address);
+      
+      setStatus('Creating DID document...');
       const didDocument = await didProvider.createDIDDocument(account.address);
       
-      // Register DID on KILT blockchain
-      const registrationResult = await didProvider.registerDIDOnChain(
-        account.address,
-        didDocument
-      );
-      
       const result = {
-        did: registrationResult.did,
+        did: did,
         didDocument: didDocument,
         address: account.address,
         chainType: 'kilt',
-        registrationResult: registrationResult,
         createdAt: new Date().toISOString()
       };
       
+      setStatus('DID created successfully');
       onDIDCreated(result);
       
     } catch (error: any) {
       console.error('Failed to create KILT DID:', error);
       onError(`Failed to create KILT DID: ${error.message}`);
+      setStatus('DID creation failed');
     } finally {
       setLoading(false);
     }
   };
 
   const checkExistingDID = async () => {
-    if (!didProvider) {
-      onError('KILT services not initialized');
+    if (!didProvider || !connected) {
+      onError('Not connected to KILT network');
       return;
     }
 
     try {
-      setLoading(true);
-      
-      // Check if DID already exists on KILT blockchain
-      const exists = await didProvider.checkDIDExists(account.address);
-      
-      if (exists) {
-        // Resolve existing DID
-        const didDocument = await didProvider.resolveDID(account.address);
-        const result = {
-          did: `did:kilt:${account.address}`,
-          didDocument: didDocument,
-          address: account.address,
-          chainType: 'kilt',
-          exists: true,
-          createdAt: new Date().toISOString()
-        };
-        
-        onDIDCreated(result);
-      } else {
-        // Create new DID
-        await createKiltDID();
-      }
+      // resolve is not available in the interface
+      // For now, always create a new DID
+      await createKiltDID();
       
     } catch (error: any) {
       console.error('Failed to check KILT DID:', error);
       onError(`Failed to check KILT DID: ${error.message}`);
-    } finally {
-      setLoading(false);
     }
   };
-
-  if (loading && !connected) {
-    return (
-      <div className="kilt-provider">
-        <div className="loading">Initializing KILT services...</div>
-      </div>
-    );
-  }
-
-  if (!connected) {
-    return (
-      <div className="kilt-provider">
-        <div className="error">Failed to connect to KILT network</div>
-        <button onClick={initializeKiltServices} className="retry-button">
-          Retry Connection
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="kilt-provider">
@@ -160,15 +119,19 @@ export const KiltDIDProvider: React.FC<KiltDIDProviderProps> = ({
         <p><strong>Account:</strong> {account.name}</p>
         <p><strong>Address:</strong> {account.address}</p>
         <p><strong>Network:</strong> KILT Spiritnet</p>
+        <p className={`connection-status ${connected ? 'connected' : 'disconnected'}`}>
+          {connected ? '✓ Connected' : '✗ Disconnected'}
+        </p>
+        <p className="status-note">{status}</p>
       </div>
       
       <div className="provider-actions">
         <button 
           onClick={checkExistingDID}
-          disabled={loading}
+          disabled={loading || !connected}
           className="primary-button"
         >
-          {loading ? 'Checking...' : 'Check/Create KILT DID'}
+          {loading ? 'Processing...' : 'Create KILT DID'}
         </button>
       </div>
       
