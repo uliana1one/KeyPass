@@ -9,10 +9,18 @@ export interface ProductionConfig {
   // Blockchain Configuration
   blockchain: {
     enabled: boolean;
-    defaultNetwork: 'moonbase-alpha' | 'moonbeam' | 'moonriver';
+    defaultNetwork: 'moonbase-alpha' | 'moonbeam' | 'moonriver' | 'kilt-spiritnet';
     supportedNetworks: string[];
     requireDIDVerification: boolean;
     minConfirmations: number;
+  };
+  
+  // KILT Configuration
+  kilt: {
+    enabled: boolean;
+    network: 'spiritnet' | 'mainnet' | 'peregrine';
+    wsEndpoint: string;
+    chainId: string;
   };
   
   // IPFS Configuration
@@ -58,6 +66,13 @@ export function getProductionConfig(): ProductionConfig {
       supportedNetworks: process.env.REACT_APP_SUPPORTED_NETWORKS?.split(',') || ['moonbase-alpha'],
       requireDIDVerification: process.env.REACT_APP_REQUIRE_DID_VERIFICATION === 'true',
       minConfirmations: parseInt(process.env.REACT_APP_MIN_CONFIRMATIONS || '1'),
+    },
+    
+    kilt: {
+      enabled: process.env.REACT_APP_ENABLE_KILT === 'true',
+      network: (process.env.REACT_APP_KILT_NETWORK as any) || 'spiritnet',
+      wsEndpoint: process.env.REACT_APP_KILT_WSS_ENDPOINT || 'wss://spiritnet.kilt.io',
+      chainId: process.env.REACT_APP_KILT_CHAIN_ID || '1287',
     },
     
     ipfs: {
