@@ -865,6 +865,77 @@ export class KiltAdapter implements WalletAdapter {
   }
 
   /**
+   * Checks if an account has sufficient KILT balance for operations.
+   * @param address - The account address to check
+   * @param minimumBalance - The minimum required balance (optional, defaults to 0.001 KILT)
+   * @returns A promise that resolves to balance info
+   */
+  public async checkBalance(
+    address: string, 
+    minimumBalance: bigint = BigInt('1000000000000') // 0.001 KILT
+  ): Promise<{
+    hasSufficientBalance: boolean;
+    currentBalance: string;
+    minimumRequired: string;
+    preservingExistentialDeposit: boolean;
+  }> {
+    try {
+      if (!this.api) {
+        throw new KILTError(
+          'KILT adapter not connected',
+          KILTErrorType.NETWORK_ERROR
+        );
+      }
+
+      // Validate address
+      await this.validateAddress(address);
+
+      // Get account info from the chain
+      const accountInfo = await this.api.query.system.account(address);
+      
+      // Get free and reserved balances
+      const freeBalance = accountInfo.data.free.toBigInt();
+      const reservedBalance = accountInfo.data.reserved.toBigInt();
+      const frozenBalance = accountInfo.data.frozen.toBigInt();
+      const totalBalance = freeBalance + reservedBalance;
+      
+      // Calculate available balance (free minus frozen)
+      const availableBalance = freeBalance - frozenBalance;
+
+      // Check if sufficient balance
+      const hasSufficientBalance = availableBalance >= minimumBalance;
+
+      return {
+        hasSufficientBalance,
+        currentBalance: availableBalance.toString(),
+        minimumRequired: minimumBalance.toString(),
+        preservingExistentialDeposit: true,
+      };
+
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+
+      throw new KILTError(
+        `Failed to check balance: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.NETWORK_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Gets the current balance for an account.
+   * @param address - The account address
+   * @returns A promise that resolves to the balance in the smallest unit
+   */
+  public async getBalance(address: string): Promise<string> {
+    const balanceInfo = await this.checkBalance(address);
+    return balanceInfo.currentBalance;
+  }
+
+  /**
    * Creates a signer from an address using the wallet extension.
    * @param address - The account address
    * @returns A promise that resolves to a KeyringPair
