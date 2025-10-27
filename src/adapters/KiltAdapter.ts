@@ -936,7 +936,116 @@ export class KiltAdapter implements WalletAdapter {
   }
 
   /**
-   * Creates a signer from an address using the wallet extension.
+   * Signs a transaction extrinsic using the wallet extension.
+   * This method prompts the user to sign the transaction in their wallet.
+   * @param extrinsic - The transaction extrinsic to sign
+   * @param address - The account address to sign with
+   * @returns A promise that resolves to the signed transaction
+   */
+  public async signTransaction(
+    extrinsic: any,
+    address: string
+  ): Promise<any> {
+    try {
+      if (!this.enabled) {
+        throw new KILTError(
+          'Wallet not enabled. Call enable() first.',
+          KILTErrorType.NETWORK_ERROR
+        );
+      }
+
+      // Validate address
+      await this.validateAddress(address);
+
+      // Get injector for the address
+      const injector = await web3FromAddress(address);
+      if (!injector.signer) {
+        throw new KILTError(
+          `No signer available for address ${address}. Please ensure your wallet is connected.`,
+          KILTErrorType.NETWORK_ERROR
+        );
+      }
+
+      // Sign the transaction using the wallet extension
+      const signedExtrinsic = await extrinsic.signAsync(address, {
+        signer: injector.signer,
+      });
+
+      return signedExtrinsic;
+
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+
+      // Check for user rejection
+      if (error instanceof Error && error.message.includes('User rejected')) {
+        throw new UserRejectedError('transaction_signing');
+      }
+
+      throw new KILTError(
+        `Failed to sign transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.NETWORK_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Signs and submits a transaction in one call.
+   * This is a convenience method that combines signTransaction and submitTransaction.
+   * @param extrinsic - The transaction extrinsic
+   * @param address - The account address to sign with
+   * @param options - Optional transaction options
+   * @returns A promise that resolves to the transaction result
+   */
+  public async signAndSubmitTransaction(
+    extrinsic: any,
+    address: string,
+    options?: Partial<KILTTransactionOptions>
+  ): Promise<KILTTransactionResult> {
+    try {
+      // First check balance
+      const balanceInfo = await this.checkBalance(address);
+      if (!balanceInfo.hasSufficientBalance) {
+        throw new KILTError(
+          `Insufficient balance. Current: ${balanceInfo.currentBalance}, Required: ${balanceInfo.minimumRequired}`,
+          KILTErrorType.INSUFFICIENT_BALANCE
+        );
+      }
+
+      // Sign the transaction
+      const signedExtrinsic = await this.signTransaction(extrinsic, address);
+
+      // Submit the transaction using the transaction service
+      if (!this.transactionService) {
+        throw new KILTError(
+          'Transaction service not available',
+          KILTErrorType.NETWORK_ERROR
+        );
+      }
+
+      const result = await this.transactionService.submitSignedTransaction(signedExtrinsic, {
+        waitForConfirmation: options?.waitForConfirmation ?? true,
+      });
+
+      return result;
+
+    } catch (error) {
+      if (error instanceof KILTError || error instanceof UserRejectedError) {
+        throw error;
+      }
+
+      throw new KILTError(
+        `Failed to sign and submit transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Creates a signer from an account address using the wallet extension.
    * @param address - The account address
    * @returns A promise that resolves to a KeyringPair
    * @private
