@@ -165,9 +165,8 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
   }
 
   /**
-   * Resolves a KILT DID to its DID document.
-   * For now, this creates the DID document from the address.
-   * In a full implementation, this would query the KILT parachain for onchain DID data.
+   * Resolves a KILT DID to its DID document by querying the KILT parachain.
+   * First attempts to resolve from on-chain data, fallback to constructed document.
    * 
    * @param did - The KILT DID to resolve
    * @returns A promise that resolves to the DID document
@@ -180,7 +179,20 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
 
     try {
       const address = await this.extractAddress(did);
-      return this.createDIDDocument(address);
+      
+      // First try to get the actual on-chain DID document
+      try {
+        const onChainDocument = await this.resolveFromBlockchain(did, address);
+        if (onChainDocument) {
+          return onChainDocument;
+        }
+      } catch (error) {
+        // Log but don't fail - will fallback to constructed DID
+        console.warn('Failed to resolve from blockchain, falling back to constructed DID:', error);
+      }
+      
+      // Fallback to creating a basic DID document from address
+      return await this.createDIDDocument(address);
     } catch (error) {
       if (error instanceof KILTError) {
         throw error;
@@ -190,6 +202,154 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         KILTErrorType.KILT_DID_NOT_FOUND
       );
     }
+  }
+
+  /**
+   * Attempts to resolve a DID document from the KILT blockchain.
+   * 
+   * @param did - The KILT DID to resolve
+   * @param address - The extracted address
+   * @returns Promise resolving to the on-chain DID document or null if not found
+   * @throws {KILTError} If blockchain query fails
+   */
+  private async resolveFromBlockchain(did: string, address: string): Promise<DIDDocument | null> {
+    try {
+      // Ensure we're connected to the KILT parachain
+      await this.kiltAdapter.connect();
+      
+      // Query the DID pallet for the DID document
+      const api = this.kiltAdapter.getApi();
+      if (!api) {
+        throw new Error('KILT API not available');
+      }
+
+      // Query the on-chain DID entry
+      const didEntry = await api.query.did?.did(address);
+      
+      if (!didEntry || (didEntry as any).isNone) {
+        // DID doesn't exist on-chain
+        return null;
+      }
+
+      // Parse the on-chain DID data
+      const didDetails = (didEntry as any).unwrap();
+      
+      // Construct DID document from on-chain data
+      const didDocument: DIDDocument = {
+        '@context': ['https://www.w3.org/ns/did/v1'],
+        id: did,
+        controller: did, // The DID controls itself
+        verificationMethod: [],
+        authentication: [],
+        assertionMethod: [],
+        keyAgreement: [],
+        capabilityInvocation: [],
+        capabilityDelegation: []
+      };
+
+      // Add verification methods from on-chain keys
+      if (didDetails.publicKeys) {
+        const keys = didDetails.publicKeys.toJSON() as any[];
+        
+        keys.forEach((key: any, index: number) => {
+          const keyId = `${did}#key-${index + 1}`;
+          const verificationMethod = {
+            id: keyId,
+            type: this.getKeyType(key.keyType),
+            controller: did,
+            publicKeyMultibase: this.encodePublicKey(key.key)
+          };
+
+          didDocument.verificationMethod!.push(verificationMethod);
+          
+          // Add to appropriate verification relationships based on key purpose
+          if (key.purposes?.includes('Authentication') || index === 0) {
+            didDocument.authentication!.push(keyId);
+          }
+          if (key.purposes?.includes('AssertionMethod') || index === 0) {
+            didDocument.assertionMethod!.push(keyId);
+          }
+          if (key.purposes?.includes('KeyAgreement')) {
+            didDocument.keyAgreement!.push(keyId);
+          }
+          if (key.purposes?.includes('CapabilityInvocation') || index === 0) {
+            didDocument.capabilityInvocation!.push(keyId);
+          }
+          if (key.purposes?.includes('CapabilityDelegation')) {
+            didDocument.capabilityDelegation!.push(keyId);
+          }
+        });
+      } else {
+        // If no keys found on-chain, add default authentication key
+        const keyId = `${did}#key-1`;
+        const verificationMethod = {
+          id: keyId,
+          type: 'Sr25519VerificationKey2020',
+          controller: did,
+          publicKeyMultibase: address // Use address as fallback
+        };
+        
+        didDocument.verificationMethod!.push(verificationMethod);
+        didDocument.authentication!.push(keyId);
+        didDocument.assertionMethod!.push(keyId);
+        didDocument.capabilityInvocation!.push(keyId);
+      }
+
+      // Add service endpoints if present
+      if (didDetails.serviceEndpoints) {
+        const services = didDetails.serviceEndpoints.toJSON() as any[];
+        didDocument.service = services.map((service: any, index: number) => ({
+          id: `${did}#service-${index + 1}`,
+          type: service.serviceType || 'LinkedDomains',
+          serviceEndpoint: service.urls || []
+        }));
+      }
+
+      return didDocument;
+      
+    } catch (error) {
+      throw new KILTError(
+        `Failed to query KILT blockchain: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.NETWORK_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Maps KILT key types to standard verification method types.
+   */
+  private getKeyType(keyType: any): string {
+    switch (keyType?.toString()) {
+      case 'Sr25519':
+        return 'Sr25519VerificationKey2020';
+      case 'Ed25519':
+        return 'Ed25519VerificationKey2020';
+      case 'Ecdsa':
+        return 'EcdsaSecp256k1VerificationKey2019';
+      default:
+        return 'Sr25519VerificationKey2020'; // Default fallback
+    }
+  }
+
+  /**
+   * Encodes a public key for use in DID documents.
+   */
+  private encodePublicKey(key: any): string {
+    if (typeof key === 'string') {
+      return key;
+    }
+    // Convert to hex if it's a Uint8Array or similar
+    if (key && typeof key.toHex === 'function') {
+      return key.toHex();
+    }
+    if (key && key.length) {
+      // Convert array to hex
+      return '0x' + Array.from(key, (byte: any) => 
+        byte.toString(16).padStart(2, '0')
+      ).join('');
+    }
+    return key?.toString() || '';
   }
 
   /**
@@ -226,6 +386,90 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
     }
     
     return address;
+  }
+
+  /**
+   * Checks if a DID exists on the KILT blockchain.
+   * 
+   * @param did - The KILT DID to check
+   * @returns Promise resolving to true if the DID exists on-chain
+   */
+  public async existsOnChain(did: string): Promise<boolean> {
+    try {
+      const address = await this.extractAddress(did);
+      await this.kiltAdapter.connect();
+      
+      const api = this.kiltAdapter.getApi();
+      if (!api) {
+        return false;
+      }
+
+      const didEntry = await api.query.did?.did(address);
+      return didEntry && !(didEntry as any).isNone;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Resolves a KILT DID with additional metadata about its source.
+   * 
+   * @param did - The KILT DID to resolve
+   * @returns Promise resolving to DID document with resolution metadata
+   */
+  public async resolveWithMetadata(did: string): Promise<{
+    document: DIDDocument;
+    metadata: {
+      source: 'blockchain' | 'constructed';
+      existsOnChain: boolean;
+      resolvedAt: string;
+    };
+  }> {
+    const resolvedAt = new Date().toISOString();
+    
+    try {
+      const address = await this.extractAddress(did);
+      
+      // Try to resolve from blockchain first
+      let onChainDocument: DIDDocument | null = null;
+      try {
+        onChainDocument = await this.resolveFromBlockchain(did, address);
+      } catch (error) {
+        // Ignore blockchain resolution errors for metadata resolution
+      }
+      
+      if (onChainDocument) {
+        return {
+          document: onChainDocument,
+          metadata: {
+            source: 'blockchain',
+            existsOnChain: true,
+            resolvedAt
+          }
+        };
+      }
+      
+      // Fallback to constructed DID
+      const constructedDocument = await this.createDIDDocument(address);
+      const existsOnChain = await this.existsOnChain(did);
+      
+      return {
+        document: constructedDocument,
+        metadata: {
+          source: 'constructed',
+          existsOnChain,
+          resolvedAt
+        }
+      };
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+      throw new KILTError(
+        `Failed to resolve KILT DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.KILT_DID_NOT_FOUND
+      );
+    }
   }
 
   /**

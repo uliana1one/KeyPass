@@ -488,6 +488,15 @@ export class KiltAdapter implements WalletAdapter {
   }
 
   /**
+   * Gets the Polkadot API instance for direct blockchain queries.
+   * Returns null if not connected.
+   * @returns The ApiPromise instance or null if not connected
+   */
+  public getApi(): ApiPromise | null {
+    return this.api;
+  }
+
+  /**
    * Gets the KILT chain information.
    * @returns KiltChainInfo or null if not connected
    */

@@ -32,6 +32,13 @@ export {
   type CreateDIDResult 
 } from './did/index.js';
 
+// Export DID resolution API
+export {
+  resolveDID,
+  resolveKILTDIDWithMetadata,
+  checkDIDExists
+} from './did/index.js';
+
 // Export KILT configuration
 export { 
   KILTConfigManager, 

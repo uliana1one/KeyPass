@@ -14,6 +14,7 @@ export * from './types/KILTTypes.js';
 import { EthereumDIDProvider } from './EthereumDIDProvider.js';
 import { PolkadotDIDProvider } from './UUIDProvider.js';
 import { KILTDIDProvider } from './KILTDIDProvider.js';
+import type { DIDDocument } from './types/DIDDocument.js';
 import { MoonbeamDIDProvider } from './providers/MoonbeamDIDProvider.js';
 
 /**
@@ -134,6 +135,125 @@ function detectDIDMethod(address: string): 'ethr' | 'key' | 'kilt' | 'moonbeam' 
     return 'kilt'; // Default to KILT for SS58
   }
   return 'key';
+}
+
+/**
+ * Resolves a DID to its DID document. Automatically detects the DID method
+ * and uses the appropriate resolver.
+ * 
+ * @param did - The DID to resolve (e.g., 'did:ethr:0x123...', 'did:kilt:4abc...', etc.)
+ * @returns Promise resolving to the DID document
+ * @throws Error if the DID cannot be resolved
+ * 
+ * @example
+ * ```typescript
+ * import { resolveDID } from 'keypass-login-sdk';
+ * 
+ * const didDoc = await resolveDID('did:kilt:4abc123...');
+ * console.log('Resolved DID:', didDoc.id);
+ * console.log('Public keys:', didDoc.verificationMethod);
+ * ```
+ */
+export async function resolveDID(did: string): Promise<DIDDocument> {
+  if (!did || typeof did !== 'string') {
+    throw new Error('Invalid DID: must be a non-empty string');
+  }
+
+  const parts = did.split(':');
+  if (parts.length < 3 || parts[0] !== 'did') {
+    throw new Error('Invalid DID format: must start with "did:" followed by method');
+  }
+
+  const method = parts[1];
+
+  try {
+    switch (method) {
+      case 'ethr': {
+        const ethProvider = new EthereumDIDProvider();
+        return await ethProvider.resolve(did);
+      }
+
+      case 'key': {
+        const polkadotProvider = new PolkadotDIDProvider();
+        return await polkadotProvider.resolve(did);
+      }
+
+      case 'kilt': {
+        const kiltProvider = new KILTDIDProvider();
+        return await kiltProvider.resolve(did);
+      }
+
+      case 'moonbeam': {
+        // For now, treat moonbeam DIDs similar to ethereum
+        const ethProvider = new EthereumDIDProvider();
+        return await ethProvider.resolve(did);
+      }
+
+      default:
+        throw new Error(`Unsupported DID method: ${method}`);
+    }
+  } catch (error) {
+    throw new Error(
+      `Failed to resolve DID ${did}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Resolves a KILT DID with additional metadata about resolution source.
+ * 
+ * @param did - The KILT DID to resolve
+ * @returns Promise resolving to DID document with metadata
+ */
+export async function resolveKILTDIDWithMetadata(did: string): Promise<{
+  document: DIDDocument;
+  metadata: {
+    source: 'blockchain' | 'constructed';
+    existsOnChain: boolean;
+    resolvedAt: string;
+  };
+}> {
+  const kiltProvider = new KILTDIDProvider();
+  return await kiltProvider.resolveWithMetadata(did);
+}
+
+/**
+ * Checks if a DID exists on its respective blockchain.
+ * 
+ * @param did - The DID to check
+ * @returns Promise resolving to true if the DID exists on-chain
+ */
+export async function checkDIDExists(did: string): Promise<boolean> {
+  if (!did || typeof did !== 'string') {
+    return false;
+  }
+
+  const parts = did.split(':');
+  if (parts.length < 3 || parts[0] !== 'did') {
+    return false;
+  }
+
+  const method = parts[1];
+
+  try {
+    switch (method) {
+      case 'kilt': {
+        const kiltProvider = new KILTDIDProvider();
+        return await kiltProvider.existsOnChain(did);
+      }
+
+      case 'ethr':
+      case 'key':
+      case 'moonbeam':
+        // These methods don't have on-chain registries in our current implementation
+        return false;
+
+      default:
+        return false;
+    }
+  } catch (error) {
+    return false;
+  }
 }
 
 /**
