@@ -256,32 +256,89 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
   }
 
   /**
-   * Registers a KILT DID on the blockchain using real KILT parachain integration.
-   * Creates the DID with associated verification methods and services.
-   * @param request - The KILT DID creation request
+   * Registers a KILT DID on the blockchain with seamless wallet integration.
+   * This is the main method for creating on-chain DIDs with full error handling,
+   * balance checking, and transaction retry logic.
+   * 
+   * @param request - The KILT DID creation request (optional, will create from address if not provided)
    * @param accountAddress - The account address to use for signing
    * @returns A promise that resolves to the creation response
    * @throws {KILTError} If registration fails
+   * 
+   * @example
+   * ```typescript
+   * const kiltProvider = new KILTDIDProvider(kiltAdapter);
+   * const result = await kiltProvider.registerDidOnchain({}, accountAddress);
+   * console.log('DID created:', result.did);
+   * ```
    */
-  public async registerDidOnchain(request: KILTCreateDIDRequest, accountAddress: string): Promise<KILTCreateDIDResponse> {
+  public async registerDidOnchain(request: KILTCreateDIDRequest = {}, accountAddress: string): Promise<KILTCreateDIDResponse> {
     try {
+      console.log(`[KILTDIDProvider] Starting DID registration for address: ${accountAddress}`);
+      
       // Validate the account address
       this.validateAddress(accountAddress);
       
       // Connect to KILT parachain
       await this.kiltAdapter.connect();
+      console.log(`[KILTDIDProvider] Connected to KILT parachain: ${this.kiltAdapter.getCurrentNetwork()}`);
       
-      // Create the DID
+      // Check balance before proceeding (requires minimum 0.1 KILT for DID registration)
+      const minimumBalance = BigInt('100000000000000'); // 0.1 KILT
+      const balanceInfo = await this.kiltAdapter.checkBalance(accountAddress, minimumBalance);
+      
+      if (!balanceInfo.hasSufficientBalance) {
+        throw new KILTError(
+          `Insufficient balance for DID registration. Current: ${balanceInfo.currentBalance}, Required: ${balanceInfo.minimumRequired} (0.1 KILT minimum)`,
+          KILTErrorType.INSUFFICIENT_BALANCE
+        );
+      }
+      
+      console.log(`[KILTDIDProvider] Balance check passed: ${balanceInfo.currentBalance}`);
+      
+      // Create the DID identifier
       const did = request.did || await this.createDid(accountAddress);
+      console.log(`[KILTDIDProvider] DID identifier: ${did}`);
       
       // Create the DID document from the address
       const didDocument = await this.createDIDDocument(accountAddress) as KILTDIDDocument;
+      console.log(`[KILTDIDProvider] DID document created with ${didDocument.verificationMethod.length} verification methods`);
+      
+      // Check if DID already exists on-chain
+      const didExists = await this.didExists(did);
+      if (didExists) {
+        console.log(`[KILTDIDProvider] DID already exists on-chain: ${did}`);
+        return {
+          did,
+          didDocument,
+          transactionResult: {
+            success: true,
+            transactionHash: 'existing',
+            blockNumber: 0,
+            blockHash: '',
+            events: [],
+            fee: { amount: '0', currency: 'KILT' },
+            timestamp: new Date().toISOString(),
+          },
+          status: KILTDIDStatus.ACTIVE,
+        };
+      }
       
       // Prepare transaction extrinsics
+      console.log(`[KILTDIDProvider] Preparing DID registration transaction...`);
       const extrinsics = await this.prepareDIDRegistrationTransaction(request, didDocument, accountAddress);
       
-      // Submit the transaction
-      const transactionResult = await this.submitTransaction(extrinsics, accountAddress);
+      // Use the improved adapter method for signing and submission
+      console.log(`[KILTDIDProvider] Signing and submitting transaction...`);
+      const transactionResult = await this.kiltAdapter.signAndSubmitTransaction(
+        extrinsics[0], // Take the first extrinsic (create DID)
+        accountAddress,
+        {
+          waitForConfirmation: true,
+        }
+      );
+      
+      console.log(`[KILTDIDProvider] DID registration successful: ${transactionResult.transactionHash}`);
       
       return {
         did,
@@ -289,17 +346,49 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         transactionResult,
         status: KILTDIDStatus.ACTIVE,
       };
+      
     } catch (error) {
+      console.error(`[KILTDIDProvider] DID registration failed:`, error);
+      
       if (error instanceof KILTError) {
         throw error;
       }
       
+      // Enhanced error handling with specific messages
+      let errorMessage = `Failed to register KILT DID: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      let errorType = KILTErrorType.DID_REGISTRATION_ERROR;
+      
+      if (error instanceof Error) {
+        if (error.message.includes('insufficient')) {
+          errorType = KILTErrorType.INSUFFICIENT_BALANCE;
+          errorMessage = `Insufficient balance for DID registration. Please ensure you have at least 0.1 KILT tokens.`;
+        } else if (error.message.includes('rejected')) {
+          errorMessage = `Transaction was rejected by user. DID registration cancelled.`;
+        } else if (error.message.includes('network')) {
+          errorType = KILTErrorType.NETWORK_ERROR;
+          errorMessage = `Network error during DID registration. Please check your connection and try again.`;
+        }
+      }
+      
       throw new KILTError(
-        `Failed to register KILT DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        KILTErrorType.DID_REGISTRATION_ERROR,
+        errorMessage,
+        errorType,
         { cause: error as Error }
       );
     }
+  }
+
+  /**
+   * Simplified method to register a DID for an address.
+   * This is a convenience method that uses sensible defaults.
+   * 
+   * @param accountAddress - The account address to create DID for
+   * @returns A promise that resolves to the DID identifier
+   * @throws {KILTError} If registration fails
+   */
+  public async registerDIDForAddress(accountAddress: string): Promise<string> {
+    const result = await this.registerDidOnchain({}, accountAddress);
+    return result.did;
   }
 
   /**

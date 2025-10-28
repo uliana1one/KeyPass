@@ -23,7 +23,12 @@ export interface CreateDIDOptions {
   /** Specific DID method to use. If not provided, auto-detects from address */
   method?: 'ethr' | 'key' | 'kilt' | 'moonbeam';
   /** Additional options for DID creation */
-  options?: Record<string, unknown>;
+  options?: {
+    /** Whether to create DID on-chain (for KILT) */
+    onChain?: boolean;
+    /** Additional method-specific options */
+    [key: string]: unknown;
+  };
   /** Blockchain adapter (required for some chains) */
   adapter?: any;
 }
@@ -43,6 +48,23 @@ export interface CreateDIDResult {
 /**
  * Creates a DID for any supported blockchain with automatic chain detection.
  * Supports: ethereum (did:ethr), polkadot (did:key), KILT (did:kilt), moonbeam (did:moonbeam)
+ * 
+ * @param address - The blockchain address to create DID for
+ * @param options - DID creation options
+ * @returns Promise resolving to the created DID result
+ * 
+ * @example
+ * ```typescript
+ * // Auto-detect and create off-chain DID
+ * const result = await createDID('0x742d35Cc...'); // Returns did:ethr
+ * 
+ * // Create on-chain KILT DID
+ * const kiltResult = await createDID(address, { 
+ *   method: 'kilt', 
+ *   adapter: kiltAdapter,
+ *   onChain: true 
+ * });
+ * ```
  */
 export async function createDID(
   address: string,
@@ -65,8 +87,21 @@ export async function createDID(
       const provider = options.adapter 
         ? new KILTDIDProvider(options.adapter)
         : new KILTDIDProvider();
-      const did = await provider.createDid(address);
-      return { did, method };
+      
+      // Check if on-chain registration is requested
+      if (options.options?.onChain === true) {
+        console.log('[createDID] Creating on-chain KILT DID...');
+        const result = await provider.registerDidOnchain({}, address);
+        return { 
+          did: result.did, 
+          method,
+          document: result.didDocument 
+        };
+      } else {
+        // Create off-chain DID (default)
+        const did = await provider.createDid(address);
+        return { did, method };
+      }
     }
     case 'moonbeam': {
       if (!options.adapter) {
@@ -100,3 +135,89 @@ function detectDIDMethod(address: string): 'ethr' | 'key' | 'kilt' | 'moonbeam' 
   }
   return 'key';
 }
+
+/**
+ * Creates an on-chain KILT DID with seamless wallet integration.
+ * This is a convenience function for KILT DID registration.
+ * 
+ * @param address - The KILT account address
+ * @param kiltAdapter - The KILT adapter instance
+ * @returns Promise resolving to the registered DID identifier
+ * @throws Error if registration fails
+ * 
+ * @example
+ * ```typescript
+ * import { KiltAdapter } from 'keypass-login-sdk';
+ * 
+ * const kiltAdapter = new KiltAdapter();
+ * await kiltAdapter.enable();
+ * 
+ * const did = await createKILTDID(address, kiltAdapter);
+ * console.log('Registered KILT DID:', did);
+ * ```
+ */
+export async function createKILTDID(address: string, kiltAdapter: any): Promise<string> {
+  try {
+    const result = await createDID(address, {
+      method: 'kilt',
+      adapter: kiltAdapter,
+      options: { onChain: true }
+    });
+    
+    return result.did;
+  } catch (error) {
+    throw new Error(
+      `Failed to create on-chain KILT DID: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Convenience function to create DIDs with better type safety.
+ * Provides chain-specific overloads for better developer experience.
+ */
+export const DIDFactory = {
+  /**
+   * Creates an Ethereum DID (did:ethr)
+   */
+  ethereum: async (address: string): Promise<string> => {
+    const result = await createDID(address, { method: 'ethr' });
+    return result.did;
+  },
+
+  /**
+   * Creates a Polkadot DID (did:key)
+   */
+  polkadot: async (address: string): Promise<string> => {
+    const result = await createDID(address, { method: 'key' });
+    return result.did;
+  },
+
+  /**
+   * Creates a KILT DID (did:kilt) - off-chain by default
+   */
+  kilt: async (address: string, adapter?: any): Promise<string> => {
+    const result = await createDID(address, { method: 'kilt', adapter });
+    return result.did;
+  },
+
+  /**
+   * Creates an on-chain KILT DID (did:kilt) with blockchain registration
+   */
+  kiltOnChain: async (address: string, adapter: any): Promise<string> => {
+    const result = await createDID(address, { 
+      method: 'kilt', 
+      adapter,
+      options: { onChain: true } 
+    });
+    return result.did;
+  },
+
+  /**
+   * Creates a Moonbeam DID (did:moonbeam)
+   */
+  moonbeam: async (address: string, adapter: any): Promise<string> => {
+    const result = await createDID(address, { method: 'moonbeam', adapter });
+    return result.did;
+  },
+};
