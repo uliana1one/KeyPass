@@ -16,19 +16,27 @@
    - Integrated balance checking before signing
    - Added user rejection error handling
 
-## 🚧 In Progress
+3. ✅ **Add KILT transaction retry logic** (Commit: `Add KILT transaction retry logic`)
+   - Implemented retry with exponential backoff
+   - Added `submitSignedTransaction()` method
+   - Enhanced error classification (retryable vs non-retryable)
+   - Integrated with transaction service
 
 ### Phase 2: Integration & API Surface
 
-3. 🔄 **Complete KILT DID on-chain registration workflow**
-   - Status: Infrastructure ready, needs integration testing
-   - Code exists in `KILTDIDProvider.registerDidOnchain()`
-   - Needs seamless wallet integration
+4. ✅ **Create unified DID creation API** (Commit: `Create unified DID creation API`)
+   - Implemented `createDID()` with auto-detection
+   - Added support for all methods: ethr, key, kilt, moonbeam
+   - Automatic chain detection from address format
+   - Added type-safe factory methods
 
-4. 🔄 **Implement KILT fee estimation**
-   - Partial implementation exists in `estimateGas()` method
-   - Needs integration with DID registration flow
-   - Should display fees to users before signing
+5. ✅ **Complete KILT DID on-chain registration workflow** (Commit: `Complete KILT on-chain registration workflow`)
+   - Enhanced `registerDidOnchain()` with seamless wallet integration
+   - Integrated balance checking before registration
+   - Added comprehensive error handling with user-friendly messages
+   - Integrated with unified DID API for on-chain registration
+   - Added `createKILTDID()` convenience function
+   - Added `DIDFactory.kiltOnChain()` method
 
 ## 📋 Remaining Tasks
 
@@ -61,7 +69,7 @@
 
 ## Current Code Capabilities
 
-### What Works Now
+### What Works Now ✅
 
 ```typescript
 // 1. Check balance before transactions
@@ -70,34 +78,59 @@ if (!balance.hasSufficientBalance) {
   console.error('Not enough KILT tokens');
 }
 
-// 2. Sign transactions with wallet
+// 2. Sign transactions with wallet (seamless)
 const signedTx = await kiltAdapter.signTransaction(extrinsic, address);
 
-// 3. Sign and submit in one call
+// 3. Sign and submit in one call with retry logic
 const result = await kiltAdapter.signAndSubmitTransaction(
   extrinsic, 
   address, 
   { waitForConfirmation: true }
 );
 
-// 4. Get balance info
-const currentBalance = await kiltAdapter.getBalance(address);
+// 4. Create on-chain KILT DID (seamless)
+import { createKILTDID, KiltAdapter } from 'keypass-login-sdk';
+
+const kiltAdapter = new KiltAdapter();
+await kiltAdapter.enable();
+const did = await createKILTDID(address, kiltAdapter);
+console.log('Registered KILT DID:', did);
+
+// 5. Unified DID creation API
+import { createDID, DIDFactory } from 'keypass-login-sdk';
+
+// Auto-detect and create DID
+const result = await createDID(address);
+
+// Or create specific on-chain KILT DID
+const kiltResult = await DIDFactory.kiltOnChain(address, kiltAdapter);
+
+// 6. Enhanced error handling
+try {
+  const did = await createKILTDID(address, kiltAdapter);
+} catch (error) {
+  // User-friendly error messages for common scenarios:
+  // - Insufficient balance
+  // - User rejection
+  // - Network issues
+  console.error('DID creation failed:', error.message);
+}
 ```
 
-### What Needs Work
+### What's Still In Progress 🚧
 
 ```typescript
-// 1. Complete DID registration workflow
-const did = await kiltDidProvider.registerDidOnchain(request, address);
-// This exists but needs better integration and testing
+// 1. KILT DID resolution from blockchain
+const didDoc = await provider.resolve(did);
+// Exists but needs testing with real on-chain DIDs
 
-// 2. Seamless DID creation API
-const did = await createDID(address, { method: 'kilt' });
-// Unified API doesn't exist yet
+// 2. Network switching
+kiltAdapter.setNetwork(KILTNetwork.PEREGRINE);
+// Basic support exists, needs UI integration
 
-// 3. Transaction retry logic
-// Implemented in infrastructure but crippled
-// Needs better integration with KILT flow
+// 3. Fee estimation display
+const gasEstimate = await kiltAdapter.estimateGas(extrinsic, signer);
+// Works but not integrated into DID creation flow
 ```
 
 ## Next Steps
