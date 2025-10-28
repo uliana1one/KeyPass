@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KILT Integration Live Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .test-step {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .test-step.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .test-step.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .test-step.warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .prerequisites {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .status {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.pending { background: #cce5ff; color: #004085; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 KILT Integration Live Test</h1>
+        <p>Test the complete KILT DID integration in your browser with real blockchain interaction.</p>
+
+        <div class="prerequisites">
+            <h3>📋 Prerequisites</h3>
+            <ol>
+                <li>Install <a href="https://polkadot.js.org/extension/" target="_blank">Polkadot.js Extension</a> or <a href="https://talisman.xyz/" target="_blank">Talisman Wallet</a></li>
+                <li>Get KILT testnet tokens from <a href="https://faucet.peregrine.kilt.io/" target="_blank">Peregrine Faucet</a></li>
+                <li>Make sure this page is served over HTTPS (required for wallet connection)</li>
+            </ol>
+        </div>
+
+        <div class="test-step" id="step1">
+            <h3>Step 1: Connect to KILT Parachain</h3>
+            <p>Connect to KILT Peregrine testnet</p>
+            <button onclick="connectToKILT()" id="btn-connect">Connect to KILT</button>
+            <span class="status pending" id="status-connect">Not started</span>
+        </div>
+
+        <div class="test-step" id="step2">
+            <h3>Step 2: Connect Wallet</h3>
+            <p>Enable wallet and get accounts</p>
+            <button onclick="connectWallet()" id="btn-wallet" disabled>Connect Wallet</button>
+            <span class="status pending" id="status-wallet">Waiting for KILT connection</span>
+        </div>
+
+        <div class="test-step" id="step3">
+            <h3>Step 3: Check Balance</h3>
+            <p>Verify sufficient KILT tokens for DID registration</p>
+            <button onclick="checkBalance()" id="btn-balance" disabled>Check Balance</button>
+            <span class="status pending" id="status-balance">Waiting for wallet</span>
+        </div>
+
+        <div class="test-step" id="step4">
+            <h3>Step 4: Create KILT DID</h3>
+            <p>Register a new DID on-chain (requires wallet signature)</p>
+            <button onclick="createDID()" id="btn-create" disabled>Create On-Chain DID</button>
+            <span class="status pending" id="status-create">Waiting for balance check</span>
+        </div>
+
+        <div class="test-step" id="step5">
+            <h3>Step 5: Resolve DID</h3>
+            <p>Query the DID from blockchain</p>
+            <button onclick="resolveDID()" id="btn-resolve" disabled>Resolve DID</button>
+            <span class="status pending" id="status-resolve">Waiting for DID creation</span>
+        </div>
+
+        <div class="test-step" id="step6">
+            <h3>Step 6: Verify Existence</h3>
+            <p>Check if DID exists on blockchain</p>
+            <button onclick="verifyExistence()" id="btn-verify" disabled>Verify DID Exists</button>
+            <span class="status pending" id="status-verify">Waiting for DID resolution</span>
+        </div>
+
+        <div class="results" id="results">Waiting for tests to start...</div>
+
+        <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 6px;">
+            <h4>🐛 Troubleshooting</h4>
+            <ul>
+                <li><strong>Wallet not found:</strong> Install Polkadot.js or Talisman extension</li>
+                <li><strong>Insufficient balance:</strong> Get tokens from <a href="https://faucet.peregrine.kilt.io/" target="_blank">KILT faucet</a></li>
+                <li><strong>User rejected:</strong> You cancelled the transaction - try again</li>
+                <li><strong>Network errors:</strong> Check internet connection and try again</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        // Global variables
+        let kiltAdapter = null;
+        let userAddress = null;
+        let createdDID = null;
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            const results = document.getElementById('results');
+            results.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function updateStatus(stepId, status, message = '') {
+            const statusEl = document.getElementById(`status-${stepId}`);
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = message || status;
+            
+            const stepEl = document.getElementById(stepId);
+            stepEl.className = `test-step ${status}`;
+        }
+
+        function enableButton(buttonId, nextButtonId = null) {
+            document.getElementById(buttonId).disabled = false;
+            if (nextButtonId) {
+                document.getElementById(nextButtonId).disabled = false;
+            }
+        }
+
+        // Test functions
+        window.connectToKILT = async function() {
+            try {
+                log('Connecting to KILT Peregrine testnet...');
+                updateStatus('connect', 'pending', 'Connecting...');
+                
+                // Dynamic import of the SDK
+                const { KiltAdapter } = await import('./src/index.js');
+                kiltAdapter = new KiltAdapter();
+                
+                const chainInfo = await kiltAdapter.connect('peregrine');
+                
+                log(`Connected to ${chainInfo.chainName} (${chainInfo.runtime})`, 'success');
+                log(`Genesis: ${chainInfo.genesisHash.slice(0, 20)}...`);
+                log(`Version: ${chainInfo.version}`);
+                
+                updateStatus('connect', 'success', 'Connected');
+                enableButton('btn-wallet');
+                updateStatus('wallet', 'pending', 'Ready to connect');
+                
+            } catch (error) {
+                log(`Failed to connect to KILT: ${error.message}`, 'error');
+                updateStatus('connect', 'error', 'Connection failed');
+            }
+        };
+
+        window.connectWallet = async function() {
+            try {
+                log('Connecting to wallet...');
+                updateStatus('wallet', 'pending', 'Requesting permission...');
+                
+                await kiltAdapter.enable();
+                const accounts = await kiltAdapter.getAccounts();
+                
+                if (accounts.length === 0) {
+                    throw new Error('No accounts found');
+                }
+                
+                userAddress = accounts[0].address;
+                log(`Connected to wallet: ${accounts[0].name || 'Unknown'}`, 'success');
+                log(`Address: ${userAddress}`);
+                log(`Type: ${accounts[0].type}`);
+                
+                updateStatus('wallet', 'success', 'Connected');
+                enableButton('btn-balance');
+                updateStatus('balance', 'pending', 'Ready to check');
+                
+            } catch (error) {
+                log(`Failed to connect wallet: ${error.message}`, 'error');
+                updateStatus('wallet', 'error', 'Connection failed');
+                
+                if (error.message.includes('No extension')) {
+                    log('Install Polkadot.js extension or Talisman wallet', 'warning');
+                }
+            }
+        };
+
+        window.checkBalance = async function() {
+            try {
+                log('Checking KILT token balance...');
+                updateStatus('balance', 'pending', 'Checking...');
+                
+                const balanceInfo = await kiltAdapter.checkBalance(userAddress);
+                
+                log(`Current Balance: ${balanceInfo.currentBalance} KILT`);
+                log(`Minimum Required: ${balanceInfo.minimumRequired} KILT`);
+                log(`Sufficient Balance: ${balanceInfo.hasSufficientBalance ? 'Yes' : 'No'}`);
+                
+                if (balanceInfo.hasSufficientBalance) {
+                    updateStatus('balance', 'success', 'Sufficient balance');
+                    enableButton('btn-create');
+                    updateStatus('create', 'pending', 'Ready to create DID');
+                    log('Balance check passed - ready for DID creation', 'success');
+                } else {
+                    updateStatus('balance', 'warning', 'Insufficient balance');
+                    log('Get testnet tokens from: https://faucet.peregrine.kilt.io/', 'warning');
+                    log(`Send tokens to: ${userAddress}`, 'warning');
+                }
+                
+            } catch (error) {
+                log(`Failed to check balance: ${error.message}`, 'error');
+                updateStatus('balance', 'error', 'Check failed');
+            }
+        };
+
+        window.createDID = async function() {
+            try {
+                log('Creating on-chain KILT DID...');
+                log('This will prompt you to sign a transaction in your wallet...', 'warning');
+                updateStatus('create', 'pending', 'Creating...');
+                
+                const { createKILTDID } = await import('./src/index.js');
+                createdDID = await createKILTDID(userAddress, kiltAdapter);
+                
+                log(`KILT DID created: ${createdDID}`, 'success');
+                log('Waiting for blockchain confirmation...');
+                
+                // Wait for confirmation
+                await new Promise(resolve => setTimeout(resolve, 8000));
+                
+                updateStatus('create', 'success', 'DID created');
+                enableButton('btn-resolve');
+                updateStatus('resolve', 'pending', 'Ready to resolve');
+                
+            } catch (error) {
+                log(`Failed to create DID: ${error.message}`, 'error');
+                updateStatus('create', 'error', 'Creation failed');
+                
+                if (error.message.includes('User rejected')) {
+                    log('Transaction was cancelled - you can try again', 'warning');
+                }
+            }
+        };
+
+        window.resolveDID = async function() {
+            try {
+                log('Resolving DID from blockchain...');
+                updateStatus('resolve', 'pending', 'Resolving...');
+                
+                const { resolveDID, resolveKILTDIDWithMetadata } = await import('./src/index.js');
+                
+                // Test universal resolver
+                const resolvedDoc = await resolveDID(createdDID);
+                log(`Resolved DID document with ${resolvedDoc.verificationMethod?.length || 0} verification methods`, 'success');
+                log(`DID ID: ${resolvedDoc.id}`);
+                log(`Controller: ${resolvedDoc.controller}`);
+                
+                // Test metadata resolver
+                const { document, metadata } = await resolveKILTDIDWithMetadata(createdDID);
+                log(`Resolution source: ${metadata.source}`);
+                log(`Exists on-chain: ${metadata.existsOnChain}`);
+                log(`Resolved at: ${metadata.resolvedAt}`);
+                
+                updateStatus('resolve', 'success', 'Resolved');
+                enableButton('btn-verify');
+                updateStatus('verify', 'pending', 'Ready to verify');
+                
+            } catch (error) {
+                log(`Failed to resolve DID: ${error.message}`, 'error');
+                updateStatus('resolve', 'error', 'Resolution failed');
+            }
+        };
+
+        window.verifyExistence = async function() {
+            try {
+                log('Verifying DID existence on blockchain...');
+                updateStatus('verify', 'pending', 'Verifying...');
+                
+                const { checkDIDExists } = await import('./src/index.js');
+                const exists = await checkDIDExists(createdDID);
+                
+                log(`DID exists on blockchain: ${exists ? 'Yes' : 'No'}`, exists ? 'success' : 'error');
+                
+                if (exists) {
+                    updateStatus('verify', 'success', 'Verified');
+                    log('🎉 ALL TESTS COMPLETED SUCCESSFULLY! 🎉', 'success');
+                    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    log('✅ KILT Connection: Working');
+                    log('✅ Wallet Integration: Working');
+                    log('✅ Balance Check: Working');
+                    log('✅ On-Chain DID Creation: Working');
+                    log('✅ Blockchain Resolution: Working');
+                    log('✅ DID Existence Check: Working');
+                    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                } else {
+                    updateStatus('verify', 'warning', 'Not found');
+                    log('DID was created but not found on blockchain - may need more time', 'warning');
+                }
+                
+            } catch (error) {
+                log(`Failed to verify DID existence: ${error.message}`, 'error');
+                updateStatus('verify', 'error', 'Verification failed');
+            }
+        };
+
+        // Initialize
+        log('KILT Integration Test Interface Ready');
+        log('Click "Connect to KILT" to start testing...');
+    </script>
+</body>
+</html>
