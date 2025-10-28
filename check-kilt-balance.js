@@ -1,58 +1,80 @@
 #!/usr/bin/env node
 
-import { ApiPromise, WsProvider } from '@polkadot/api';
+/**
+ * KILT Balance Checker
+ * 
+ * Check the balance of any KILT address without needing wallet connection
+ */
 
-async function checkBalance() {
-  const address = '4o1wrD1mTt6ckP7aDWKNhe1MqeuSdXDKoWhzHm8suLrVENaN';
+import { KiltAdapter } from './dist/adapters/KiltAdapter.js';
+
+async function checkBalance(address) {
+  console.log('💰 KILT Balance Checker\n');
   
-  console.log('🔍 Checking KILT Peregrine balance...');
-  console.log(`Address: ${address}\n`);
-
   try {
-    // Connect to KILT Peregrine testnet
-    const provider = new WsProvider('wss://peregrine.kilt.io/parachain-public-ws');
-    const api = await ApiPromise.create({ provider });
-
-    console.log('✅ Connected to KILT Peregrine testnet');
+    console.log(`🔍 Checking balance for: ${address}`);
+    console.log('📡 Connecting to KILT Peregrine testnet...\n');
     
-    // Get account info
-    const accountInfo = await api.query.system.account(address);
+    // Initialize KILT adapter and connect
+    const kiltAdapter = new KiltAdapter();
+    const chainInfo = await kiltAdapter.connect('peregrine');
     
-    // Convert from smallest unit to PILT (Peregrine KILT)
-    const free = accountInfo.data.free.toBigInt();
-    const reserved = accountInfo.data.reserved.toBigInt();
-    const miscFrozen = accountInfo.data.frozen?.toBigInt() || 0n;
+    console.log(`✅ Connected to ${chainInfo.chainName}`);
+    console.log(`   Network: ${chainInfo.runtime}`);
+    console.log(`   Version: ${chainInfo.version}\n`);
     
-    const freeKilt = Number(free) / 1e15; // KILT has 15 decimals
-    const reservedKilt = Number(reserved) / 1e15;
-    const frozenKilt = Number(miscFrozen) / 1e15;
-    const totalKilt = Number(free + reserved) / 1e15;
-
-    console.log('\n💰 Balance:');
-    console.log(`   Free:     ${freeKilt.toFixed(4)} PILT`);
-    console.log(`   Reserved: ${reservedKilt.toFixed(4)} PILT`);
-    console.log(`   Frozen:   ${frozenKilt.toFixed(4)} PILT`);
-    console.log(`   Total:    ${totalKilt.toFixed(4)} PILT\n`);
-
-    if (totalKilt > 0) {
-      console.log('✅ Tokens received! You can now use this account.');
-      console.log('\n💡 Next steps:');
-      console.log('   1. Update your .env with the mnemonic');
-      console.log('   2. Test KILT DID operations in the boilerplate');
+    // Check balance (no wallet connection needed for read-only operations)
+    console.log('💰 Querying balance...');
+    const balanceInfo = await kiltAdapter.checkBalance(address);
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📊 BALANCE INFORMATION');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`Address: ${address}`);
+    console.log(`Current Balance: ${balanceInfo.currentBalance} KILT`);
+    console.log(`Minimum Required: ${balanceInfo.minimumRequired} KILT`);
+    console.log(`Sufficient for DID: ${balanceInfo.hasSufficientBalance ? '✅ Yes' : '❌ No'}`);
+    console.log(`Preserving Existential Deposit: ${balanceInfo.preservingExistentialDeposit ? '✅ Yes' : '⚠️ No'}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // Additional context
+    if (balanceInfo.hasSufficientBalance) {
+      console.log('\n✅ This address has enough KILT tokens to register a DID on-chain');
     } else {
-      console.log('⏳ No tokens yet. Please:');
-      console.log('   1. Visit: https://faucet.peregrine.kilt.io/');
-      console.log(`   2. Enter: ${address}`);
-      console.log('   3. Click "Request tokens"');
-      console.log('   4. Wait 1-2 minutes and check again\n');
+      console.log('\n❌ This address needs more KILT tokens for DID registration');
+      console.log('💡 Get testnet tokens from: https://faucet.peregrine.kilt.io/');
     }
-
-    await api.disconnect();
+    
+    if (!balanceInfo.preservingExistentialDeposit) {
+      console.log('⚠️  Warning: Balance is close to existential deposit minimum');
+    }
+    
+    // Parse balance to show more details
+    const balanceFloat = parseFloat(balanceInfo.currentBalance);
+    if (balanceFloat > 0) {
+      console.log(`\n📈 Balance Details:`);
+      console.log(`   • In KILT: ${balanceFloat.toFixed(4)} KILT`);
+      console.log(`   • In planck (smallest unit): ${(balanceFloat * 1e15).toFixed(0)} planck`);
+      
+      if (balanceFloat >= 0.1) {
+        const possibleDIDs = Math.floor(balanceFloat / 0.001);
+        console.log(`   • Estimated DIDs you can create: ~${possibleDIDs}`);
+      }
+    }
+    
   } catch (error) {
-    console.error('❌ Error:', error.message);
-    console.error(error.stack);
+    console.error('\n❌ Failed to check balance:');
+    console.error(`   ${error.message}`);
+    
+    if (error.message.includes('Invalid')) {
+      console.log('\n💡 Make sure the address is a valid KILT SS58 address');
+    } else if (error.message.includes('Network')) {
+      console.log('\n💡 Network connection issue - try again in a moment');
+    }
   }
 }
 
-checkBalance();
+// Get address from command line argument or use the provided one
+const address = process.argv[2] || '4o1wrD1mTt6ckP7aDWKNhe1MqeuSdXDKoWhzHm8suLrVENaN';
 
+checkBalance(address);
