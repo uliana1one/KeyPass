@@ -605,7 +605,7 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
     ...(chainType === 'kilt' ? [{
       id: 'kilt-provider',
       title: 'KILT Provider',
-      description: 'KILT-specific DID creation',
+      description: 'Create your KILT DID on-chain',
       component: (
         <div className="kilt-provider-step">
           <KiltDIDProviderComponent
@@ -630,11 +630,6 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
           />
         </div>
       )
-    }, {
-      id: 'create',
-      title: 'Create',
-      description: 'Create your DID',
-      component: renderCreation()
     }] : [{
       id: 'create',
       title: 'Create',
