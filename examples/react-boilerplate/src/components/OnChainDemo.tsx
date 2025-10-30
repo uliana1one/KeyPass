@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { KiltAdapter } from '../keypass/adapters/KiltAdapter';
 import { KILTDIDProvider } from '../keypass/did/KILTDIDProvider';
 import { KILTNetwork } from '../keypass/config/kiltConfig';
+import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
 
 import './OnChainDemo.css';
 
@@ -57,19 +58,33 @@ export const OnChainDemo: React.FC<OnChainDemoProps> = ({ address }) => {
       const selectedAccount = accounts[0];
       setStatus(`Using account: ${selectedAccount.address}`);
 
-      // Step 4: Create real on-chain DID
+      // Step 4: Convert address to KILT format (SS58 prefix 38)
+      let kiltAddress = selectedAccount.address;
+      try {
+        // Decode the address (works with any SS58 format) and re-encode with KILT prefix (38)
+        const publicKey = decodeAddress(selectedAccount.address);
+        kiltAddress = encodeAddress(publicKey, 38); // KILT uses SS58 prefix 38
+        setStatus(`Converted to KILT format: ${kiltAddress}`);
+      } catch (err: any) {
+        // If conversion fails, try using the address as-is
+        console.warn('Failed to convert address to KILT format:', err);
+        setStatus(`Using address as-is (may fail if wrong format)`);
+      }
+
+      // Step 5: Create real on-chain DID
       const didProvider = new KILTDIDProvider(adapter);
       
       // This will create a REAL on-chain DID
-      const didString = await didProvider.createDid(selectedAccount.address);
+      const didString = await didProvider.createDid(kiltAddress);
       
       // Register on-chain
-      const didResult = await didProvider.registerDidOnchain({}, selectedAccount.address);
+      const didResult = await didProvider.registerDidOnchain({}, kiltAddress);
       
       setStatus('✅ On-chain DID created!');
       setResult({
         did: didResult.did,
-        address: selectedAccount.address,
+        address: kiltAddress,
+        originalAddress: selectedAccount.address,
         method: 'KILT',
         onChain: true,
         message: 'This DID is registered on KILT blockchain'
