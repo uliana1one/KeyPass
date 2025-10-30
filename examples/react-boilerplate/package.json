@@ -4,6 +4,7 @@
   "description": "Complete boilerplate for KeyPass multi-chain authentication with React",
   "private": true,
   "dependencies": {
+    "@kiltprotocol/sdk-js": "^1.0.0",
     "@semaphore-protocol/group": "^4.11.1",
     "@semaphore-protocol/identity": "^4.11.1",
     "@semaphore-protocol/proof": "^4.11.1",

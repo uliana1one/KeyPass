@@ -18,6 +18,10 @@ import {
   KILTKeyType
 } from './types/KILTTypes';
 import { KILTConfigManager, KILTNetwork } from '../config/kiltConfig';
+// KILT SDK (for DID signing)
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import * as Kilt from '@kiltprotocol/sdk-js';
 
 /**
  * Provider for creating and managing KILT DIDs.
@@ -574,14 +578,65 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       const createMeta = (api.tx as any).did?.create?.meta;
       const argLen = createMeta?.args?.length;
       if (argLen === 2) {
-        // Newer style: (address, payload)
-        const payload = {
-          verificationMethods: vmList,
-          services: serviceList,
-          controller: request.controller || accountAddress,
-          metadata: request.metadata || {},
-        };
-        createDidExtrinsic = api.tx.did.create(accountAddress, payload);
+        // Newer style on Spiritnet expects (details, signature), both SCALE-encoded, not plain JS.
+        // Build details via KILT SDK and request DID signature from Sporran.
+        const submitter = accountAddress;
+        const didIdentifier = accountAddress;
+        // Initialize KILT SDK config if needed
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const conf: any = Kilt.ConfigService.get('api');
+          if (!conf) {
+            await Kilt.connect('wss://spiritnet.kilt.io');
+          }
+        } catch {
+          await Kilt.connect('wss://spiritnet.kilt.io');
+        }
+
+        const keyAgreementKeys: unknown[] = [];
+        const attestationKey = null;
+        const delegationKey = null;
+        const serviceDetails = serviceList.map(s => ({
+          id: s.id,
+          serviceTypes: [s.type],
+          urls: [s.serviceEndpoint],
+        }));
+
+        // Build details in the shape expected by the chain type
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const details: any = (api.createType as any)('PalletDidLookupBoundedDidCallDetails', {
+          did: didIdentifier,
+          submitter,
+          newKeyAgreementKeys: keyAgreementKeys,
+          newAttestationKey: attestationKey,
+          newDelegationKey: delegationKey,
+          newServiceDetails: serviceDetails,
+        });
+
+        // Ask Sporran to sign the details as a DID signature
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const injected = (window as any).injectedWeb3?.sporran;
+        if (!injected) {
+          throw new KILTError('Sporran not found for DID signing', KILTErrorType.NETWORK_ERROR);
+        }
+        const signer = await injected.enable('KeyPass');
+        if (!signer?.signer?.signRaw) {
+          throw new KILTError('Sporran signer not available', KILTErrorType.NETWORK_ERROR);
+        }
+
+        const detailsU8a = details.toU8a();
+        const signatureRaw = await signer.signer.signRaw({
+          address: submitter,
+          data: `0x${Buffer.from(detailsU8a).toString('hex')}`,
+          type: 'bytes',
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const signature: any = (api.createType as any)('DidSignature', {
+          Sr25519: signatureRaw.signature,
+        });
+
+        createDidExtrinsic = api.tx.did.create(details, signature);
       } else if (argLen === 4) {
         // Legacy style: (address, verificationMethods, services, metadata)
         createDidExtrinsic = api.tx.did.create(
