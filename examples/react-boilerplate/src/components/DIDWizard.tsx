@@ -630,13 +630,17 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
           />
         </div>
       )
-    }] : []),
-    {
+    }, {
       id: 'create',
       title: 'Create',
       description: 'Create your DID',
       component: renderCreation()
-    }
+    }] : [{
+      id: 'create',
+      title: 'Create',
+      description: 'Create your DID',
+      component: renderCreation()
+    }])
   ], [didOptions.type, renderTypeSelection, renderAdvancedOptions, renderPreview, renderCreation, chainType, walletAddress, accountName, previewData, didOptions, onComplete, handleError]);
 
   // Add debug logging for didOptions.type and steps
