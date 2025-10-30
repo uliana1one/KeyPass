@@ -21,7 +21,9 @@ import { KILTConfigManager, KILTNetwork } from '../config/kiltConfig';
 // KILT SDK (for DID signing)
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import * as Kilt from '@kiltprotocol/sdk-js';
+import { ConfigService, DidHelpers, connect as kiltConnect } from '@kiltprotocol/sdk-js';
+import { u8aToHex, hexToU8a } from '@polkadot/util';
+import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 
 /**
  * Provider for creating and managing KILT DIDs.
@@ -148,8 +150,8 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
    */
   private async createVerificationMethod(did: string, address: string): Promise<VerificationMethod> {
     try {
-      // Decode the address to get the public key
-      const publicKey = decodeAddress(address);
+      // Decode the address to get the public key (KILT uses SS58 format 38)
+      const publicKey = decodeAddress(address, false, 38);
       
       // Encode the public key in base58 multibase format
       const publicKeyMultibase = `${MULTIBASE_PREFIXES.BASE58BTC}${base58Encode(publicKey)}`;
@@ -360,12 +362,6 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       // Get transaction configuration
       const txConfig = this.configManager.getTransactionConfig();
       
-      // Get nonce for the signer
-      const nonce = await this.getNonce(signer);
-      
-      // Estimate gas for the transaction
-      const gasLimit = await this.estimateGas(extrinsics[0], signer);
-      
       // Create the transaction batch if multiple extrinsics
       let transaction;
       if (extrinsics.length === 1) {
@@ -374,18 +370,72 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         transaction = api.tx.utility.batchAll(extrinsics);
       }
 
-      // Sign and send the transaction
-      const signedTx = await transaction.signAsync(signer, {
-        nonce,
-        tip: 0,
-        era: 0,
-      });
+      // Check if this is a Spiritnet-style pre-signed extrinsic
+      // Spiritnet extrinsics include signature in the call data
+      const isSpiritnetPresigned = transaction.method.section === 'did' && 
+                                    transaction.method.method === 'create' && 
+                                    transaction.method.args.length === 2;
+      
+      let signedTx: any;
+      let txHash: string;
+      let gasLimit: string;
+      
+      if (isSpiritnetPresigned) {
+        // For Spiritnet, we still need to sign it as a transaction wrapper
+        // The intrinsic signature is in the call data, but transaction needs signer
+        console.log('Spiritnet pre-signed extrinsic, signing as transaction wrapper...');
+        
+        // Get nonce for the signer
+        const nonce = await this.getNonce(signer);
+        
+        // Use default gas limit for Spiritnet (estimations fail)
+        gasLimit = txConfig.defaultGasLimit;
+        
+        // Ensure extension signer is set
+        try {
+          await web3Enable('KeyPass');
+          const injector = await web3FromAddress(signer);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (api as any).setSigner?.(injector?.signer);
+        } catch {}
+        
+        // Sign as a transaction (this adds outer signature for fee payment)
+        signedTx = await transaction.signAsync(signer, {
+          nonce,
+          tip: 0,
+          era: 0,
+        });
+        txHash = signedTx.hash.toHex();
+      } else {
+        // Get nonce for the signer
+        const nonce = await this.getNonce(signer);
+        
+        // Estimate gas for the transaction
+        gasLimit = await this.estimateGas(transaction, signer);
+        
+        // Ensure extension signer is set on the API for address-based signing
+        try {
+          await web3Enable('KeyPass');
+          const injector = await web3FromAddress(signer);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (api as any).setSigner?.(injector?.signer);
+        } catch {}
 
-      const txHash = signedTx.hash.toHex();
+        // Sign and send the transaction
+        signedTx = await transaction.signAsync(signer, {
+          nonce,
+          tip: 0,
+          era: 0,
+        });
+
+        txHash = signedTx.hash.toHex();
+      }
+      
       console.log(`Transaction submitted: ${txHash}`);
 
       // Send the transaction
-      const unsub = await signedTx.send((status: any) => {
+      let unsub: (() => void) | undefined;
+      unsub = await signedTx.send((status: any) => {
         console.log(`Transaction status: ${status.status.type}`);
         
         if (status.isInBlock) {
@@ -394,7 +444,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         
         if (status.isFinalized) {
           console.log(`Transaction finalized: ${status.status.asFinalized.toHex()}`);
-          unsub();
+          if (unsub) unsub();
         }
       });
 
@@ -577,98 +627,83 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       let createDidExtrinsic: any;
       const createMeta = (api.tx as any).did?.create?.meta;
       const argLen = createMeta?.args?.length;
+      
+      // Debug: log metadata to understand what Spiritnet expects
       if (argLen === 2) {
-        // Newer style on Spiritnet expects (details, signature), both SCALE-encoded, not plain JS.
-        // Build details via KILT SDK and request DID signature from Sporran.
-        const submitter = accountAddress;
-        const didIdentifier = accountAddress;
-        // Initialize KILT SDK config if needed
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const conf: any = Kilt.ConfigService.get('api');
-          if (!conf) {
-            await Kilt.connect('wss://spiritnet.kilt.io');
-          }
-        } catch {
-          await Kilt.connect('wss://spiritnet.kilt.io');
-        }
-
-        const keyAgreementKeys: unknown[] = [];
-        const attestationKey = null;
-        const delegationKey = null;
-        const serviceDetails = serviceList.map(s => ({
-          id: s.id,
-          serviceTypes: [s.type],
-          urls: [s.serviceEndpoint],
-        }));
-
-        // Build details in the shape expected by the chain type
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const details: any = (api.createType as any)('PalletDidLookupBoundedDidCallDetails', {
-          did: didIdentifier,
-          submitter,
-          newKeyAgreementKeys: keyAgreementKeys,
-          newAttestationKey: attestationKey,
-          newDelegationKey: delegationKey,
-          newServiceDetails: serviceDetails,
-        });
-
-        // Ask Sporran to sign the details as a DID signature
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const injected = (window as any).injectedWeb3?.sporran;
-        if (!injected) {
-          throw new KILTError('Sporran not found for DID signing', KILTErrorType.NETWORK_ERROR);
-        }
-        const signer = await injected.enable('KeyPass');
-        if (!signer?.signer?.signRaw) {
-          throw new KILTError('Sporran signer not available', KILTErrorType.NETWORK_ERROR);
-        }
-
-        const detailsU8a = details.toU8a();
-        const signatureRaw = await signer.signer.signRaw({
-          address: submitter,
-          data: `0x${Buffer.from(detailsU8a).toString('hex')}`,
-          type: 'bytes',
-        });
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const signature: any = (api.createType as any)('DidSignature', {
-          Sr25519: signatureRaw.signature,
-        });
-
-        createDidExtrinsic = api.tx.did.create(details, signature);
-      } else if (argLen === 4) {
-        // Legacy style: (address, verificationMethods, services, metadata)
+        console.log('Spiritnet did.create metadata:', JSON.stringify(createMeta, null, 2));
+      }
+      
+      // Try 4-arg format first (works in most cases)
+      if (argLen === 4) {
+        // Standard format: (address, verificationMethods, services, metadata)
         createDidExtrinsic = api.tx.did.create(
           accountAddress,
           vmList,
           serviceList,
           request.metadata || {}
         );
-      } else {
-        // Fallback: try 2-arg then 4-arg, report best error
+      } else if (argLen === 2) {
+        // Spiritnet format - requires signing details before creating extrinsic
+        console.log('Using Spiritnet 2-arg format - requesting signature for DID details...');
+        
         try {
-          createDidExtrinsic = api.tx.did.create(accountAddress, {
-            verificationMethods: vmList,
-            services: serviceList,
-            controller: request.controller || accountAddress,
-            metadata: request.metadata || {},
-          });
-        } catch (e2) {
-          try {
-            createDidExtrinsic = api.tx.did.create(
-              accountAddress,
-              vmList,
-              serviceList,
-              request.metadata || {}
-            );
-          } catch (e4) {
-            throw new KILTError(
-              `Unsupported KILT did.create signature: ${(e4 as Error).message}`,
-              KILTErrorType.TRANSACTION_EXECUTION_ERROR
-            );
+          // Get web3 injector for signing
+          await web3Enable('KeyPass');
+          const injector = await web3FromAddress(accountAddress);
+          if (!injector?.signer?.signRaw) {
+            throw new KILTError('Signer does not support raw signing', KILTErrorType.NETWORK_ERROR);
           }
+          
+          // Build details using the correct type name
+          const detailsParams = {
+            did: accountAddress,
+            submitter: accountAddress,
+            newKeyAgreementKeys: [],
+            newAttestationKey: null,
+            newDelegationKey: null,
+            newServiceDetails: [],
+          };
+          
+          // Create and encode the details object
+          const details = api.registry.createType('DidDidDetailsDidCreationDetails', detailsParams);
+          const detailsBytes = details.toU8a();
+          const detailsHex = u8aToHex(detailsBytes);
+          
+          // Request signature from the wallet
+          console.log('Requesting signature from wallet...');
+          const sigResult = await injector.signer.signRaw({
+            address: accountAddress,
+            data: detailsHex,
+            type: 'bytes',
+          });
+          
+          // Parse the signature using Polkadot utils
+          let sigBytes: Uint8Array;
+          if (typeof sigResult.signature === 'string') {
+            sigBytes = hexToU8a(sigResult.signature);
+          } else {
+            sigBytes = sigResult.signature;
+          }
+          
+          // Create properly encoded signature
+          const signature = api.registry.createType('DidDidDetailsDidSignature', { Sr25519: sigBytes });
+          
+          // Build the extrinsic with real signature
+          createDidExtrinsic = (api.tx as any).did.create(details, signature);
+          console.log('✓ Spiritnet extrinsic created with real signature');
+        } catch (error: any) {
+          console.error('Failed to create Spiritnet extrinsic:', error);
+          throw new KILTError(
+            `Spiritnet DID creation failed: ${error.message}. Please use Peregrine testnet for now.`,
+            KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+            { cause: error }
+          );
         }
+      } else {
+        throw new KILTError(
+          `Unsupported KILT did.create signature (expected 2 or 4 args, got ${argLen})`,
+          KILTErrorType.TRANSACTION_EXECUTION_ERROR
+        );
       }
       extrinsics.push(createDidExtrinsic);
 

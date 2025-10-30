@@ -40,11 +40,11 @@ export class MoonbeamDIDService {
 
   async getDIDForAddress(address: string): Promise<string> {
     return `did:moonbeam:${address}`;
-  }
+      }
 
   async didExists(did: string): Promise<boolean> {
-    return false;
-  }
+          return false;
+        }
 
   async getDIDDocument(did: string): Promise<MoonbeamDIDDocument> {
     return {
@@ -56,7 +56,7 @@ export class MoonbeamDIDService {
       updatedAt: Date.now(),
       active: true
     };
-  }
+      }
 
   // Placeholder implementations to satisfy provider calls
   async addVerificationMethod(
@@ -66,14 +66,14 @@ export class MoonbeamDIDService {
     publicKeyMultibase: string
   ): Promise<void> {
     return;
-  }
+      }
   async getVerificationMethod(verificationMethodId: string): Promise<VerificationMethod> {
     return {
       id: verificationMethodId,
       type: 'EcdsaSecp256k1RecoveryMethod2020',
       controller: 'did:moonbeam:placeholder'
     };
-  }
+    }
 
   async addServiceEndpoint(
     did: string,
@@ -86,19 +86,19 @@ export class MoonbeamDIDService {
 
   async removeServiceEndpoint(did: string, serviceEndpointId: string): Promise<void> {
     return;
-  }
+      }
 
   async removeVerificationMethod(did: string, verificationMethodId: string): Promise<void> {
     return;
   }
 
   async getServiceEndpoint(serviceEndpointId: string): Promise<ServiceEndpoint> {
-    return {
+      return {
       id: serviceEndpointId,
       type: 'KeyPassService',
       serviceEndpoint: 'https://example.com'
     };
-  }
+    }
 
   async deactivateDID(did: string): Promise<void> {
     return;
