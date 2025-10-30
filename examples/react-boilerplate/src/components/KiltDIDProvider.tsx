@@ -80,21 +80,55 @@ export const KiltDIDProviderComponent: React.FC<KiltDIDProviderProps> = ({
         console.warn('Failed to convert address format:', err);
       }
       
-      // Create DID using real KILT provider
+      // Check if DID already exists on-chain
+      setStatus('Checking for existing DID...');
       const did = await didProvider.createDid(kiltAddress);
+      const exists = await didProvider.didExists(did);
       
-      setStatus('Creating DID document...');
+      if (exists) {
+        setStatus('DID already exists on-chain. Retrieving...');
+        const didDocument = await didProvider.queryDIDDocument(did);
+        
+        const result = {
+          did: did,
+          didDocument: didDocument as any,
+          address: account.address,
+          chainType: 'kilt',
+          createdAt: new Date().toISOString()
+        };
+        
+        setStatus('DID retrieved successfully');
+        onDIDCreated(result);
+        return;
+      }
+      
+      // Create DID document
+      setStatus('Preparing on-chain registration...');
       const didDocument = await didProvider.createDIDDocument(kiltAddress);
       
-      const result = {
+      // Register DID on-chain with real transaction
+      setStatus('Registering DID on-chain...');
+      const registrationResult = await didProvider.registerDidOnchain({
         did: did,
-        didDocument: didDocument,
+        verificationMethods: (didDocument as any).verificationMethod || [],
+        services: (didDocument as any).service || [],
+        controller: kiltAddress,
+        metadata: {
+          created: new Date().toISOString(),
+          purpose: 'authentication'
+        }
+      }, kiltAddress);
+      
+      const result = {
+        did: registrationResult.did,
+        didDocument: registrationResult.didDocument,
+        transactionHash: registrationResult.transactionResult?.transactionHash,
         address: account.address,
         chainType: 'kilt',
         createdAt: new Date().toISOString()
       };
       
-      setStatus('DID created successfully');
+      setStatus('DID registered on-chain successfully');
       onDIDCreated(result);
       
     } catch (error: any) {

@@ -902,10 +902,25 @@ export class KiltAdapter implements WalletAdapter {
       // Get account info from the chain
       const accountInfo = await this.api.query.system.account(address);
       
-      // Get free and reserved balances
-      const freeBalance = accountInfo.data.free.toBigInt();
-      const reservedBalance = accountInfo.data.reserved.toBigInt();
-      const frozenBalance = accountInfo.data.frozen.toBigInt();
+      // Get free and reserved balances (handle different Polkadot.js versions)
+      const accountData = (accountInfo as any).data;
+      
+      // Helper to safely extract balance
+      const getBalance = (balanceObj: any): bigint => {
+        if (balanceObj?.toBigInt) return balanceObj.toBigInt();
+        if (balanceObj?.toBn) {
+          const bn = balanceObj.toBn();
+          return bn.toString() ? BigInt(bn.toString()) : 0n;
+        }
+        if (typeof balanceObj === 'string') return BigInt(balanceObj || '0');
+        if (typeof balanceObj === 'bigint') return balanceObj;
+        if (typeof balanceObj === 'number') return BigInt(balanceObj);
+        return 0n;
+      };
+      
+      const freeBalance = getBalance(accountData?.free);
+      const reservedBalance = getBalance(accountData?.reserved);
+      const frozenBalance = getBalance(accountData?.frozen);
       const totalBalance = freeBalance + reservedBalance;
       
       // Calculate available balance (free minus frozen)
