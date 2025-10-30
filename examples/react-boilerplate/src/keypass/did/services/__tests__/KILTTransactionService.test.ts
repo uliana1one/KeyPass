@@ -1,7 +1,7 @@
-import { KILTTransactionService, KILTTransactionConfig, KILTTransactionOptions } from '../KILTTransactionService.js';
+import { KILTTransactionService, KILTTransactionConfig, KILTTransactionOptions } from '../KILTTransactionService';
 import { ApiPromise } from '@polkadot/api';
 import { KeyringPair } from '@polkadot/keyring/types';
-import { KILTError, KILTErrorType } from '../../types/KILTTypes.js';
+import { KILTError, KILTErrorType } from '../../types/KILTTypes';
 
 // Mock @polkadot/api
 jest.mock('@polkadot/api', () => ({

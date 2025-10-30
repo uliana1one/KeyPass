@@ -1,11 +1,11 @@
 import { ApiPromise } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
 import { cryptoWaitReady } from '@polkadot/util-crypto';
-import { KiltAdapter } from '../../adapters/KiltAdapter.js';
-import { KILTDIDProvider } from '../KILTDIDProvider.js';
-import { KILTDIDPalletService } from '../services/KILTDIDPalletService.js';
-import { KILTTransactionService } from '../services/KILTTransactionService.js';
-import { KILTNetwork } from '../../config/kiltConfig.js';
+import { KiltAdapter } from '../../adapters/KiltAdapter';
+import { KILTDIDProvider } from '../KILTDIDProvider';
+import { KILTDIDPalletService } from '../services/KILTDIDPalletService';
+import { KILTTransactionService } from '../services/KILTTransactionService';
+import { KILTNetwork } from '../../config/kiltConfig';
 import { 
   KILTDIDDocument,
   KILTVerificationMethod,
@@ -15,7 +15,7 @@ import {
   KILTTransactionResult,
   KILTError,
   KILTErrorType
-} from '../types/KILTTypes.js';
+} from '../types/KILTTypes';
 
 // Test configuration
 const TEST_CONFIG = {

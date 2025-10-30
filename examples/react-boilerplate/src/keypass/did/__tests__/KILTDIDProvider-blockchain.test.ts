@@ -1,15 +1,15 @@
-import { KILTDIDProvider } from '../KILTDIDProvider.js';
-import { KiltAdapter } from '../../adapters/KiltAdapter.js';
+import { KILTDIDProvider } from '../KILTDIDProvider';
+import { KiltAdapter } from '../../adapters/KiltAdapter';
 import { 
   KILTCreateDIDRequest,
   KILTError,
   KILTErrorType,
   KILTCreateDIDResponse,
   KILTDIDStatus 
-} from '../types/KILTTypes.js';
+} from '../types/KILTTypes';
 
 // Mock the KiltAdapter
-jest.mock('../../adapters/KiltAdapter.js', () => ({
+jest.mock('../../adapters/KiltAdapter', () => ({
   KiltAdapter: jest.fn().mockImplementation(() => ({
     connect: jest.fn().mockResolvedValue({
       name: 'KILT Spiritnet',
@@ -73,7 +73,7 @@ jest.mock('@polkadot/util-crypto', () => ({
 }));
 
 // Mock address validation
-jest.mock('../../adapters/types.js', () => ({
+jest.mock('../../adapters/types', () => ({
   validatePolkadotAddress: jest.fn().mockImplementation((address, ss58Format) => {
     if (!address || address.length < 47) {
       throw new Error('Invalid address');

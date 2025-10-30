@@ -1,11 +1,11 @@
-export { EthereumDIDProvider } from './EthereumDIDProvider.js';
-export { PolkadotDIDProvider } from './UUIDProvider.js';
-export { KILTDIDProvider } from './KILTDIDProvider.js';
+export { EthereumDIDProvider } from './EthereumDIDProvider';
+export { PolkadotDIDProvider } from './UUIDProvider';
+export { KILTDIDProvider } from './KILTDIDProvider';
 
 // Export types without conflicts
-export type { DIDDocument, DIDProvider, DIDResolver, Service } from './types.js';
-export type { VerificationMethod } from './types.js';
-export { VERIFICATION_METHOD_TYPES, MULTIBASE_PREFIXES } from './verification.js';
+export type { DIDDocument, DIDProvider, DIDResolver, Service } from './types';
+export type { VerificationMethod } from './types';
+export { VERIFICATION_METHOD_TYPES, MULTIBASE_PREFIXES } from './verification';
 
 // Export KILT-specific types
-export * from './types/KILTTypes.js';
+export * from './types/KILTTypes';

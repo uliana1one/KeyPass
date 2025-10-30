@@ -337,8 +337,9 @@ export class CredentialService {
     // Simulate ZK-proof generation
     await new Promise(resolve => setTimeout(resolve, 3000));
 
+    const provider = this.config.zkProofProvider === 'kilt' ? 'semaphore' : (this.config.zkProofProvider || 'semaphore');
     return {
-      type: this.config.zkProofProvider || 'semaphore',
+      type: provider as 'semaphore' | 'plonk' | 'groth16',
       proof: `zk_proof_${Math.random().toString(36).substr(2, 20)}`,
       publicSignals: Object.values(publicInputs).map(String),
       verificationKey: circuit.verificationKey,

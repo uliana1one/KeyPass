@@ -1,4 +1,4 @@
-import { VerificationMethod as VerificationMethodType } from './verification.js';
+import { VerificationMethod as VerificationMethodType } from './verification';
 
 /**
  * Represents a DID document following the W3C DID Core specification.

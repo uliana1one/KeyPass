@@ -1,6 +1,6 @@
-import { DIDDocument, DIDProvider, DIDResolver, VerificationMethod } from './types.js';
-import { MULTIBASE_PREFIXES, VERIFICATION_METHOD_TYPES } from './verification.js';
-import { AddressValidationError } from '../errors/WalletErrors.js';
+import { DIDDocument, DIDProvider, DIDResolver, VerificationMethod } from './types';
+import { MULTIBASE_PREFIXES, VERIFICATION_METHOD_TYPES } from './verification';
+import { AddressValidationError } from '../errors/WalletErrors';
 
 // Simple Ethereum address validation
 function isValidEthereumAddress(address: string): boolean {

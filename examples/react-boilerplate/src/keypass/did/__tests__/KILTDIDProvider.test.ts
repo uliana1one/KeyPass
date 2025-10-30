@@ -1,9 +1,9 @@
-import { KILTDIDProvider } from '../KILTDIDProvider.js';
-import { KiltAdapter } from '../../adapters/KiltAdapter.js';
-import { AddressValidationError } from '../../errors/WalletErrors.js';
+import { KILTDIDProvider } from '../KILTDIDProvider';
+import { KiltAdapter } from '../../adapters/KiltAdapter';
+import { AddressValidationError } from '../../errors/WalletErrors';
 
 // Mock the KiltAdapter
-jest.mock('../../adapters/KiltAdapter.js', () => ({
+jest.mock('../../adapters/KiltAdapter', () => ({
   KiltAdapter: jest.fn().mockImplementation(() => ({
     connect: jest.fn().mockResolvedValue({
       name: 'KILT Spiritnet',
@@ -32,7 +32,7 @@ jest.mock('@polkadot/util-crypto', () => ({
 }));
 
 // Mock address validation
-jest.mock('../../adapters/types.js', () => ({
+jest.mock('../../adapters/types', () => ({
   validatePolkadotAddress: jest.fn().mockImplementation((address, ss58Format) => {
     if (!address || address.length < 47) {
       throw new Error('Invalid address');
@@ -55,7 +55,7 @@ describe('KILTDIDProvider', () => {
     jest.clearAllMocks();
     
     // Reset address validation mock to default behavior
-    const { validatePolkadotAddress } = require('../../adapters/types.js');
+    const { validatePolkadotAddress } = require('../../adapters/types');
     validatePolkadotAddress.mockImplementation((address, ss58Format) => {
       if (!address || address.length < 47) {
         throw new Error('Invalid address');
@@ -99,7 +99,7 @@ describe('KILTDIDProvider', () => {
     });
 
     it('should throw error for invalid address format', async () => {
-      const { validatePolkadotAddress } = require('../../adapters/types.js');
+      const { validatePolkadotAddress } = require('../../adapters/types');
       validatePolkadotAddress.mockImplementation(() => {
         throw new Error('Invalid address');
       });
@@ -108,7 +108,7 @@ describe('KILTDIDProvider', () => {
     });
 
     it('should reject non-KILT SS58 format', async () => {
-      const { validatePolkadotAddress } = require('../../adapters/types.js');
+      const { validatePolkadotAddress } = require('../../adapters/types');
       validatePolkadotAddress.mockImplementation(() => {
         throw new Error('Wrong SS58 format');
       });
@@ -119,7 +119,7 @@ describe('KILTDIDProvider', () => {
     });
 
     it('should handle empty or whitespace-only addresses', async () => {
-      const { validatePolkadotAddress } = require('../../adapters/types.js');
+      const { validatePolkadotAddress } = require('../../adapters/types');
       validatePolkadotAddress.mockImplementation(() => {
         throw new Error('Invalid address');
       });
@@ -185,7 +185,7 @@ describe('KILTDIDProvider', () => {
     });
 
     it('should throw error for invalid address', async () => {
-      const { validatePolkadotAddress } = require('../../adapters/types.js');
+      const { validatePolkadotAddress } = require('../../adapters/types');
       validatePolkadotAddress.mockImplementation(() => {
         throw new Error('Invalid address');
       });
@@ -229,7 +229,7 @@ describe('KILTDIDProvider', () => {
     });
 
     it('should validate extracted address', async () => {
-      const { validatePolkadotAddress } = require('../../adapters/types.js');
+      const { validatePolkadotAddress } = require('../../adapters/types');
       validatePolkadotAddress.mockImplementation(() => {
         throw new Error('Invalid address');
       });

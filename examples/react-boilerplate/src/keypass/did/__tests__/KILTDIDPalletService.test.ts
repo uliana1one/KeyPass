@@ -1,9 +1,9 @@
 import { ApiPromise } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
 import { cryptoWaitReady } from '@polkadot/util-crypto';
-import { KILTDIDPalletService } from '../services/KILTDIDPalletService.js';
-import { KILTTransactionService } from '../services/KILTTransactionService.js';
-import { KILTError, KILTErrorType } from '../types/KILTTypes.js';
+import { KILTDIDPalletService } from '../services/KILTDIDPalletService';
+import { KILTTransactionService } from '../services/KILTTransactionService';
+import { KILTError, KILTErrorType } from '../types/KILTTypes';
 
 describe('KILTDIDPalletService Tests', () => {
   let palletService: KILTDIDPalletService;

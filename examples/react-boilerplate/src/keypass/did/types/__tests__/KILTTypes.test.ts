@@ -10,7 +10,7 @@ import {
   KILTService,
   KILTParachainInfo,
   KILTTransactionResult,
-} from '../KILTTypes.js';
+} from '../KILTTypes';
 
 describe('KILTTypes', () => {
   describe('Enums', () => {

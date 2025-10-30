@@ -1,9 +1,9 @@
 import { decodeAddress, encodeAddress, base58Encode, isAddress } from '@polkadot/util-crypto';
-import { DIDDocument, DIDProvider, DIDResolver, VerificationMethod } from './types.js';
-import { MULTIBASE_PREFIXES, VERIFICATION_METHOD_TYPES } from './verification.js';
-import { validatePolkadotAddress } from '../adapters/types.js';
-import { AddressValidationError } from '../errors/WalletErrors.js';
-import { KiltAdapter } from '../adapters/KiltAdapter.js';
+import { DIDDocument, DIDProvider, DIDResolver, VerificationMethod } from './types';
+import { MULTIBASE_PREFIXES, VERIFICATION_METHOD_TYPES } from './verification';
+import { validatePolkadotAddress } from '../adapters/types';
+import { AddressValidationError } from '../errors/WalletErrors';
+import { KiltAdapter } from '../adapters/KiltAdapter';
 import { 
   KILTCreateDIDRequest,
   KILTCreateDIDResponse,
@@ -16,8 +16,8 @@ import {
   KILTVerificationMethod,
   KILTService,
   KILTKeyType
-} from './types/KILTTypes.js';
-import { KILTConfigManager, KILTNetwork } from '../config/kiltConfig.js';
+} from './types/KILTTypes';
+import { KILTConfigManager, KILTNetwork } from '../config/kiltConfig';
 
 /**
  * Provider for creating and managing KILT DIDs.

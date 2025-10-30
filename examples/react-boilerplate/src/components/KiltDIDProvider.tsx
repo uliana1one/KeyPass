@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { KILTDIDProvider } from '../keypass/did/KILTDIDProvider';
-import { KiltAdapter } from '../../src/adapters/KiltAdapter';
+import { KiltAdapter } from '../keypass/adapters/KiltAdapter';
 
 interface KiltDIDProviderProps {
   account: {

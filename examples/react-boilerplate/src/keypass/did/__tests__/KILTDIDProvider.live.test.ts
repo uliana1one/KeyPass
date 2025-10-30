@@ -14,9 +14,9 @@
  * Example: ENABLE_LIVE_TESTS=true npm test -- --testPathPattern=KILTDIDProvider.live
  */
 
-import { KILTDIDProvider } from '../KILTDIDProvider.js';
-import { KiltAdapter } from '../../adapters/KiltAdapter.js';
-import { KILTConfigManager } from '../../config/kiltConfig.js';
+import { KILTDIDProvider } from '../KILTDIDProvider';
+import { KiltAdapter } from '../../adapters/KiltAdapter';
+import { KILTConfigManager } from '../../config/kiltConfig';
 import { 
   KILTCreateDIDRequest,
   KILTCreateDIDResponse,
@@ -26,7 +26,7 @@ import {
   KILTDIDDocument,
   KILTVerificationMethod,
   KILTService
-} from '../types/KILTTypes.js';
+} from '../types/KILTTypes';
 
 // Environment configuration
 const ENABLE_LIVE_TESTS = process.env.ENABLE_LIVE_TESTS === 'true';

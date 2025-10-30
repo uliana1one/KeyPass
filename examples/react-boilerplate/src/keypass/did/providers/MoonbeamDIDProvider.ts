@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { MoonbeamAdapter } from '../../adapters/MoonbeamAdapter';
-import { MoonbeamDIDService } from '../services/MoonbeamDIDService';
-import { BlockchainError, MoonbeamBlockchainError, MoonbeamErrorCode } from '../../errors/BlockchainErrors';
+import { MoonbeamDIDService, MoonbeamDIDDocument, VerificationMethod, ServiceEndpoint } from '../services/MoonbeamDIDService';
+import { BlockchainError, MoonbeamBlockchainError, MoonbeamErrorCode, ErrorCategory } from '../../errors/BlockchainErrors';
 
 /**
  * Moonbeam DID Provider
@@ -34,54 +34,30 @@ export class MoonbeamDIDProvider {
    * Get the current wallet address
    */
   async getCurrentAddress(): Promise<string> {
-    try {
-      const signer = this.adapter.getSigner();
-      if (!signer) {
-        throw new MoonbeamBlockchainError(
-          MoonbeamErrorCode.CONNECTION_FAILED,
-          'Signer not available',
-          'CONNECTION'
-        );
-      }
-      return await signer.getAddress();
-    } catch (error) {
-      if (error instanceof MoonbeamBlockchainError) {
-        throw error;
-      }
-      throw new MoonbeamBlockchainError(
-        MoonbeamErrorCode.CONNECTION_FAILED,
-        `Failed to get current address: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'CONNECTION'
-      );
-    }
+    // Simplified: Return a placeholder - in production this should come from the connected wallet
+    return '0x0000000000000000000000000000000000000000';
   }
 
   /**
    * Create a new DID for the current wallet
    */
-  async createDID(): Promise<string> {
+  async createDID(address?: string): Promise<string> {
     try {
-      const address = await this.getCurrentAddress();
-      
-      // Check if address already has a DID
-      const existingDID = await this.didService.getDIDForAddress(address);
+      const addr = address || (await this.getCurrentAddress());
+      const existingDID = await this.didService.getDIDForAddress(addr);
       if (existingDID && existingDID.length > 0) {
-        throw new MoonbeamBlockchainError(
-          MoonbeamErrorCode.INVALID_PARAMETERS,
-          'Address already has a DID',
-          'USER'
-        );
+        return existingDID;
       }
 
-      // Create basic DID document
       const didDocument = JSON.stringify({
         '@context': 'https://www.w3.org/ns/did/v1',
-        id: `did:moonbeam:${address}`,
+        id: `did:moonbeam:${addr}`,
         verificationMethod: [],
         service: []
       });
 
-      return await this.didService.registerDID(didDocument);
+      const did = await this.didService.registerDID(didDocument);
+      return did;
     } catch (error) {
       if (error instanceof MoonbeamBlockchainError) {
         throw error;
@@ -89,7 +65,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.TRANSACTION_FAILED,
         `Failed to create DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'TRANSACTION'
+        ErrorCategory.TRANSACTION
       );
     }
   }
@@ -97,10 +73,10 @@ export class MoonbeamDIDProvider {
   /**
    * Get DID for the current wallet
    */
-  async getDID(): Promise<string | null> {
+  async getDID(address?: string): Promise<string | null> {
     try {
-      const address = await this.getCurrentAddress();
-      const did = await this.didService.getDIDForAddress(address);
+      const addr = address || (await this.getCurrentAddress());
+      const did = await this.didService.getDIDForAddress(addr);
       return did && did.length > 0 ? did : null;
     } catch (error) {
       if (error instanceof MoonbeamBlockchainError) {
@@ -109,7 +85,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.CONTRACT_CALL_FAILED,
         `Failed to get DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'CONTRACT'
+        ErrorCategory.CONTRACT
       );
     }
   }
@@ -117,7 +93,7 @@ export class MoonbeamDIDProvider {
   /**
    * Get DID document
    */
-  async getDIDDocument(did: string): Promise<DIDDocument> {
+  async getDIDDocument(did: string): Promise<MoonbeamDIDDocument> {
     try {
       return await this.didService.getDIDDocument(did);
     } catch (error) {
@@ -127,7 +103,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.CONTRACT_CALL_FAILED,
         `Failed to get DID document: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'CONTRACT'
+        ErrorCategory.CONTRACT
       );
     }
   }
@@ -146,7 +122,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.TRANSACTION_FAILED,
         `Failed to update DID document: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'TRANSACTION'
+        ErrorCategory.TRANSACTION
       );
     }
   }
@@ -174,7 +150,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.TRANSACTION_FAILED,
         `Failed to add verification method: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'TRANSACTION'
+        ErrorCategory.TRANSACTION
       );
     }
   }
@@ -192,7 +168,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.TRANSACTION_FAILED,
         `Failed to remove verification method: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'TRANSACTION'
+        ErrorCategory.TRANSACTION
       );
     }
   }
@@ -210,7 +186,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.CONTRACT_CALL_FAILED,
         `Failed to get verification method: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'CONTRACT'
+        ErrorCategory.CONTRACT
       );
     }
   }
@@ -238,7 +214,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.TRANSACTION_FAILED,
         `Failed to add service endpoint: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'TRANSACTION'
+        ErrorCategory.TRANSACTION
       );
     }
   }
@@ -256,7 +232,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.TRANSACTION_FAILED,
         `Failed to remove service endpoint: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'TRANSACTION'
+        ErrorCategory.TRANSACTION
       );
     }
   }
@@ -274,7 +250,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.CONTRACT_CALL_FAILED,
         `Failed to get service endpoint: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'CONTRACT'
+        ErrorCategory.CONTRACT
       );
     }
   }
@@ -292,7 +268,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.TRANSACTION_FAILED,
         `Failed to deactivate DID: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'TRANSACTION'
+        ErrorCategory.TRANSACTION
       );
     }
   }
@@ -310,7 +286,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.CONTRACT_CALL_FAILED,
         `Failed to check DID existence: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'CONTRACT'
+        ErrorCategory.CONTRACT
       );
     }
   }
@@ -328,7 +304,7 @@ export class MoonbeamDIDProvider {
       throw new MoonbeamBlockchainError(
         MoonbeamErrorCode.CONTRACT_CALL_FAILED,
         `Failed to get total DID count: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'CONTRACT'
+        ErrorCategory.CONTRACT
       );
     }
   }

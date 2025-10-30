@@ -6,8 +6,8 @@ import {
   KILTError, 
   KILTErrorType,
   KILTParachainInfo 
-} from '../types/KILTTypes.js';
-import { KILTConfigManager } from '../../config/kiltConfig.js';
+} from '../types/KILTTypes';
+import { KILTConfigManager } from '../../config/kiltConfig';
 
 /**
  * Configuration interface for KILT transaction service.
@@ -108,15 +108,139 @@ export class KILTTransactionService {
   }
 
   /**
-   * Creates and submits a transaction to the KILT parachain.
+   * Submits a pre-signed transaction to the KILT parachain.
+   * @param signedExtrinsic - The signed transaction extrinsic
+   * @param options - Transaction options
+   * @returns A promise that resolves to the transaction result
+   * @throws {KILTError} If transaction submission fails
+   */
+  public async submitSignedTransaction(
+    signedExtrinsic: any,
+    options?: Partial<Pick<KILTTransactionOptions, 'waitForConfirmation'>>
+  ): Promise<KILTTransactionResult> {
+    try {
+      const txHash = signedExtrinsic.hash.toHex();
+      
+      // Initialize transaction status
+      this.pendingTransactions.set(txHash, {
+        hash: txHash,
+        status: 'pending',
+        retryCount: 0,
+      });
+
+      console.log(`Submitting pre-signed transaction: ${txHash}`);
+
+      // Submit the transaction with blockchain monitoring
+      const unsub = await signedExtrinsic.send((status: any) => {
+        console.log(`Transaction status: ${status.status.type}`);
+        
+        if (status.isInBlock) {
+          console.log(`Transaction included in block: ${status.status.asInBlock.toHex()}`);
+          const txStatus = this.pendingTransactions.get(txHash);
+          if (txStatus) {
+            txStatus.status = 'inBlock';
+            txStatus.blockHash = status.status.asInBlock.toHex();
+          }
+        }
+        
+        if (status.isFinalized) {
+          console.log(`Transaction finalized: ${status.status.asFinalized.toHex()}`);
+          const txStatus = this.pendingTransactions.get(txHash);
+          if (txStatus) {
+            txStatus.status = 'confirmed';
+            txStatus.blockHash = status.status.asFinalized.toHex();
+            
+            this.getBlockNumber(status.status.asFinalized.toHex()).then(blockNumber => {
+              if (txStatus) {
+                txStatus.blockNumber = blockNumber;
+              }
+            }).catch(error => {
+              console.warn('Failed to get block number:', error);
+              if (txStatus) {
+                txStatus.blockNumber = 0;
+              }
+            });
+            
+            if (status.events) {
+              txStatus.events = status.events.map((event: any, index: number) => ({
+                type: `${event.section}.${event.method}`,
+                section: event.section,
+                method: event.method,
+                data: event.data,
+                index,
+              }));
+            }
+          }
+          unsub();
+        }
+      });
+
+      // Wait for confirmation if requested
+      if (options?.waitForConfirmation !== false) {
+        await this.waitForConfirmation(txHash);
+      }
+
+      // Get final transaction status
+      const status = this.pendingTransactions.get(txHash);
+      if (!status) {
+        throw new KILTError(
+          'Transaction status not found',
+          KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+          { transactionHash: txHash }
+        );
+      }
+
+      // Create transaction result
+      const result: KILTTransactionResult = {
+        success: status.status === 'confirmed',
+        transactionHash: txHash,
+        blockNumber: status.blockNumber || 0,
+        blockHash: status.blockHash || '',
+        events: status.events || [],
+        fee: await this.estimateFeeFromExtrinsicV2(signedExtrinsic, '0'),
+        timestamp: new Date().toISOString(),
+      };
+
+      // Clean up
+      this.pendingTransactions.delete(txHash);
+
+      return result;
+
+    } catch (error) {
+      if (error instanceof KILTError) {
+        throw error;
+      }
+
+      throw new KILTError(
+        `Pre-signed transaction submission failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+        { cause: error as Error }
+      );
+    }
+  }
+
+  /**
+   * Creates and submits a transaction to the KILT parachain with retry logic.
    * @param extrinsic - The transaction extrinsic
    * @param options - Transaction options
    * @returns A promise that resolves to the transaction result
-   * @throws {KILTError} If transaction creation or submission fails
+   * @throws {KILTError} If transaction creation or submission fails after all retries
    */
   public async submitTransaction(
     extrinsic: any,
     options: KILTTransactionOptions
+  ): Promise<KILTTransactionResult> {
+    return this.submitTransactionWithRetry(extrinsic, options, 0);
+  }
+
+  /**
+   * Internal method to submit transaction with retry logic.
+   * @private
+   */
+  private async submitTransactionWithRetry(
+    extrinsic: any,
+    options: KILTTransactionOptions,
+    attemptCount: number
   ): Promise<KILTTransactionResult> {
     try {
       // Validate inputs
@@ -230,7 +354,7 @@ export class KILTTransactionService {
         blockNumber: status.blockNumber || 0,
         blockHash: status.blockHash || '',
         events: status.events || [],
-        fee: await this.calculateFee(extrinsic, gasLimit),
+        fee: await this.estimateFeeFromExtrinsicV2(extrinsic, "0"),
         timestamp: new Date().toISOString(),
       };
 
@@ -240,17 +364,54 @@ export class KILTTransactionService {
       return result;
 
     } catch (error) {
-      if (error instanceof KILTError) {
-        throw error;
+      // Check if this is a retryable error
+      const isRetryable = this.isRetryableError(error);
+      
+      if (!isRetryable) {
+        // Non-retryable error - throw immediately
+        if (error instanceof KILTError) {
+          throw error;
+        }
+        throw new KILTError(
+          `Transaction submission failed (non-retryable): ${error instanceof Error ? error.message : 'Unknown error'}`,
+          KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+          { cause: error as Error }
+        );
       }
 
-      throw new KILTError(
-        `Transaction submission failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        KILTErrorType.TRANSACTION_EXECUTION_ERROR,
-        { cause: error as Error }
+      // Check if we should retry
+      if (attemptCount >= this.config.maxRetries) {
+        console.error(`Transaction failed after ${attemptCount + 1} attempts`);
+        if (error instanceof KILTError) {
+          throw error;
+        }
+        throw new KILTError(
+          `Transaction submission failed after ${this.config.maxRetries + 1} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          KILTErrorType.TRANSACTION_EXECUTION_ERROR,
+          { cause: error as Error }
+        );
+      }
+
+      // Calculate retry delay with exponential backoff
+      const retryDelay = Math.min(
+        this.config.retryDelay * Math.pow(this.config.gasMultiplier, attemptCount),
+        this.config.confirmationTimeout
       );
+
+      console.warn(`Transaction attempt ${attemptCount + 1} failed. Retrying in ${retryDelay}ms...`);
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+
+      // Retry the transaction
+      return this.submitTransactionWithRetry(extrinsic, options, attemptCount + 1);
     }
   }
+
+  /**
+   * Helper method to estimate fee from an extrinsic.
+   * @private
+   */
 
   /**
    * Estimates gas for a transaction.
@@ -607,7 +768,7 @@ export class KILTTransactionService {
    * @param gasLimit - The gas limit
    * @returns A promise that resolves to fee information
    */
-  private async calculateFee(
+  private async estimateFeeFromExtrinsicV2(
     extrinsic: any,
     gasLimit: string | number
   ): Promise<{ amount: string; currency: string }> {
@@ -1032,7 +1193,7 @@ export class KILTTransactionService {
           // Calculate fee for this transaction
           const extrinsic = block.block.extrinsics[transactionIndex];
           const gasLimit = await this.estimateGas(extrinsic, null as any);
-          const fee = await this.calculateFee(extrinsic, gasLimit.gasLimit);
+          const fee = await this.estimateFeeFromExtrinsicV2(extrinsic, gasLimit.gasLimit);
 
           return {
             hash: txHash,
@@ -1140,7 +1301,7 @@ export class KILTTransactionService {
         const gasResult = await this.estimateGas(extrinsic, signer);
         gasEstimate = gasResult.gasLimit;
         
-        const feeResult = await this.calculateFee(extrinsic, gasEstimate);
+        const feeResult = await this.estimateFeeFromExtrinsicV2(extrinsic, gasEstimate);
         estimatedFee = feeResult.amount;
         
         if (!gasResult.success) {

@@ -8,6 +8,7 @@ import { DIDWizard, DIDCreationResult } from './components/DIDWizard';
 import { DIDDocumentViewer } from './components/DIDDocumentViewer';
 import { CredentialSection } from './components/CredentialSection';
 import { CompleteFlowDemo } from './components/CompleteFlowDemo';
+import { OnChainDemo } from './components/OnChainDemo';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ErrorDisplay } from './components/ErrorDisplay';
@@ -345,6 +346,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCompleteFlow, setShowCompleteFlow] = useState(false);
+  const [showOnChainDemo, setShowOnChainDemo] = useState(false);
   const [showPerformanceMonitor, setShowPerformanceMonitor] = useState(false);
 
   // Load wallets when chain type is selected
@@ -837,6 +839,13 @@ function App() {
             🚀 Complete Flow Demo
           </button>
           <button 
+            className="onchain-demo-button" 
+            onClick={() => setShowOnChainDemo(true)}
+            style={{ background: '#48bb78', marginLeft: '10px' }}
+          >
+            🔗 On-Chain DID Demo
+          </button>
+          <button 
             className="performance-button" 
             onClick={() => setShowPerformanceMonitor(!showPerformanceMonitor)}
           >
@@ -887,6 +896,22 @@ function App() {
           showDetails={true}
           autoRefresh={true}
         />
+      )}
+
+      {/* On-Chain DID Demo */}
+      {showOnChainDemo && (
+        <div style={{ marginTop: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2>On-Chain DID Demo</h2>
+            <button 
+              onClick={() => setShowOnChainDemo(false)}
+              style={{ padding: '10px 20px', background: '#e53e3e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              Close
+            </button>
+          </div>
+          <OnChainDemo address={loginResult?.address} />
+        </div>
       )}
     </div>
   );

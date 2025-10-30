@@ -459,12 +459,12 @@ export class SBTMintingService {
       }
 
       // Create new DID
-      const newDIDResult = await this.didProvider.createDID(recipientAddress);
+      const newDID = await this.didProvider.createDID(recipientAddress);
       if (this.debugMode) {
-        console.log(`[SBTMintingService] Created new DID: ${newDIDResult.did}`);
+        console.log(`[SBTMintingService] Created new DID: ${newDID}`);
       }
 
-      return newDIDResult.did;
+      return newDID;
     } catch (error) {
       if (this.debugMode) {
         console.error(`[SBTMintingService] Failed to create DID:`, error);

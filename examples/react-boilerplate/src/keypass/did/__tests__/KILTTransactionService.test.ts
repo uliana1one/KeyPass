@@ -1,10 +1,10 @@
 import { ApiPromise } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
 import { cryptoWaitReady } from '@polkadot/util-crypto';
-import { KiltAdapter } from '../../adapters/KiltAdapter.js';
-import { KILTTransactionService } from '../services/KILTTransactionService.js';
-import { KILTNetwork } from '../../config/kiltConfig.js';
-import { KILTError, KILTErrorType } from '../types/KILTTypes.js';
+import { KiltAdapter } from '../../adapters/KiltAdapter';
+import { KILTTransactionService } from '../services/KILTTransactionService';
+import { KILTNetwork } from '../../config/kiltConfig';
+import { KILTError, KILTErrorType } from '../types/KILTTypes';
 
 describe('KILTTransactionService Tests', () => {
   let kiltAdapter: KiltAdapter;

@@ -1,5 +1,5 @@
-import { KILTDIDProvider } from '../KILTDIDProvider.js';
-import { KiltAdapter } from '../../adapters/KiltAdapter.js';
+import { KILTDIDProvider } from '../KILTDIDProvider';
+import { KiltAdapter } from '../../adapters/KiltAdapter';
 import { 
   KILTCreateDIDRequest,
   KILTCreateDIDResponse,
@@ -11,10 +11,10 @@ import {
   KILTService,
   KILTTransactionResult,
   KILTTransactionEvent
-} from '../types/KILTTypes.js';
+} from '../types/KILTTypes';
 
 // Mock the KiltAdapter
-jest.mock('../../adapters/KiltAdapter.js', () => ({
+jest.mock('../../adapters/KiltAdapter', () => ({
   KiltAdapter: jest.fn().mockImplementation(() => ({
     connect: jest.fn().mockResolvedValue({
       name: 'KILT Spiritnet',
@@ -141,7 +141,7 @@ jest.mock('@polkadot/util-crypto', () => ({
 }));
 
 // Mock address validation
-jest.mock('../../adapters/types.js', () => ({
+jest.mock('../../adapters/types', () => ({
   validatePolkadotAddress: jest.fn().mockImplementation((address, ss58Format) => {
     if (!address || address.length < 47) {
       throw new Error('Invalid address');
@@ -176,7 +176,7 @@ describe('KILTDIDProvider Integration Tests', () => {
     jest.clearAllMocks();
     
     // Reset address validation mock to default behavior
-    const { validatePolkadotAddress } = require('../../adapters/types.js');
+    const { validatePolkadotAddress } = require('../../adapters/types');
     validatePolkadotAddress.mockImplementation((address, ss58Format) => {
       if (!address || address.length < 47) {
         throw new Error('Invalid address');
@@ -414,7 +414,7 @@ describe('KILTDIDProvider Integration Tests', () => {
     });
 
     it('should handle invalid address format in registration request', async () => {
-      const { validatePolkadotAddress } = require('../../adapters/types.js');
+      const { validatePolkadotAddress } = require('../../adapters/types');
       validatePolkadotAddress.mockImplementation(() => {
         throw new Error('Invalid address');
       });
@@ -615,7 +615,7 @@ describe('KILTDIDProvider Integration Tests', () => {
 
   describe('Error Handling and Edge Cases', () => {
     it('should handle empty or whitespace addresses', async () => {
-      const { validatePolkadotAddress } = require('../../adapters/types.js');
+      const { validatePolkadotAddress } = require('../../adapters/types');
       validatePolkadotAddress.mockImplementation(() => {
         throw new Error('Invalid address');
       });

@@ -40,7 +40,7 @@ interface FlowStep {
 
 interface CompleteFlowDemoProps {
   walletAddress: string;
-  chainType: 'polkadot' | 'ethereum';
+  chainType: 'polkadot' | 'ethereum' | 'kilt';
   onComplete?: (result: FlowResult) => void;
   onCancel?: () => void;
 }

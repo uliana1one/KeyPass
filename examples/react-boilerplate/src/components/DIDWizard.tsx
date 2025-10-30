@@ -448,28 +448,28 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
             'did-creation',
             'DID Creation',
             async () => {
-              const didResult = await services.provider.createDID(walletAddress);
+              const didResult = await services.provider.createDID();
               
               return {
-                did: didResult.did,
+                did: didResult,
                 didDocument: {
                   ...previewData,
-                  id: didResult.did,
+                  id: didResult,
                   verificationMethod: [{
-                    id: `${didResult.did}#key-1`,
+                    id: `${didResult}#key-1`,
                     type: 'EcdsaSecp256k1RecoveryMethod2020',
-                    controller: didResult.did,
+                    controller: didResult,
                     blockchainAccountId: `${walletAddress}@eip155:1287`
                   }],
                   service: didOptions.includeServices ? [{
-                    id: `${didResult.did}#service-1`,
+                    id: `${didResult}#service-1`,
                     type: 'KeyPassService',
                     serviceEndpoint: 'https://keypass.io/service'
                   }] : []
                 },
                 options: didOptions,
                 createdAt: new Date().toISOString(),
-                txHash: didResult.txHash
+                txHash: undefined
               };
             }
           );
@@ -479,8 +479,11 @@ export const DIDWizard: React.FC<DIDWizardProps> = ({
             'kilt-did-creation',
             'KILT DID Creation',
             async () => {
-              // For now, simulate KILT DID creation with proper structure
-              // In a real implementation, this would interact with KILT blockchain
+              // IMPORTANT: This creates a SIMULATED DID, not on-chain
+              // For real on-chain KILT DID, you need to:
+              // 1. Configure KILT adapter with proper endpoints
+              // 2. Have KILT tokens in your wallet
+              // 3. Use KILTDIDProvider.createDID() which submits real transaction
               const kiltDid = `did:kilt:${walletAddress}`;
               
               return {

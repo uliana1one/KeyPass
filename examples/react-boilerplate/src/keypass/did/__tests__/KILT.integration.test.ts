@@ -22,10 +22,10 @@
 import { Keyring } from '@polkadot/keyring';
 import { cryptoWaitReady } from '@polkadot/util-crypto';
 import { mnemonicGenerate } from '@polkadot/util-crypto';
-import { KiltAdapter } from '../../adapters/KiltAdapter.js';
-import { KILTDIDProvider } from '../KILTDIDProvider.js';
-import { KILTNetwork } from '../../config/kiltConfig.js';
-import { KILTCreateDIDRequest } from '../types/KILTTypes.js';
+import { KiltAdapter } from '../../adapters/KiltAdapter';
+import { KILTDIDProvider } from '../KILTDIDProvider';
+import { KILTNetwork } from '../../config/kiltConfig';
+import { KILTCreateDIDRequest } from '../types/KILTTypes';
 
 // Skip integration tests by default unless explicitly enabled
 const INTEGRATION_TESTS_ENABLED = process.env.RUN_INTEGRATION_TESTS === 'true';

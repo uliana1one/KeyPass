@@ -9,9 +9,9 @@ import {
   KILTErrorType,
   KILTKeyType,
   KILTVerificationMethodType
-} from '../types/KILTTypes.js';
-import { KILTTransactionService } from './KILTTransactionService.js';
-import { KILTConfigManager } from '../../config/kiltConfig.js';
+} from '../types/KILTTypes';
+import { KILTTransactionService } from './KILTTransactionService';
+import { KILTConfigManager } from '../../config/kiltConfig';
 
 /**
  * Interface for creating a new KILT DID.
