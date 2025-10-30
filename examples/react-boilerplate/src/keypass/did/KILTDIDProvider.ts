@@ -557,21 +557,44 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       const extrinsics: any[] = [];
 
       // 1. Create DID on-chain using KILT DID pallet
-      // The KILT DID pallet typically uses create() method
-      const createDidExtrinsic = api.tx.did.create(
-        accountAddress, // account_id
-        (request.verificationMethods || didDocument.verificationMethod).map(vm => ({
-          id: vm.id,
-          publicKey: vm.publicKeyMultibase,
-          type: vm.type,
-        })), // verification_methods
-        (request.services || didDocument.service)?.map(s => ({
-          id: s.id,
-          type: s.type,
-          serviceEndpoint: s.serviceEndpoint,
-        })) || [], // services
-        request.metadata || {} // metadata
-      );
+      // Different KILT pallet versions have different create() signatures (2-arg vs 4-arg).
+      // Try the 2-arg variant first, then fall back to legacy 4-arg.
+      const vmList = (request.verificationMethods || (didDocument as any).verificationMethod || []).map((vm: any) => ({
+        id: vm.id,
+        publicKey: vm.publicKeyMultibase,
+        type: vm.type,
+      }));
+      const serviceList = ((request.services || (didDocument as any).service) || []).map((s: any) => ({
+        id: s.id,
+        type: s.type,
+        serviceEndpoint: s.serviceEndpoint,
+      }));
+
+      let createDidExtrinsic: any;
+      try {
+        // Newer style: create(address, payload)
+        createDidExtrinsic = api.tx.did.create(accountAddress, {
+          verificationMethods: vmList,
+          services: serviceList,
+          controller: request.controller || accountAddress,
+          metadata: request.metadata || {},
+        });
+      } catch (e1) {
+        try {
+          // Legacy style: create(address, verificationMethods, services, metadata)
+          createDidExtrinsic = api.tx.did.create(
+            accountAddress,
+            vmList,
+            serviceList,
+            request.metadata || {}
+          );
+        } catch (e2) {
+          throw new KILTError(
+            `Unsupported KILT did.create signature: ${(e2 as Error).message}`,
+            KILTErrorType.TRANSACTION_EXECUTION_ERROR
+          );
+        }
+      }
       extrinsics.push(createDidExtrinsic);
 
       // 2. Add additional verification methods if specified (beyond the initial ones)
