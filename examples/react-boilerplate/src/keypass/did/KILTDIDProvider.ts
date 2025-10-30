@@ -1077,11 +1077,22 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
       }
 
-      // Query the DID from the chain
-      const didStorage = await api.query.did.didStorage(address);
-      
-      if (didStorage.isNone) {
-        return null; // DID not found
+      // Query the DID from the chain with compatibility fallbacks
+      let didStorage: any = null;
+      try {
+        if (api.query?.did?.didStorage) {
+          didStorage = await api.query.did.didStorage(address);
+        } else if (api.query?.did?.did) {
+          didStorage = await api.query.did.did(address);
+        } else if (api.query?.kiltDid?.did) {
+          didStorage = await api.query.kiltDid.did(address);
+        }
+      } catch (e) {
+        // ignore and handle as not found below
+      }
+
+      if (!didStorage || didStorage.isNone) {
+        return null; // DID not found or unsupported pallet shape
       }
 
       const didData = didStorage.unwrap();
@@ -1185,10 +1196,22 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
       }
 
-      // Query the DID from the chain
-      const didStorage = await api.query.did.didStorage(address);
-      
-      return !didStorage.isNone;
+      // Query the DID from the chain with compatibility fallbacks
+      let didStorage: any = null;
+      try {
+        if (api.query?.did?.didStorage) {
+          didStorage = await api.query.did.didStorage(address);
+        } else if (api.query?.did?.did) {
+          didStorage = await api.query.did.did(address);
+        } else if (api.query?.kiltDid?.did) {
+          didStorage = await api.query.kiltDid.did(address);
+        }
+      } catch (e) {
+        // If query fails due to pallet/version mismatch, treat as not found
+        return false;
+      }
+
+      return !!didStorage && !didStorage.isNone;
 
     } catch (error) {
       if (error instanceof KILTError) {
