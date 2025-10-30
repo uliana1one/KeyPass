@@ -571,28 +571,48 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       }));
 
       let createDidExtrinsic: any;
-      try {
-        // Newer style: create(address, payload)
-        createDidExtrinsic = api.tx.did.create(accountAddress, {
+      const createMeta = (api.tx as any).did?.create?.meta;
+      const argLen = createMeta?.args?.length;
+      if (argLen === 2) {
+        // Newer style: (address, payload)
+        const payload = {
           verificationMethods: vmList,
           services: serviceList,
           controller: request.controller || accountAddress,
           metadata: request.metadata || {},
-        });
-      } catch (e1) {
+        };
+        createDidExtrinsic = api.tx.did.create(accountAddress, payload);
+      } else if (argLen === 4) {
+        // Legacy style: (address, verificationMethods, services, metadata)
+        createDidExtrinsic = api.tx.did.create(
+          accountAddress,
+          vmList,
+          serviceList,
+          request.metadata || {}
+        );
+      } else {
+        // Fallback: try 2-arg then 4-arg, report best error
         try {
-          // Legacy style: create(address, verificationMethods, services, metadata)
-          createDidExtrinsic = api.tx.did.create(
-            accountAddress,
-            vmList,
-            serviceList,
-            request.metadata || {}
-          );
+          createDidExtrinsic = api.tx.did.create(accountAddress, {
+            verificationMethods: vmList,
+            services: serviceList,
+            controller: request.controller || accountAddress,
+            metadata: request.metadata || {},
+          });
         } catch (e2) {
-          throw new KILTError(
-            `Unsupported KILT did.create signature: ${(e2 as Error).message}`,
-            KILTErrorType.TRANSACTION_EXECUTION_ERROR
-          );
+          try {
+            createDidExtrinsic = api.tx.did.create(
+              accountAddress,
+              vmList,
+              serviceList,
+              request.metadata || {}
+            );
+          } catch (e4) {
+            throw new KILTError(
+              `Unsupported KILT did.create signature: ${(e4 as Error).message}`,
+              KILTErrorType.TRANSACTION_EXECUTION_ERROR
+            );
+          }
         }
       }
       extrinsics.push(createDidExtrinsic);
