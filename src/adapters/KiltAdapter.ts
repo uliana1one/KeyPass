@@ -1222,17 +1222,7 @@ export class KiltAdapter implements WalletAdapter {
       this.connectionTimeout = null;
     }
 
-    // Disconnect API if connected
-    if (this.api) {
-      try {
-        await this.api.disconnect();
-      } catch (error) {
-        console.warn('Error disconnecting KILT API:', error);
-      }
-      this.api = null;
-    }
-
-    // Close WebSocket provider
+    // Close WebSocket provider (in @polkadot/api v12, disconnect through provider)
     if (this.wsProvider) {
       try {
         this.wsProvider.disconnect();
@@ -1241,6 +1231,9 @@ export class KiltAdapter implements WalletAdapter {
       }
       this.wsProvider = null;
     }
+
+    // Clear API reference
+    this.api = null;
 
     // Reset connection state (but keep chainInfo for potential reuse)
     // Only clear chainInfo if we're fully disconnecting

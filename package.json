@@ -109,9 +109,11 @@
     "ts-node": "^10.9.2"
   },
   "dependencies": {
+    "@kiltprotocol/did": "^0.100.0",
+    "@kiltprotocol/sdk-js": "^1.0.0",
     "@libp2p/logger": "^6.0.5",
     "@openzeppelin/contracts": "^4.9.6",
-    "@polkadot/api": "^10.11.2",
+    "@polkadot/api": "^12.4.2",
     "@polkadot/extension-dapp": "^0.45.3",
     "@polkadot/keyring": "^11.0.0",
     "@polkadot/types": "^10.11.2",

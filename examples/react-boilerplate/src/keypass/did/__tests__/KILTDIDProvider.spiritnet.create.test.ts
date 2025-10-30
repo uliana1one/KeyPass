@@ -16,19 +16,66 @@ jest.mock('../../adapters/types', () => ({
   validatePolkadotAddress: jest.fn(() => true),
 }));
 
-// Mock @polkadot/util-crypto to avoid decoding issues
-jest.mock('@polkadot/util-crypto', () => ({
-  decodeAddress: jest.fn(() => new Uint8Array(32).fill(1)),
-  encodeAddress: jest.fn((pk: Uint8Array) => 'encodedAddress'),
-  base58Encode: jest.fn(() => 'base58encoded'),
-  isAddress: jest.fn(() => true),
+// Mock @kiltprotocol/utils to handle multibase keypair operations
+jest.mock('@kiltprotocol/utils', () => ({
+  Multikey: {
+    encodeMultibaseKeypair: jest.fn(({ publicKey, type }: any) => ({
+      publicKeyMultibase: `z` + 'testmultibasekey', // Valid multibase format
+    })),
+    decodeMultibaseKeypair: jest.fn(({ publicKeyMultibase }: any) => ({
+      type: 'sr25519',
+      publicKey: new Uint8Array(32).fill(1),
+    })),
+  },
+  Signers: {
+    select: {
+      bySignerId: jest.fn((ids: any) => (sig: any) => true),
+      verifiableOnChain: jest.fn(),
+    },
+    selectSigner: jest.fn((signers: any, verifiable: any, matcher: any) => signers[0]),
+    DID_PALLET_SUPPORTED_ALGORITHMS: ['sr25519', 'ed25519', 'ecdsa'],
+    ALGORITHMS: {
+      ECRECOVER_SECP256K1_BLAKE2B: 'EcdsaSecp256k1',
+    },
+  },
+  Crypto: {
+    u8aToHex: jest.fn((u8a: Uint8Array) => '0x' + Array.from(u8a).map(b => b.toString(16).padStart(2, '0')).join('')),
+  },
+  ss58Format: 38,
+  SDKErrors: {
+    NoSuitableSignerError: class extends Error {
+      constructor(message: string, details: any) {
+        super(message);
+        this.name = 'NoSuitableSignerError';
+      }
+    },
+    DidError: class extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = 'DidError';
+      }
+    },
+  },
 }));
+
+// Mock @polkadot/util-crypto to avoid decoding issues
+// Need to return a valid multibase key: z + base58(prefix + key)
+jest.mock('@polkadot/util-crypto', () => {
+  const mockKey = new Uint8Array(32).fill(1);
+  return {
+    decodeAddress: jest.fn(() => mockKey),
+    encodeAddress: jest.fn((pk: Uint8Array) => 'encodedAddress'),
+    base58Encode: jest.fn((data: Uint8Array) => {
+      // Return a valid-looking base58 string when encoding
+      // The SDK will prefix with 'z' to make it multibase
+      return 'kQJKJKJKJKJKJKJKJKJKJKJKJKJKJKJKJKJKJKJKJKJKJ';
+    }),
+    isAddress: jest.fn(() => true),
+  };
+});
 
 describe('KILTDIDProvider Spiritnet create DID (details, signature)', () => {
   test('builds details, requests signature and submits did.create(details, signature)', async () => {
-    // Prepare mocked api
-    const didCreateMeta = { args: [{ type: { toString: () => 'PalletDidLookupBoundedDidCallDetails' } }, { type: { toString: () => 'DidSignature' } }] };
-
     const unsubscribe = jest.fn();
     const signAsync = jest.fn().mockResolvedValue({
       hash: { toHex: () => '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' },
@@ -50,10 +97,14 @@ describe('KILTDIDProvider Spiritnet create DID (details, signature)', () => {
         createType: jest.fn().mockImplementation((type: string, value: unknown) => ({ type, value, toU8a: () => new Uint8Array([1, 2, 3]) })),
         getKnownTypes: jest.fn().mockReturnValue({ types: {} }),
       },
-      tx: {
+      consts: {
         did: {
-          create: jest.fn().mockImplementation((_details: any, _signature: any) => extrinsic),
+          maxNewKeyAgreementKeys: { toNumber: () => 5 },
+          maxNumberOfServicesPerDid: { toNumber: () => 25 },
         },
+      },
+      tx: {
+        did: {} as any,
         utility: { batchAll: jest.fn() },
       },
       query: {
@@ -69,7 +120,7 @@ describe('KILTDIDProvider Spiritnet create DID (details, signature)', () => {
           getBlock: jest.fn().mockResolvedValue({ block: { extrinsics: [{ hash: { toHex: () => '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' } }] } }),
           getHeader: jest.fn().mockResolvedValue({ number: { toNumber: () => 12345 }, parentHash: { toHex: () => '0xparent' } }),
         },
-        payment: { queryFeeDetails: jest.fn().mockResolvedValue({ inclusionFee: null, tip: { toBn: () => 0n } }) },
+        payment: { queryFeeDetails: jest.fn().mockResolvedValue({ inclusionFee: null, tip: { toBn: () => BigInt(0) } }) },
       },
     };
 
@@ -79,8 +130,33 @@ describe('KILTDIDProvider Spiritnet create DID (details, signature)', () => {
       getChainInfo: jest.fn().mockReturnValue({ network: 'spiritnet' }),
       api,
     };
-    // Inject meta
-    (api.tx.did.create as any).meta = didCreateMeta;
+    // Mock the extrinsic creation to return a proper extrinsic object
+    const didCreateExtrinsic = {
+      method: {
+        section: 'did',
+        method: 'create',
+        args: [],
+      },
+      signAsync,
+      send: jest.fn().mockImplementation((cb: (status: any) => void) => {
+        cb({ status: { type: 'Finalized', asFinalized: { toHex: () => '0xabcdef' } }, isFinalized: true, isInBlock: false });
+        return unsubscribe;
+      }),
+      paymentInfo: jest.fn().mockResolvedValue({ partialFee: { toBn: () => ({ toString: () => '100000' }) } }),
+    };
+    
+    api.tx.did.create = jest.fn().mockImplementation((_encoded: any, _signature: any) => didCreateExtrinsic);
+    
+    // Inject meta for KILT SDK (needs to match Spiritnet 2-arg format)
+    (api.tx.did.create as any).meta = {
+      args: [{
+        type: { toString: () => 'PalletDidLookupBoundedDidCallDetails' },
+        name: 'details',
+      }, {
+        type: { toString: () => 'DidSignature' },
+        name: 'signature',
+      }],
+    };
 
     const { web3Enable, web3FromAddress } = await import('@polkadot/extension-dapp');
     

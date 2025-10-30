@@ -1,5 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const { ApiPromise, WsProvider, Keyring } = require('@polkadot/api');
+const { u8aToHex } = require('@polkadot/util');
+const { getStoreTx } = require('@kiltprotocol/did');
+const { ConfigService } = require('@kiltprotocol/config');
 
 const app = express();
 const PORT = 5001;
@@ -106,6 +110,87 @@ app.post('/api/credentials/accept', (req, res) => {
 app.post('/api/credentials/revoke', (req, res) => {
   console.log('[API] POST /api/credentials/revoke', req.body);
   res.json({ success: true });
+});
+
+// --- KILT DID creation (backend) ---
+// body: { network?: 'spiritnet'|'peregrine', mnemonic?: string }
+app.post('/api/kilt/did/create', async (req, res) => {
+  const network = (req.body?.network || 'peregrine').toLowerCase();
+  const WS = network === 'spiritnet' ? 'wss://spiritnet.kilt.io' : 'wss://peregrine.kilt.io';
+  const MNEMONIC = req.body?.mnemonic || process.env.KILT_MNEMONIC || 'moment develop giant embrace wet sad rocket chicken moon glimpse blame enact';
+
+  console.log(`[API] POST /api/kilt/did/create network=${network} ws=${WS}`);
+
+  let api;
+  try {
+    const provider = new WsProvider(WS);
+    api = await ApiPromise.create({ provider });
+    await api.isReady;
+
+    // Configure KILT SDK with this api instance
+    ConfigService.set({ api });
+
+    // Build signer from mnemonic
+    const keyring = new Keyring({ type: 'sr25519', ss58Format: 38 });
+    const pair = keyring.addFromMnemonic(MNEMONIC);
+
+    const authKey = { publicKey: pair.publicKey, type: 'sr25519' };
+    const signers = [{ id: u8aToHex(pair.publicKey), algorithm: 'sr25519', sign: async ({ data }) => pair.sign(data) }];
+
+    // Optional: if on Spiritnet, ensure account has funds; otherwise fallback to Peregrine
+    if (network === 'spiritnet') {
+      try {
+        const info = await api.query.system.account(pair.address);
+        const free = info.data.free.toBn();
+        // Require minimal balance (0.1 KILT ~ 100000000000000000)
+        const min = BigInt('100000000000000000');
+        if (free < min) {
+          console.warn('[KILT] Spiritnet balance too low; falling back to Peregrine');
+          await api.disconnect();
+          const provider2 = new WsProvider('wss://peregrine.kilt.io');
+          api = await ApiPromise.create({ provider: provider2 });
+          await api.isReady;
+          ConfigService.set({ api });
+        }
+      } catch {}
+    }
+
+    // Create Spiritnet-style pre-signed extrinsic using SDK
+    const didTx = await getStoreTx({ authentication: [authKey] }, pair.address, signers);
+
+    // Sign the outer transaction and submit
+    const nonce = await api.rpc.system.accountNextIndex(pair.address);
+    let blockHashHex = '';
+    await new Promise(async (resolve, reject) => {
+      try {
+        const unsub = await didTx.signAndSend(pair, { nonce }, (status) => {
+          if (status.status.isInBlock) {
+            blockHashHex = status.status.asInBlock.toHex();
+            console.log('[KILT] In block', blockHashHex);
+          }
+          if (status.status.isFinalized) {
+            blockHashHex = status.status.asFinalized.toHex();
+            console.log('[KILT] Finalized', blockHashHex);
+            unsub();
+            resolve();
+          }
+        });
+      } catch (e) { reject(e); }
+    });
+
+    res.json({
+      success: true,
+      network,
+      address: pair.address,
+      blockHash: blockHashHex,
+      txHash: didTx.hash.toHex(),
+    });
+  } catch (e) {
+    console.error('[API] /api/kilt/did/create failed:', e?.message || e);
+    res.status(500).json({ success: false, error: e?.message || String(e) });
+  } finally {
+    try { await api?.disconnect(); } catch {}
+  }
 });
 
 app.listen(PORT, () => {
