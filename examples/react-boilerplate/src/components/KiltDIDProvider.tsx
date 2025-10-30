@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { KILTDIDProvider } from '../keypass/did/KILTDIDProvider';
 import { KiltAdapter } from '../keypass/adapters/KiltAdapter';
+import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
 
 interface KiltDIDProviderProps {
   account: {
@@ -69,11 +70,21 @@ export const KiltDIDProviderComponent: React.FC<KiltDIDProviderProps> = ({
       setLoading(true);
       setStatus('Creating DID...');
       
+      // Convert address to KILT format (SS58 prefix 38)
+      let kiltAddress = account.address;
+      try {
+        const publicKey = decodeAddress(account.address);
+        kiltAddress = encodeAddress(publicKey, 38); // KILT uses SS58 prefix 38
+        console.log('Converted address to KILT format:', kiltAddress);
+      } catch (err) {
+        console.warn('Failed to convert address format:', err);
+      }
+      
       // Create DID using real KILT provider
-      const did = await didProvider.createDid(account.address);
+      const did = await didProvider.createDid(kiltAddress);
       
       setStatus('Creating DID document...');
-      const didDocument = await didProvider.createDIDDocument(account.address);
+      const didDocument = await didProvider.createDIDDocument(kiltAddress);
       
       const result = {
         did: did,
