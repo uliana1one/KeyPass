@@ -122,6 +122,7 @@
     "@semaphore-protocol/group": "^4.11.1",
     "@semaphore-protocol/identity": "^4.11.1",
     "@semaphore-protocol/proof": "^4.11.1",
+    "poseidon-lite": "^0.3.0",
     "@walletconnect/core": "^2.21.4",
     "@walletconnect/ethereum-provider": "^2.21.4",
     "@walletconnect/types": "^2.21.4",
