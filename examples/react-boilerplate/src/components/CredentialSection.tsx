@@ -296,7 +296,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                 <div className="offer-content">
                   <h5>{(offer.type || []).join(', ')}</h5>
                   <div className="credential-preview">
-                    {Object.entries(offer.credentialSubject).map(([key, value]) => (
+                    {Object.entries(offer.credentialSubject || {}).map(([key, value]) => (
                       <div key={key} className="preview-field">
                         <span className="field-label">{key}:</span>
                         <span className="field-value">{String(value)}</span>
