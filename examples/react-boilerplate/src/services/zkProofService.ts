@@ -55,6 +55,8 @@ export interface ZKProofServiceConfig {
   };
   /** When real proofs are disabled, return mock instead of throwing */
   disableMockFallback?: boolean;
+  /** Backward-compat: when false, do not allow mock path in service */
+  mockMode?: boolean;
 }
 
 export class ZKProofService {
@@ -110,7 +112,7 @@ export class ZKProofService {
     if (this.groupCache.has(groupKey)) {
       return this.groupCache.get(groupKey)!;
     }
-    const group = new Group(groupKey, depth);
+    const group = new Group(groupKey, depth, []);
     this.groupCache.set(groupKey, group);
     return group;
   }
@@ -292,7 +294,7 @@ export class ZKProofService {
   ): Promise<ZKProof> {
     // If real proofs are disabled, signal error (callers that want mock should use higher-level fallback)
     if (!this.config.enableRealProofs) {
-      if (this.config.disableMockFallback) {
+      if (this.config.mockMode === false || this.config.disableMockFallback) {
         throw new Error('Real ZK-proof generation is disabled');
       }
       return this.generateMockProof(circuitId, publicInputs);
