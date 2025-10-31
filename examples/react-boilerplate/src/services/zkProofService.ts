@@ -70,6 +70,40 @@ export class ZKProofService {
   }
 
   /**
+   * Generate a Semaphore identity derived from a wallet signature.
+   * Wallet must implement `{ address: string; signMessage(msg: string): Promise<string> }`.
+   */
+  async generateSemaphoreIdentity(wallet: { address: string; signMessage: (msg: string) => Promise<string> }): Promise<{ identity: Identity; commitment: string }>{
+    if (!wallet || !wallet.address || typeof wallet.signMessage !== 'function') {
+      throw new Error('Invalid wallet provided for identity generation');
+    }
+
+    const cacheKey = `wallet:${wallet.address.toLowerCase()}`;
+    const cached = this.identityCache.get(cacheKey);
+    if (cached) {
+      return { identity: cached, commitment: cached.commitment.toString() };
+    }
+
+    const domainSeparatedMsg = [
+      'KeyPass Semaphore Identity',
+      `Address: ${wallet.address.toLowerCase()}`,
+      'Purpose: deterministic identity seed',
+    ].join('\n');
+
+    const signature = await wallet.signMessage(domainSeparatedMsg);
+    // Derive a field element from the signature deterministically
+    const sigHex = signature.startsWith('0x') ? signature.slice(2) : signature;
+    const seedA = BigInt('0x' + sigHex.slice(0, 32));
+    const seedB = BigInt('0x' + Buffer.from(wallet.address.toLowerCase()).toString('hex').slice(0, 32));
+    const secret = poseidon2([seedA, seedB]);
+
+    const identity = new Identity(secret.toString());
+    this.identityCache.set(cacheKey, identity);
+
+    return { identity, commitment: identity.commitment.toString() };
+  }
+
+  /**
    * Get available ZK circuits
    */
   getAvailableCircuits(): ZKCircuit[] {
