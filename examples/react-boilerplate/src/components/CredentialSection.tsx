@@ -46,6 +46,8 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
   const [verification, setVerification] = useState<{ ok: boolean; message?: string; sbt?: 'confirmed' | 'unknown' } | null>(null);
   const [cancelRequested, setCancelRequested] = useState(false);
   const [selectiveFields, setSelectiveFields] = useState<Record<string, boolean>>({});
+  const [proofError, setProofError] = useState<string | null>(null);
+  const [lastAttempt, setLastAttempt] = useState<null | { kind: 'age' | 'student' }>(null);
 
   // Configure credential service based on data source and chain type
   const configuredCredentialService = new CredentialService({
@@ -360,6 +362,8 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   setIsGenerating(true);
                   setCancelRequested(false);
                   setVerification(null);
+                  setProofError(null);
+                  setLastAttempt({ kind: 'age' });
                   const ageCred = credentials.find(c => c.type.some(t => t.toLowerCase().includes('age')) || c.credentialSubject.age || c.credentialSubject.birthDate || c.credentialSubject.dateOfBirth);
                   if (!ageCred) {
                     alert('No age-related credential found');
@@ -374,6 +378,8 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   if (cancelRequested) { setIsGenerating(false); return; }
                   setVerification({ ok });
                 } catch (e: any) {
+                  console.error('Age proof error:', e);
+                  setProofError(e?.message || 'Failed to generate or verify age proof.');
                   setVerification({ ok: false, message: e?.message || String(e) });
                 } finally {
                   setIsGenerating(false);
@@ -390,6 +396,8 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   setIsGenerating(true);
                   setCancelRequested(false);
                   setVerification(null);
+                  setProofError(null);
+                  setLastAttempt({ kind: 'student' });
                   const studentCred = credentials.find(c => c.type.some(t => t.toLowerCase().includes('student')) || c.credentialSubject.studentId || c.credentialSubject.organizationId);
                   if (!studentCred) {
                     alert('No student credential found');
@@ -402,10 +410,11 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   const expectedSignal = proof.publicSignals?.[2] || '';
                   const ok = await zkProofService.verifyZKProof(proof, expectedSignal, 'semaphore-membership-proof');
                   if (cancelRequested) { setIsGenerating(false); return; }
-                  // Placeholder SBT check: mark confirmed if a studentId exists
                   const sbt = studentCred.credentialSubject.studentId ? 'confirmed' : 'unknown';
                   setVerification({ ok, sbt });
                 } catch (e: any) {
+                  console.error('Student proof error:', e);
+                  setProofError(e?.message || 'Failed to generate or verify student proof.');
                   setVerification({ ok: false, message: e?.message || String(e) });
                 } finally {
                   setIsGenerating(false);
@@ -438,6 +447,32 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   <span>{key}</span>
                 </label>
               ))}
+            </div>
+          </div>
+        )}
+
+        {proofError && (
+          <div className="error-banner" style={{ background: '#fef2f2', color: '#b91c1c', padding: 10, borderRadius: 8, marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <strong>Proof Error:</strong> {proofError}
+              </div>
+              {lastAttempt && (
+                <button
+                  className="secondary-button"
+                  onClick={async () => {
+                    // Retry the last attempted action
+                    if (lastAttempt.kind === 'age') {
+                      const btn = document.querySelector('button.primary-button') as HTMLButtonElement | null;
+                      btn?.click();
+                    } else if (lastAttempt.kind === 'student') {
+                      const buttons = Array.from(document.querySelectorAll('button.secondary-button')) as HTMLButtonElement[];
+                      const studentBtn = buttons.find(b => b.textContent?.toLowerCase().includes('prove student'));
+                      studentBtn?.click();
+                    }
+                  }}
+                >Retry</button>
+              )}
             </div>
           </div>
         )}
