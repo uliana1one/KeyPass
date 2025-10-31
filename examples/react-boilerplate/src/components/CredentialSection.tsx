@@ -43,7 +43,9 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastProof, setLastProof] = useState<ZKProof | null>(null);
-  const [verification, setVerification] = useState<{ ok: boolean; message?: string } | null>(null);
+  const [verification, setVerification] = useState<{ ok: boolean; message?: string; sbt?: 'confirmed' | 'unknown' } | null>(null);
+  const [cancelRequested, setCancelRequested] = useState(false);
+  const [selectiveFields, setSelectiveFields] = useState<Record<string, boolean>>({});
 
   // Configure credential service based on data source and chain type
   const configuredCredentialService = new CredentialService({
@@ -356,6 +358,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
               onClick={async () => {
                 try {
                   setIsGenerating(true);
+                  setCancelRequested(false);
                   setVerification(null);
                   const ageCred = credentials.find(c => c.type.some(t => t.toLowerCase().includes('age')) || c.credentialSubject.age || c.credentialSubject.birthDate || c.credentialSubject.dateOfBirth);
                   if (!ageCred) {
@@ -364,10 +367,11 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                     return;
                   }
                   const proof = await generateAgeVerificationProof([ageCred], 18);
+                  if (cancelRequested) { setIsGenerating(false); return; }
                   setLastProof(proof);
-                  // Use publicSignals[2] as expected signal when available
                   const expectedSignal = proof.publicSignals?.[2] || '';
                   const ok = await zkProofService.verifyZKProof(proof, expectedSignal, 'semaphore-age-verification');
+                  if (cancelRequested) { setIsGenerating(false); return; }
                   setVerification({ ok });
                 } catch (e: any) {
                   setVerification({ ok: false, message: e?.message || String(e) });
@@ -376,7 +380,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                 }
               }}
             >
-              {isGenerating ? 'Generating…' : 'Generate Age Proof'}
+              {isGenerating ? 'Generating… (≈2–5s)' : 'Generate Age Proof'}
             </button>
             <button
               className="secondary-button"
@@ -384,6 +388,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
               onClick={async () => {
                 try {
                   setIsGenerating(true);
+                  setCancelRequested(false);
                   setVerification(null);
                   const studentCred = credentials.find(c => c.type.some(t => t.toLowerCase().includes('student')) || c.credentialSubject.studentId || c.credentialSubject.organizationId);
                   if (!studentCred) {
@@ -392,10 +397,14 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                     return;
                   }
                   const proof = await generateStudentStatusProof([studentCred], 'student');
+                  if (cancelRequested) { setIsGenerating(false); return; }
                   setLastProof(proof);
                   const expectedSignal = proof.publicSignals?.[2] || '';
                   const ok = await zkProofService.verifyZKProof(proof, expectedSignal, 'semaphore-membership-proof');
-                  setVerification({ ok });
+                  if (cancelRequested) { setIsGenerating(false); return; }
+                  // Placeholder SBT check: mark confirmed if a studentId exists
+                  const sbt = studentCred.credentialSubject.studentId ? 'confirmed' : 'unknown';
+                  setVerification({ ok, sbt });
                 } catch (e: any) {
                   setVerification({ ok: false, message: e?.message || String(e) });
                 } finally {
@@ -403,11 +412,36 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                 }
               }}
             >
-              {isGenerating ? 'Working…' : 'Prove Student Status'}
+              {isGenerating ? 'Working… (≈2–5s)' : 'Prove Student Status'}
             </button>
+            {isGenerating && (
+              <button
+                className="secondary-button"
+                onClick={() => setCancelRequested(true)}
+              >Cancel</button>
+            )}
           </div>
         </div>
-        
+
+        {/* Selective disclosure UI: reveal fields alongside proofs */}
+        {credentials.length > 0 && (
+          <div style={{ margin: '8px 0', padding: 8, border: '1px solid #eee', borderRadius: 8 }}>
+            <div style={{ marginBottom: 6, fontWeight: 600 }}>Selective Disclosure (include fields when sharing)</div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {Object.keys(credentials[0].credentialSubject || {}).map((key) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!selectiveFields[key]}
+                    onChange={(e) => setSelectiveFields((prev) => ({ ...prev, [key]: e.target.checked }))}
+                  />
+                  <span>{key}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         {lastProof && (
           <div className="zk-proof-result">
             <h4>Latest Proof</h4>
@@ -416,6 +450,9 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
               <div className="zk-field"><span>Circuit:</span><span>{lastProof.circuit}</span></div>
               <div className="zk-field"><span>Public Signals:</span><span>{(lastProof.publicSignals || []).join(', ')}</span></div>
               <div className="zk-field"><span>Verification:</span><span style={{ color: verification?.ok ? '#16a34a' : '#dc2626' }}>{verification ? (verification.ok ? 'Valid' : 'Invalid') : '—'}</span></div>
+              {verification?.sbt && (
+                <div className="zk-field"><span>SBT Ownership:</span><span>{verification.sbt === 'confirmed' ? 'Confirmed' : 'Unknown'}</span></div>
+              )}
               {verification?.message && (
                 <div className="zk-field"><span>Error:</span><span>{verification.message}</span></div>
               )}
