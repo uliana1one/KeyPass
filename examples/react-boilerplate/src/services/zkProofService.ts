@@ -440,7 +440,30 @@ export class ZKProofService {
     expectedSignal: string,
     groupId?: string
   ): Promise<boolean> {
-    // Always use mock verification for now
+    // Use real verification when enabled
+    if (this.config.enableRealProofs) {
+      try {
+        const proofObj = typeof zkProof.proof === 'string' ? JSON.parse(zkProof.proof) : zkProof.proof;
+
+        // Validate group root if available
+        if (groupId && this.groupCache.has(groupId)) {
+          const group = this.groupCache.get(groupId)!;
+          const rootMatches = String(proofObj.merkleTreeRoot ?? '') === group.root.toString();
+          if (!rootMatches) return false;
+        }
+
+        // Validate expected signal
+        const signalOk = String(proofObj.signal ?? '') === String(expectedSignal);
+        if (!signalOk) return false;
+
+        const verified = await verifyProof(proofObj as any, REAL_ZK_CIRCUITS.find(c=>c.id===zkProof.circuit)?.verificationKey || 'semaphore_vk');
+        return Boolean(verified);
+      } catch {
+        return false;
+      }
+    }
+
+    // Fallback to mock verification
     return this.verifyMockProof(zkProof);
   }
 
