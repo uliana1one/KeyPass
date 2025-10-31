@@ -271,6 +271,34 @@ For issues or questions:
 3. Consult the [Moonbeam documentation](https://docs.moonbeam.network/)
 4. Open an issue in the KeyPass repository
 
+## Onchain Validation Scripts
+
+The KeyPass project includes scripts for validating and documenting onchain operations. See [VALIDATION_README.md](./VALIDATION_README.md) for detailed information.
+
+### Quick Usage
+
+```bash
+# Validate KILT DID operations
+npm run validate:kilt
+
+# Validate SBT minting operations
+npm run validate:sbt
+
+# Validate ZK-proof generation
+npm run validate:zk
+
+# Run all validations
+npm run validate:all
+```
+
+### What They Do
+
+- **validate-kilt-did.js**: Creates and resolves KILT DIDs on Peregrine testnet
+- **validate-sbt-mint.js**: Mints SBT tokens and verifies non-transferability
+- **validate-zkproof.js**: Generates and verifies zero-knowledge proofs
+
+All scripts output transaction details for documentation in `ONCHAIN_VALIDATION.md`.
+
 ## Other Scripts
 
 ### E2E Tests
