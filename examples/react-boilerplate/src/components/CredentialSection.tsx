@@ -12,6 +12,7 @@ import {
   ZKProof 
 } from '../types/credential';
 import { credentialService, CredentialService } from '../services/credentialService';
+import { zkProofService, generateAgeVerificationProof, generateStudentStatusProof } from '../services/zkProofService';
 
 interface CredentialSectionProps {
   did: string;
@@ -40,6 +41,9 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
   const [dataSource, setDataSource] = useState<'real' | 'mock'>(
     useRealData ? 'real' : 'mock'
   );
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastProof, setLastProof] = useState<ZKProof | null>(null);
+  const [verification, setVerification] = useState<{ ok: boolean; message?: string } | null>(null);
 
   // Configure credential service based on data source and chain type
   const configuredCredentialService = new CredentialService({
@@ -339,14 +343,109 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
       <div className="zkproofs-section">
         <div className="section-header">
           <h3>Zero-Knowledge Proofs</h3>
-          <button 
-            className="secondary-button"
-            onClick={() => setShowZKProofGenerator(true)}
-          >
-            Generate ZK-Proof
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button 
+              className="secondary-button"
+              onClick={() => setShowZKProofGenerator(true)}
+            >
+              Advanced Generator
+            </button>
+            <button
+              className="primary-button"
+              disabled={isGenerating || credentials.length === 0}
+              onClick={async () => {
+                try {
+                  setIsGenerating(true);
+                  setVerification(null);
+                  const ageCred = credentials.find(c => c.type.some(t => t.toLowerCase().includes('age')) || c.credentialSubject.age || c.credentialSubject.birthDate || c.credentialSubject.dateOfBirth);
+                  if (!ageCred) {
+                    alert('No age-related credential found');
+                    setIsGenerating(false);
+                    return;
+                  }
+                  const proof = await generateAgeVerificationProof([ageCred], 18);
+                  setLastProof(proof);
+                  // Use publicSignals[2] as expected signal when available
+                  const expectedSignal = proof.publicSignals?.[2] || '';
+                  const ok = await zkProofService.verifyZKProof(proof, expectedSignal, 'semaphore-age-verification');
+                  setVerification({ ok });
+                } catch (e: any) {
+                  setVerification({ ok: false, message: e?.message || String(e) });
+                } finally {
+                  setIsGenerating(false);
+                }
+              }}
+            >
+              {isGenerating ? 'Generating…' : 'Generate Age Proof'}
+            </button>
+            <button
+              className="secondary-button"
+              disabled={isGenerating || credentials.length === 0}
+              onClick={async () => {
+                try {
+                  setIsGenerating(true);
+                  setVerification(null);
+                  const studentCred = credentials.find(c => c.type.some(t => t.toLowerCase().includes('student')) || c.credentialSubject.studentId || c.credentialSubject.organizationId);
+                  if (!studentCred) {
+                    alert('No student credential found');
+                    setIsGenerating(false);
+                    return;
+                  }
+                  const proof = await generateStudentStatusProof([studentCred], 'student');
+                  setLastProof(proof);
+                  const expectedSignal = proof.publicSignals?.[2] || '';
+                  const ok = await zkProofService.verifyZKProof(proof, expectedSignal, 'semaphore-membership-proof');
+                  setVerification({ ok });
+                } catch (e: any) {
+                  setVerification({ ok: false, message: e?.message || String(e) });
+                } finally {
+                  setIsGenerating(false);
+                }
+              }}
+            >
+              {isGenerating ? 'Working…' : 'Prove Student Status'}
+            </button>
+          </div>
         </div>
         
+        {lastProof && (
+          <div className="zk-proof-result">
+            <h4>Latest Proof</h4>
+            <div className="zk-info">
+              <div className="zk-field"><span>Type:</span><span>{lastProof.type}</span></div>
+              <div className="zk-field"><span>Circuit:</span><span>{lastProof.circuit}</span></div>
+              <div className="zk-field"><span>Public Signals:</span><span>{(lastProof.publicSignals || []).join(', ')}</span></div>
+              <div className="zk-field"><span>Verification:</span><span style={{ color: verification?.ok ? '#16a34a' : '#dc2626' }}>{verification ? (verification.ok ? 'Valid' : 'Invalid') : '—'}</span></div>
+              {verification?.message && (
+                <div className="zk-field"><span>Error:</span><span>{verification.message}</span></div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  try {
+                    navigator.clipboard.writeText(JSON.stringify(lastProof, null, 2));
+                    alert('Proof copied to clipboard');
+                  } catch {}
+                }}
+              >Copy JSON</button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(lastProof, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `zk-proof-${Date.now()}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >Download JSON</button>
+            </div>
+          </div>
+        )}
+
         {zkCredentials.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">🔐</div>
