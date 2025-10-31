@@ -11,6 +11,9 @@ KeyPass is a secure authentication SDK for blockchain-based applications. It pro
 - **Server-Side Verification**: ECDSA and SR25519 signature verification
 - **DID Integration**: Decentralized Identifier support for both chains
 - **Message Signing and Verification**: Secure message-based authentication
+- **zk-Proofs**: Privacy-preserving credential verification using Semaphore protocol
+- **Soulbound Tokens**: SBT minting and management on multiple chains
+- **Verifiable Credentials**: Full VC support with selective disclosure
 - **Automatic Retry**: Network error recovery
 - **Security Best Practices**: Built-in security measures
 - **Comprehensive Error Handling**: Detailed error types and recovery
@@ -341,12 +344,44 @@ app.post('/api/verify', async (req, res) => {
 });
 ```
 
+### Zero-Knowledge Proofs
+
+Prove age or membership without revealing private data:
+
+```typescript
+import { generateAgeVerificationProof } from '@keypass/login-sdk';
+
+// Generate age verification proof
+const ageCred = {
+  credentialSubject: { age: 22 },
+  // ... other credential fields
+};
+
+const proof = await generateAgeVerificationProof([ageCred], 18);
+
+// Result proves age >= 18 without revealing exact age
+console.log('Proof verified:', proof.type); // 'semaphore'
+console.log('Public signals:', proof.publicSignals);
+
+// Export proof for verification
+const proofJson = JSON.stringify(proof, null, 2);
+```
+
+**Privacy Benefits:**
+- ✅ Prove eligibility without showing exact values
+- ✅ Prevent tracking through nullifiers
+- ✅ Selective disclosure of only necessary fields
+- ✅ Anonymous group membership verification
+
 ## Documentation
 
 For detailed documentation, please refer to:
 
 - [Integration Guide](./docs/integration.md) - Complete guide for integrating KeyPass into your application
 - [API Reference](./docs/api.md) - Detailed API documentation
+- [ZK-Proof User Guide](./docs/zkproof-guide.md) - Privacy-preserving credential verification
+- [ZK-Proof API Reference](./docs/zkproof-api.md) - Complete ZK-proof API docs
+- [ZK-Proof Integration Tutorial](./docs/zkproof-integration-tutorial.md) - Step-by-step zk-proof setup
 - [Security Guide](./docs/security.md) - Security best practices and considerations
 
 ## Key Features
@@ -388,6 +423,14 @@ For detailed documentation, please refer to:
 - **Ethereum DIDs**: `did:ethr` method with Ethereum addresses
 - **DID Resolution**: Resolve DIDs to addresses and documents
 - **DID Document Management**: Complete DID document creation
+
+### 6. Zero-Knowledge Proofs
+- **Privacy-Preserving Verification**: Prove requirements without revealing data
+- **Age Verification**: Prove age ≥ X without showing exact age
+- **Membership Proof**: Prove group membership without revealing identity
+- **Semaphore Protocol**: Industry-standard zk-SNARK proofs
+- **Selective Disclosure**: Control which fields are revealed
+- **Mock Mode**: Fast development with simulated proofs
 
 ## Prerequisites
 
