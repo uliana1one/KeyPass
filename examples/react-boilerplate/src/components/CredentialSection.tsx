@@ -236,10 +236,10 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   <div className="privacy-requirements">
                     <strong>Privacy Requirements:</strong>
                     <div className="privacy-tags">
-                      {request.privacyRequirements.zkProofRequired && (
+                      {request.privacyRequirements?.zkProofRequired && (
                         <span className="privacy-tag">ZK-Proof Required</span>
                       )}
-                      {request.privacyRequirements.selectiveDisclosure && (
+                      {request.privacyRequirements?.selectiveDisclosure && (
                         <span className="privacy-tag">Selective Disclosure</span>
                       )}
                     </div>
@@ -307,11 +307,11 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   <div className="offer-requirements">
                     <strong>Requirements:</strong>
                     <ul>
-                      <li>Verification Method: {offer.requirements.verificationMethod}</li>
-                      {offer.requirements.proofOfControl && (
+                      <li>Verification Method: {offer.requirements?.verificationMethod || 'N/A'}</li>
+                      {offer.requirements?.proofOfControl && (
                         <li>Proof of wallet control required</li>
                       )}
-                      {offer.requirements.additionalVerification?.map(req => (
+                      {(offer.requirements?.additionalVerification || []).map(req => (
                         <li key={req}>{req}</li>
                       ))}
                     </ul>
