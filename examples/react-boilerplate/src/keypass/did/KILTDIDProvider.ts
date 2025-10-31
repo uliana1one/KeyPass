@@ -277,57 +277,10 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       // Connect to KILT parachain
       await this.kiltAdapter.connect();
       const chainInfo = this.kiltAdapter.getChainInfo?.();
-      // Detect Spiritnet by name OR by did.create signature (2-arg Spiritnet format)
       const apiForDetect = (this.kiltAdapter as any).api;
       const isTwoArg = !!apiForDetect?.tx?.did?.create?.meta && apiForDetect.tx.did.create.meta.args?.length === 2;
-      if ((chainInfo && typeof chainInfo.name === 'string' && chainInfo.name.toLowerCase() === 'spiritnet') || isTwoArg) {
-        // Use backend endpoint for Spiritnet to avoid runtime incompatibilities in the browser
-        try {
-          const resp = await fetch('/api/kilt/did/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ network: 'spiritnet' }),
-          });
-          const data = await resp.json();
-          if (!resp.ok || !data?.success) {
-            throw new Error(data?.error || 'Backend Spiritnet DID creation failed');
-          }
-          const did = `did:kilt:${data.address}`;
-          const didDocument = await this.createDIDDocument(data.address) as KILTDIDDocument;
-          const response = {
-            did,
-            didDocument,
-            transactionResult: {
-              success: true,
-              transactionHash: data.txHash,
-              blockHash: data.blockHash,
-              blockNumber: 0,
-              events: [],
-              fee: { amount: '0', currency: 'KILT' },
-              timestamp: new Date().toISOString(),
-            },
-            status: KILTDIDStatus.ACTIVE,
-          };
-          // Verbose console details for backend-driven registration
-          console.log('[KILT] DID registration (backend) success:', {
-            network: 'spiritnet (or fallback peregrine)',
-            did: response.did,
-            address: data.address,
-            txHash: data.txHash,
-            blockHash: data.blockHash,
-            timestamp: response.transactionResult.timestamp,
-          });
-          return response;
-        } catch (e) {
-          throw new KILTError(
-            `Backend Spiritnet DID creation failed: ${e instanceof Error ? e.message : String(e)}`,
-            KILTErrorType.DID_REGISTRATION_ERROR,
-            { cause: e as Error }
-          );
-        }
-      }
       
-      // Create the DID
+      // Create the DID (frontend path first; this will prompt signing)
       const did = request.did || await this.createDid(accountAddress);
       
       // Create the DID document from the address
@@ -337,7 +290,42 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       const extrinsics = await this.prepareDIDRegistrationTransaction(request, didDocument, accountAddress);
       
       // Submit the transaction
-      const transactionResult = await this.submitTransaction(extrinsics, accountAddress);
+      let transactionResult: KILTTransactionResult;
+      try {
+        transactionResult = await this.submitTransaction(extrinsics, accountAddress);
+      } catch (err) {
+        // If Spiritnet and frontend path failed (e.g., insufficient balance or runtime), fallback to backend
+        if ((chainInfo && typeof chainInfo.name === 'string' && chainInfo.name.toLowerCase() === 'spiritnet') || isTwoArg) {
+          try {
+            const resp = await fetch('/api/kilt/did/create', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ network: 'spiritnet' }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data?.success) {
+              throw new Error(data?.error || 'Backend Spiritnet DID creation failed');
+            }
+            transactionResult = {
+              success: true,
+              transactionHash: data.txHash,
+              blockHash: data.blockHash,
+              blockNumber: 0,
+              events: [],
+              fee: { amount: '0', currency: 'KILT' },
+              timestamp: new Date().toISOString(),
+            } as unknown as KILTTransactionResult;
+          } catch (fallbackErr) {
+            throw new KILTError(
+              `Backend Spiritnet DID creation failed: ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}`,
+              KILTErrorType.DID_REGISTRATION_ERROR,
+              { cause: fallbackErr as Error }
+            );
+          }
+        } else {
+          throw err;
+        }
+      }
       // Verbose console details for frontend-driven registration
       try {
         console.log('[KILT] DID registration (frontend) success:', {
@@ -691,10 +679,10 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       const createMeta = (api.tx as any).did?.create?.meta;
       const argLen = createMeta?.args?.length;
       
-      // Check if this is a Spiritnet 2-arg format (requires KILT SDK)
-      const isSpiritnet = argLen === 2;
-      
-      // Try 4-arg format first (works in most cases)
+      // Check if this is a Spiritnet 2-arg format
+      const isTwoArgCreate = argLen === 2;
+
+      // Try 4-arg format first (legacy/other networks)
       if (argLen === 4) {
         // Standard format: (address, verificationMethods, services, metadata)
         createDidExtrinsic = api.tx.did.create(
@@ -703,47 +691,38 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
           serviceList,
           request.metadata || {}
         );
-      } else if (isSpiritnet) {
-        // Auto-fallback: reconnect to Peregrine and use the 4-arg path transparently
+      } else if (isTwoArgCreate) {
+        // Newer KILT runtimes expose did.create with 2 args.
+        // We attempt common layouts by inspecting metadata types and trying safe constructions.
         try {
-          console.warn('Spiritnet 2-arg did.create detected. Falling back to Peregrine automatically...');
+          const argTypes = (createMeta?.args || []).map((a: any) => `${a?.type || ''}`.toLowerCase());
 
-          // Disconnect current API
-          const currentApi = (this.kiltAdapter as any).api;
-          // Best-effort disconnect, ignore errors
-          try { await currentApi?.disconnect?.(); } catch {}
+          // Build a compact details object from our inputs
+          const details: any = {
+            verificationMethods: vmList,
+            services: serviceList,
+            metadata: request.metadata || {}
+          };
 
-          // Reconfigure adapter to Peregrine
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const cfgMgr: any = this.configManager as any;
-          cfgMgr.setNetwork?.('peregrine');
-
-          // Reconnect adapter (it should read the updated network from config)
-          await (this.kiltAdapter as any).connect?.();
-
-          const apiAfter = (this.kiltAdapter as any).api;
-          if (!apiAfter || !apiAfter.isConnected) {
-            throw new Error('Failed to reconnect to Peregrine');
+          // Heuristic 1: (details, controller)
+          if ((argTypes[0] || '').includes('detail') || (argTypes[0] || '').includes('create')) {
+            createDidExtrinsic = (api.tx as any).did.create(details, accountAddress);
+          // Heuristic 2: (controller, details)
+          } else if ((argTypes[1] || '').includes('detail') || (argTypes[1] || '').includes('create')) {
+            createDidExtrinsic = (api.tx as any).did.create(accountAddress, details);
+          } else {
+            // Fallback attempt order if metadata types are opaque
+            try {
+              createDidExtrinsic = (api.tx as any).did.create(details, accountAddress);
+            } catch {
+              createDidExtrinsic = (api.tx as any).did.create(accountAddress, details);
+            }
           }
-
-          // Build again with the new metadata (Peregrine has 4-arg did.create)
-          const newCreateMeta = (apiAfter.tx as any).did?.create?.meta;
-          const newArgLen = newCreateMeta?.args?.length;
-          if (newArgLen !== 4) {
-            throw new Error(`Unexpected did.create signature on fallback: ${newArgLen}`);
-          }
-
-          createDidExtrinsic = apiAfter.tx.did.create(
-            accountAddress,
-            vmList,
-            serviceList,
-            request.metadata || {}
-          );
-        } catch (fallbackError) {
+        } catch (buildError) {
           throw new KILTError(
-            `Automatic fallback to Peregrine failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`,
+            `Failed to build 2-arg did.create extrinsic: ${buildError instanceof Error ? buildError.message : 'Unknown error'}`,
             KILTErrorType.TRANSACTION_EXECUTION_ERROR,
-            { cause: fallbackError as Error }
+            { cause: buildError as Error }
           );
         }
       } else {
