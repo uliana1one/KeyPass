@@ -346,7 +346,7 @@ export class ZKProofService {
           BigInt('0x' + Buffer.from(circuitId).toString('hex').slice(0, 32))
         ]);
 
-        const fullProof: any = await generateProof(identity, merkleProof, externalNullifier, signal);
+        const fullProof: any = await generateProof(identity, merkleProof, signal, externalNullifier);
 
         return {
           type: 'semaphore',
@@ -416,10 +416,8 @@ export class ZKProofService {
     const isValid = userAge >= minAge;
     
     // Create signal that proves age requirement without revealing exact age
-    return poseidon2([
-      BigInt(minAge),
-      BigInt(isValid ? 1 : 0)
-    ]).toString();
+    // In Semaphore, signal is typically a string (message or hash), not the hash itself
+    return poseidon2([BigInt(minAge), BigInt(isValid ? 1 : 0)]).toString();
   }
 
   /**
@@ -568,7 +566,7 @@ export class ZKProofService {
 }
 
 // Export singleton instance
-export const zkProofService = new ZKProofService(); 
+export const zkProofService = new ZKProofService({ enableRealProofs: true, disableMockFallback: true });
 
 // Convenience helpers for credential-based proofs
 export async function generateAgeVerificationProof(
