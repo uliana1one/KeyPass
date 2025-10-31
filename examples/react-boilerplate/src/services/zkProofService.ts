@@ -53,6 +53,8 @@ export interface ZKProofServiceConfig {
     wasmFilePath?: string;
     zkeyFilePath?: string;
   };
+  /** When real proofs are disabled, return mock instead of throwing */
+  disableMockFallback?: boolean;
 }
 
 export class ZKProofService {
@@ -108,7 +110,7 @@ export class ZKProofService {
     if (this.groupCache.has(groupKey)) {
       return this.groupCache.get(groupKey)!;
     }
-    const group = new Group(depth, groupKey);
+    const group = new Group(groupKey, depth);
     this.groupCache.set(groupKey, group);
     return group;
   }
@@ -290,9 +292,10 @@ export class ZKProofService {
   ): Promise<ZKProof> {
     // If real proofs are disabled, signal error (callers that want mock should use higher-level fallback)
     if (!this.config.enableRealProofs) {
-      // Maintain explicit error to match expected behavior in tests
-      // CredentialService has its own mock fallback when ZK is disabled at higher layers
-      throw new Error('Real ZK-proof generation is disabled');
+      if (this.config.disableMockFallback) {
+        throw new Error('Real ZK-proof generation is disabled');
+      }
+      return this.generateMockProof(circuitId, publicInputs);
     }
     // Validate circuit exists
     const circuit = REAL_ZK_CIRCUITS.find(c => c.id === circuitId);
