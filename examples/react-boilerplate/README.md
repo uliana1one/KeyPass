@@ -1,6 +1,6 @@
 # 🔐 KeyPass React Boilerplate
 
-A complete, ready-to-use React application demonstrating **multi-chain authentication** with KeyPass SDK for both Polkadot and Ethereum ecosystems.
+A complete, ready-to-use React application demonstrating **multi-chain blockchain integration** with KeyPass SDK for DID registration (KILT, Moonbeam) and SBT minting.
 
 ## 🚀 Quick Start
 
@@ -10,8 +10,11 @@ Before you begin, ensure you have:
 
 1. **Node.js 16+** installed ([Download here](https://nodejs.org/))
 2. **A wallet extension** installed:
-   - **For Polkadot**: [Polkadot.js Extension](https://polkadot.js.org/extension/) or [Talisman](https://talisman.xyz/)
-   - **For Ethereum**: [MetaMask](https://metamask.io/) or another Ethereum wallet
+   - **For Ethereum/Moonbeam**: [MetaMask](https://metamask.io/) or another Ethereum wallet
+   - **For KILT/Polkadot**: [Polkadot{.js} Extension](https://polkadot.js.org/extension/) or [Talisman](https://www.talisman.one/)
+3. **Testnet tokens**:
+   - **Moonbeam**: DEV tokens from the [Moonbeam Faucet](https://apps.moonbeam.network/moonbase-alpha/faucet/)
+   - **KILT**: KILT tokens from the [KILT Faucet](https://faucet.kilt.io/) (optional)
 
 ### Installation & Setup
 
@@ -25,32 +28,57 @@ Before you begin, ensure you have:
    npm install
    ```
 
-3. **Start the development server:**
+3. **Configure environment variables:**
+   Create a `.env` file in the root directory:
+   ```bash
+   # Moonbeam Configuration
+   REACT_APP_MOONBEAM_RPC_URL=https://rpc.api.moonbase.moonbeam.network
+   REACT_APP_SBT_CONTRACT_ADDRESS=0xYourContractAddress
+   REACT_APP_DID_CONTRACT_ADDRESS=0xYourContractAddress
+   
+   # KILT Configuration  
+   REACT_APP_ENABLE_KILT=true
+   REACT_APP_KILT_NETWORK=spiritnet
+   REACT_APP_KILT_WSS_ENDPOINT=wss://spiritnet.kilt.io
+   
+   # IPFS Configuration
+   REACT_APP_PINATA_API_KEY=your-api-key
+   REACT_APP_PINATA_SECRET_KEY=your-secret-key
+   ```
+
+4. **Start the development server:**
    ```bash
    npm start
    ```
 
-4. **Open your browser:**
+5. **Open your browser:**
    Navigate to [http://localhost:3000](http://localhost:3000)
 
-That's it! 🎉 You now have a working multi-chain authentication demo.
+That's it! 🎉 You now have a working Moonbeam blockchain integration demo.
 
 ## 📱 What You'll See
 
 ### Login Screen
 - **Beautiful gradient interface** with chain selection
-- **Polkadot login button** (🟣) - connects to Polkadot.js/Talisman
 - **Ethereum login button** (🔷) - connects to MetaMask/other Ethereum wallets
 - **Prerequisites checklist** with helpful links
 - **Real-time error handling** and loading states
 
 ### After Authentication
 - **User profile display** with authenticated wallet information
-- **Chain badge** showing which blockchain was used
-- **Wallet address** in the appropriate format (SS58 or hex)
-- **DID (Decentralized Identifier)** for the authenticated user
-- **Login timestamp** and session information
-- **Logout functionality** to clear the session
+- **Chain badge** showing Moonbeam blockchain
+- **Wallet address** in hex format
+- **DID information** if created
+- **SBT Section** showing soulbound tokens
+- **Complete Flow Demo** button for end-to-end testing
+- **Performance Monitor** for transaction metrics
+
+### Complete Flow Demo
+- **Step-by-step process** showing Moonbeam DID registration → SBT minting
+- **Real-time progress tracking** with transaction hashes
+- **Gas estimation** and cost display
+- **Error handling** and recovery
+- **Performance metrics** collection
 
 ## 🔧 Customization Guide
 

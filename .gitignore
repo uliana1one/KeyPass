@@ -208,3 +208,38 @@ yarn-error.log*
 
 # Coverage directory
 coverage/
+
+# Frontend app caches and build outputs
+examples/react-boilerplate/.npm-cache/
+examples/react-boilerplate/build/
+examples/**/.cache/
+**/.eslintcache
+**/.parcel-cache/
+**/.turbo/
+**/.next/
+**/.vite/
+**/.swc/
+
+# Solidity / Smart Contracts
+# Foundry
+forge-out/
+out/
+cache/
+*.toml.bak
+
+# Hardhat
+cache/
+artifacts/
+!src/contracts/artifacts/
+
+# Jest/Testing artifacts
+test-results/
+**/jest-cache/
+**/.jest/
+
+# OpenZeppelin
+.openzeppelin/
+
+# Backup files
+*.bak
+*.sol.bak

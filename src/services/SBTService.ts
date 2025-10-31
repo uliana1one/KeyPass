@@ -17,7 +17,12 @@ import {
   SBTQueryResult,
   SBTVerificationRequest,
   SBTVerificationResult,
-} from '../types/sbt';
+  SBTIssuanceRequest,
+} from '../types/sbt.js';
+import { SBTMintingService, SBTMintingResult, SBTMintingServiceError } from './SBTMintingService.js';
+import { MoonbeamAdapter } from '../adapters/MoonbeamAdapter.js';
+import { SBTContractAddress } from '../contracts/types/SBTContractTypes.js';
+import { Signer } from 'ethers';
 
 /**
  * Interface for blockchain provider configuration
@@ -50,6 +55,58 @@ export interface CacheConfig {
 }
 
 /**
+ * Interface for SBT minting request
+ */
+export interface SBTMintRequest {
+  /** Contract address to mint from */
+  contractAddress: SBTContractAddress;
+  /** Recipient address */
+  recipient: SBTContractAddress;
+  /** Token metadata */
+  metadata?: {
+    name: string;
+    description: string;
+    image: string;
+    attributes?: Array<{
+      trait_type: string;
+      value: string | number | boolean;
+    }>;
+  };
+  /** Token metadata URI (alternative to metadata object) */
+  tokenURI?: string;
+  /** Gas limit for the transaction */
+  gasLimit?: bigint;
+  /** Gas price for the transaction */
+  gasPrice?: bigint;
+  /** Maximum fee per gas (EIP-1559) */
+  maxFeePerGas?: bigint;
+  /** Maximum priority fee per gas (EIP-1559) */
+  maxPriorityFeePerGas?: bigint;
+}
+
+/**
+ * Interface for SBT minting result
+ */
+export interface SBTMintResult {
+  /** Token ID of the minted SBT */
+  tokenId: string;
+  /** Transaction hash */
+  transactionHash: string;
+  /** Block number where transaction was mined */
+  blockNumber: number;
+  /** Gas used for the transaction */
+  gasUsed: bigint;
+  /** Metadata URI of the minted token */
+  metadataUri: string;
+  /** Contract address */
+  contractAddress: SBTContractAddress;
+  /** Recipient address */
+  recipient: SBTContractAddress;
+  /** Timestamp when the token was minted */
+  mintedAt: string;
+}
+
+/**
  * Interface for SBT service configuration
  */
 export interface SBTServiceConfig {
@@ -61,6 +118,15 @@ export interface SBTServiceConfig {
   defaultTimeout: number;
   /** Whether to enable debug logging */
   debug: boolean;
+  /** Moonbeam adapter configuration */
+  moonbeamAdapter?: {
+    /** RPC URL for Moonbeam network */
+    rpcUrl: string;
+    /** Network name */
+    network: string;
+    /** Chain ID */
+    chainId: number;
+  };
 }
 
 /**
@@ -287,11 +353,41 @@ export class SBTService {
   private readonly config: SBTServiceConfig;
   private readonly cache: SBTCache;
   private readonly providers: Map<SBTChainType, BlockchainProvider>;
+  private readonly mintingService: SBTMintingService | null = null;
+  private readonly moonbeamAdapter: MoonbeamAdapter | null = null;
 
   constructor(config: SBTServiceConfig) {
     this.config = config;
     this.cache = new SBTCache(config.cache);
     this.providers = new Map();
+
+    // Initialize Moonbeam adapter and minting service if configured
+    if (config.moonbeamAdapter) {
+      try {
+        // Import MoonbeamNetwork enum synchronously
+        const { MoonbeamNetwork } = require('../config/moonbeamConfig.js');
+        
+        // Map network name to MoonbeamNetwork enum
+        let network: any = MoonbeamNetwork.MOONBASE_ALPHA; // default
+        if (config.moonbeamAdapter.network === 'moonbeam') {
+          network = MoonbeamNetwork.MOONBEAM;
+        } else if (config.moonbeamAdapter.network === 'moonriver') {
+          network = MoonbeamNetwork.MOONRIVER;
+        }
+        
+        this.moonbeamAdapter = new MoonbeamAdapter(network);
+        
+        this.mintingService = new SBTMintingService(this.moonbeamAdapter, {}, config.debug);
+
+        if (config.debug) {
+          console.debug('[SBTService] Moonbeam adapter and minting service initialized');
+        }
+      } catch (error) {
+        if (config.debug) {
+          console.warn('[SBTService] Failed to initialize Moonbeam adapter:', error);
+        }
+      }
+    }
 
     // Initialize providers
     Object.entries(config.providers).forEach(([chainType, providerConfig]) => {
@@ -548,6 +644,177 @@ export class SBTService {
    */
   getCacheStats(): { size: number; maxSize: number } {
     return this.cache.getStats();
+  }
+
+  /**
+   * Mint SBT token using real blockchain integration
+   */
+  async mintSBT(
+    request: SBTMintRequest,
+    signer: Signer
+  ): Promise<SBTMintResult> {
+    try {
+      if (!this.mintingService) {
+        throw new SBTServiceError(
+          'SBT minting service is not available. Please configure Moonbeam adapter.',
+          'MINTING_SERVICE_NOT_AVAILABLE'
+        );
+      }
+
+      if (!this.moonbeamAdapter) {
+        throw new SBTServiceError(
+          'Moonbeam adapter is not available. Please configure Moonbeam adapter.',
+          'MOONBEAM_ADAPTER_NOT_AVAILABLE'
+        );
+      }
+
+      if (this.config.debug) {
+        console.debug('[SBTService] Starting SBT minting process...');
+        console.debug('[SBTService] Mint request:', {
+          contractAddress: request.contractAddress,
+          recipient: request.recipient,
+          hasMetadata: !!request.metadata,
+          hasTokenURI: !!request.tokenURI,
+        });
+      }
+
+      // Convert SBTMintRequest to SBTMintParams format expected by SBTMintingService
+      const mintParams = {
+        to: request.recipient,
+        tokenURI: request.tokenURI,
+        metadata: request.metadata,
+        gasLimit: request.gasLimit,
+        gasPrice: request.gasPrice,
+        maxFeePerGas: request.maxFeePerGas,
+        maxPriorityFeePerGas: request.maxPriorityFeePerGas,
+      };
+
+      // Call the real minting service
+      const result: SBTMintingResult = await this.mintingService.mintSBT(
+        request.contractAddress,
+        mintParams,
+        signer
+      );
+
+      if (this.config.debug) {
+        console.debug('[SBTService] SBT minting completed successfully:', {
+          tokenId: result.tokenId,
+          transactionHash: result.transactionHash,
+          blockNumber: result.blockNumber,
+        });
+      }
+
+      // Convert SBTMintingResult to SBTMintResult format
+      const mintResult: SBTMintResult = {
+        tokenId: result.tokenId.toString(),
+        transactionHash: result.transactionHash,
+        blockNumber: result.blockNumber,
+        gasUsed: result.gasUsed,
+        metadataUri: result.metadataUri,
+        contractAddress: result.contractAddress,
+        recipient: result.recipient,
+        mintedAt: result.mintedAt,
+      };
+
+      return mintResult;
+    } catch (error) {
+      // Handle SBTMintingServiceError specifically
+      if (error instanceof SBTMintingServiceError) {
+        throw new SBTServiceError(
+          `SBT minting failed: ${error.message}`,
+          'MINTING_FAILED',
+          SBTChainType.MOONBEAM,
+          request.contractAddress
+        );
+      }
+
+      // Handle other errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new SBTServiceError(
+        `SBT minting failed: ${errorMessage}`,
+        'MINTING_FAILED',
+        SBTChainType.MOONBEAM,
+        request.contractAddress
+      );
+    }
+  }
+
+  /**
+   * Check if SBT minting is available
+   */
+  isMintingAvailable(): boolean {
+    return this.mintingService !== null && this.moonbeamAdapter !== null;
+  }
+
+  /**
+   * Get Moonbeam adapter status
+   */
+  getMoonbeamAdapterStatus(): {
+    available: boolean;
+    connected: boolean;
+    network?: string;
+  } {
+    if (!this.moonbeamAdapter) {
+      return {
+        available: false,
+        connected: false,
+      };
+    }
+
+    return {
+      available: true,
+      connected: this.moonbeamAdapter.isConnected(),
+      network: this.moonbeamAdapter.getCurrentNetwork(),
+    };
+  }
+
+  /**
+   * Connect to Moonbeam network
+   */
+  async connectToMoonbeam(): Promise<boolean> {
+    if (!this.moonbeamAdapter) {
+      throw new SBTServiceError(
+        'Moonbeam adapter is not available',
+        'MOONBEAM_ADAPTER_NOT_AVAILABLE'
+      );
+    }
+
+    try {
+      await this.moonbeamAdapter.connect();
+      
+      if (this.config.debug) {
+        console.debug('[SBTService] Connected to Moonbeam network');
+      }
+      
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new SBTServiceError(
+        `Failed to connect to Moonbeam: ${errorMessage}`,
+        'MOONBEAM_CONNECTION_FAILED'
+      );
+    }
+  }
+
+  /**
+   * Disconnect from Moonbeam network
+   */
+  async disconnectFromMoonbeam(): Promise<void> {
+    if (!this.moonbeamAdapter) {
+      return;
+    }
+
+    try {
+      await this.moonbeamAdapter.disconnect();
+      
+      if (this.config.debug) {
+        console.debug('[SBTService] Disconnected from Moonbeam network');
+      }
+    } catch (error) {
+      if (this.config.debug) {
+        console.warn('[SBTService] Error disconnecting from Moonbeam:', error);
+      }
+    }
   }
 
   /**

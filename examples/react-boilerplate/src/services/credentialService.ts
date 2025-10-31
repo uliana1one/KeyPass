@@ -4,6 +4,7 @@ import {
   CredentialOffer, 
   CredentialPresentation,
   ZKProof,
+  KiltProof,
   ZKCircuit,
   CredentialStatus,
   RequestStatus,
@@ -72,7 +73,8 @@ const CREDENTIAL_SCHEMAS = {
 export interface CredentialServiceConfig {
   enableZKProofs?: boolean;
   enableMockData?: boolean;
-  zkProofProvider?: 'semaphore' | 'plonk' | 'groth16';
+  zkProofProvider?: 'semaphore' | 'plonk' | 'groth16' | 'kilt';
+  chainType?: 'polkadot' | 'ethereum' | 'kilt';
 }
 
 export class CredentialService {
@@ -82,7 +84,7 @@ export class CredentialService {
   constructor(config: CredentialServiceConfig = {}) {
     this.config = {
       enableZKProofs: true,
-      enableMockData: true,
+      enableMockData: false, // DISABLED - Use real data
       zkProofProvider: 'semaphore',
       ...config
     };
@@ -141,6 +143,7 @@ export class CredentialService {
       return [];
     }
   }
+
 
   /**
    * Get available credential offers
@@ -334,8 +337,9 @@ export class CredentialService {
     // Simulate ZK-proof generation
     await new Promise(resolve => setTimeout(resolve, 3000));
 
+    const provider = this.config.zkProofProvider === 'kilt' ? 'semaphore' : (this.config.zkProofProvider || 'semaphore');
     return {
-      type: this.config.zkProofProvider || 'semaphore',
+      type: provider as 'semaphore' | 'plonk' | 'groth16',
       proof: `zk_proof_${Math.random().toString(36).substr(2, 20)}`,
       publicSignals: Object.values(publicInputs).map(String),
       verificationKey: circuit.verificationKey,
@@ -463,6 +467,51 @@ export class CredentialService {
           privacy: PrivacyLevel.ZERO_KNOWLEDGE,
           revocable: false,
           transferable: false
+        }
+      },
+      // KILT-specific credential
+      {
+        id: 'cred_kilt_attestation_789',
+        type: ['VerifiableCredential', 'KiltAttestationCredential'],
+        issuer: {
+          id: 'did:kilt:4qEZSmEMB7fhkaBh6gtA1F5gBpx875rBKfV6L9xjkU72Kb7v',
+          name: 'KILT Attestation Service',
+          logo: 'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=100&h=100&fit=crop'
+        },
+        issuanceDate: '2024-01-15T00:00:00Z',
+        expirationDate: '2029-01-15T00:00:00Z',
+        credentialSubject: {
+          id: did,
+          attestationType: 'Professional Certification',
+          attestationData: {
+            certification: 'Blockchain Developer',
+            level: 'Advanced',
+            issuer: 'KILT Protocol Foundation',
+            validUntil: '2029-01-15T00:00:00Z'
+          }
+        },
+        proof: {
+          type: 'KiltAttestationProof',
+          created: '2024-01-15T00:00:00Z',
+          verificationMethod: 'did:kilt:4qEZSmEMB7fhkaBh6gtA1F5gBpx875rBKfV6L9xjkU72Kb7v#key-1',
+          proofPurpose: 'assertionMethod',
+          kiltProof: {
+            type: 'KiltAttestationProof',
+            attestationHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+            cTypeHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+            claimHash: '0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba',
+            signature: '0x1111111111111111111111111111111111111111111111111111111111111111',
+            blockNumber: 1234567,
+            extrinsicIndex: 0
+          }
+        },
+        status: CredentialStatus.VALID,
+        metadata: {
+          schema: 'kilt-attestation',
+          privacy: PrivacyLevel.PUBLIC,
+          revocable: true,
+          transferable: false,
+          chainType: 'kilt'
         }
       }
     ];

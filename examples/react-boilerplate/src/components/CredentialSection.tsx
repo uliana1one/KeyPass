@@ -12,11 +12,12 @@ import {
   ZKProof 
 } from '../types/credential';
 import { credentialService, CredentialService } from '../services/credentialService';
+import { zkProofService, generateAgeVerificationProof, generateStudentStatusProof } from '../services/zkProofService';
 
 interface CredentialSectionProps {
   did: string;
   walletAddress: string;
-  chainType: 'polkadot' | 'ethereum';
+  chainType: 'polkadot' | 'ethereum' | 'kilt';
   useRealData?: boolean; // Toggle between real and mock data
 }
 
@@ -40,12 +41,20 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
   const [dataSource, setDataSource] = useState<'real' | 'mock'>(
     useRealData ? 'real' : 'mock'
   );
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastProof, setLastProof] = useState<ZKProof | null>(null);
+  const [verification, setVerification] = useState<{ ok: boolean; message?: string; sbt?: 'confirmed' | 'unknown' } | null>(null);
+  const [cancelRequested, setCancelRequested] = useState(false);
+  const [selectiveFields, setSelectiveFields] = useState<Record<string, boolean>>({});
+  const [proofError, setProofError] = useState<string | null>(null);
+  const [lastAttempt, setLastAttempt] = useState<null | { kind: 'age' | 'student' }>(null);
 
-  // Configure credential service based on data source
+  // Configure credential service based on data source and chain type
   const configuredCredentialService = new CredentialService({
     enableMockData: dataSource === 'mock',
     enableZKProofs: true,
-    zkProofProvider: 'semaphore'
+    zkProofProvider: chainType === 'kilt' ? 'kilt' : 'semaphore',
+    chainType: chainType
   });
 
   useEffect(() => {
@@ -178,7 +187,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                 key={credential.id}
                 credential={credential}
                 onShare={handleShareCredential}
-                onRevoke={credential.metadata.revocable ? handleRevokeCredential : undefined}
+                onRevoke={credential.metadata?.revocable ? handleRevokeCredential : undefined}
                 onViewDetails={setSelectedCredential}
               />
             ))}
@@ -206,8 +215,8 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
               <div key={request.id} className="request-card">
                 <div className="request-header">
                   <div className="request-info">
-                    <h4>{request.type.join(', ')}</h4>
-                    <p>Requested by: {request.requestedBy.name}</p>
+                    <h4>{(request.type || []).join(', ')}</h4>
+                    <p>Requested by: {request.requestedBy?.name || 'Unknown'}</p>
                   </div>
                   <div className={`request-status status-${request.status}`}>
                     {request.status}
@@ -218,7 +227,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   <div className="required-claims">
                     <strong>Required Claims:</strong>
                     <ul>
-                      {request.requiredClaims.map(claim => (
+                      {(request.requiredClaims || []).map(claim => (
                         <li key={claim}>{claim}</li>
                       ))}
                     </ul>
@@ -227,10 +236,10 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   <div className="privacy-requirements">
                     <strong>Privacy Requirements:</strong>
                     <div className="privacy-tags">
-                      {request.privacyRequirements.zkProofRequired && (
+                      {request.privacyRequirements?.zkProofRequired && (
                         <span className="privacy-tag">ZK-Proof Required</span>
                       )}
-                      {request.privacyRequirements.selectiveDisclosure && (
+                      {request.privacyRequirements?.selectiveDisclosure && (
                         <span className="privacy-tag">Selective Disclosure</span>
                       )}
                     </div>
@@ -285,9 +294,9 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                 </div>
                 
                 <div className="offer-content">
-                  <h5>{offer.type.join(', ')}</h5>
+                  <h5>{(offer.type || []).join(', ')}</h5>
                   <div className="credential-preview">
-                    {Object.entries(offer.credentialSubject).map(([key, value]) => (
+                    {Object.entries(offer.credentialSubject || {}).map(([key, value]) => (
                       <div key={key} className="preview-field">
                         <span className="field-label">{key}:</span>
                         <span className="field-value">{String(value)}</span>
@@ -298,11 +307,11 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   <div className="offer-requirements">
                     <strong>Requirements:</strong>
                     <ul>
-                      <li>Verification Method: {offer.requirements.verificationMethod}</li>
-                      {offer.requirements.proofOfControl && (
+                      <li>Verification Method: {offer.requirements?.verificationMethod || 'N/A'}</li>
+                      {offer.requirements?.proofOfControl && (
                         <li>Proof of wallet control required</li>
                       )}
-                      {offer.requirements.additionalVerification?.map(req => (
+                      {(offer.requirements?.additionalVerification || []).map(req => (
                         <li key={req}>{req}</li>
                       ))}
                     </ul>
@@ -338,14 +347,177 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
       <div className="zkproofs-section">
         <div className="section-header">
           <h3>Zero-Knowledge Proofs</h3>
-          <button 
-            className="secondary-button"
-            onClick={() => setShowZKProofGenerator(true)}
-          >
-            Generate ZK-Proof
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button 
+              className="secondary-button"
+              onClick={() => setShowZKProofGenerator(true)}
+            >
+              Advanced Generator
+            </button>
+            <button
+              className="primary-button"
+              disabled={isGenerating || credentials.length === 0}
+              onClick={async () => {
+                try {
+                  setIsGenerating(true);
+                  setCancelRequested(false);
+                  setVerification(null);
+                  setProofError(null);
+                  setLastAttempt({ kind: 'age' });
+                  const ageCred = credentials.find(c => c.type.some(t => t.toLowerCase().includes('age')) || c.credentialSubject.age || c.credentialSubject.birthDate || c.credentialSubject.dateOfBirth);
+                  if (!ageCred) {
+                    alert('No age-related credential found');
+                    setIsGenerating(false);
+                    return;
+                  }
+                  const proof = await generateAgeVerificationProof([ageCred], 18);
+                  if (cancelRequested) { setIsGenerating(false); return; }
+                  setLastProof(proof);
+                  const expectedSignal = proof.publicSignals?.[2] || '';
+                  const ok = await zkProofService.verifyZKProof(proof, expectedSignal, 'semaphore-age-verification');
+                  if (cancelRequested) { setIsGenerating(false); return; }
+                  setVerification({ ok });
+                } catch (e: any) {
+                  console.error('Age proof error:', e);
+                  setProofError(e?.message || 'Failed to generate or verify age proof.');
+                  setVerification({ ok: false, message: e?.message || String(e) });
+                } finally {
+                  setIsGenerating(false);
+                }
+              }}
+            >
+              {isGenerating ? 'Generating… (≈2–5s)' : 'Generate Age Proof'}
+            </button>
+            <button
+              className="secondary-button"
+              disabled={isGenerating || credentials.length === 0}
+              onClick={async () => {
+                try {
+                  setIsGenerating(true);
+                  setCancelRequested(false);
+                  setVerification(null);
+                  setProofError(null);
+                  setLastAttempt({ kind: 'student' });
+                  const studentCred = credentials.find(c => c.type.some(t => t.toLowerCase().includes('student')) || c.credentialSubject.studentId || c.credentialSubject.organizationId);
+                  if (!studentCred) {
+                    alert('No student credential found');
+                    setIsGenerating(false);
+                    return;
+                  }
+                  const proof = await generateStudentStatusProof([studentCred], 'student');
+                  if (cancelRequested) { setIsGenerating(false); return; }
+                  setLastProof(proof);
+                  const expectedSignal = proof.publicSignals?.[2] || '';
+                  const ok = await zkProofService.verifyZKProof(proof, expectedSignal, 'semaphore-membership-proof');
+                  if (cancelRequested) { setIsGenerating(false); return; }
+                  const sbt = studentCred.credentialSubject.studentId ? 'confirmed' : 'unknown';
+                  setVerification({ ok, sbt });
+                } catch (e: any) {
+                  console.error('Student proof error:', e);
+                  setProofError(e?.message || 'Failed to generate or verify student proof.');
+                  setVerification({ ok: false, message: e?.message || String(e) });
+                } finally {
+                  setIsGenerating(false);
+                }
+              }}
+            >
+              {isGenerating ? 'Working… (≈2–5s)' : 'Prove Student Status'}
+            </button>
+            {isGenerating && (
+              <button
+                className="secondary-button"
+                onClick={() => setCancelRequested(true)}
+              >Cancel</button>
+            )}
+          </div>
         </div>
-        
+
+        {/* Selective disclosure UI: reveal fields alongside proofs */}
+        {credentials.length > 0 && (
+          <div style={{ margin: '8px 0', padding: 8, border: '1px solid #eee', borderRadius: 8 }}>
+            <div style={{ marginBottom: 6, fontWeight: 600 }}>Selective Disclosure (include fields when sharing)</div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {Object.keys(credentials[0].credentialSubject || {}).map((key) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!selectiveFields[key]}
+                    onChange={(e) => setSelectiveFields((prev) => ({ ...prev, [key]: e.target.checked }))}
+                  />
+                  <span>{key}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {proofError && (
+          <div className="error-banner" style={{ background: '#fef2f2', color: '#b91c1c', padding: 10, borderRadius: 8, marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <strong>Proof Error:</strong> {proofError}
+              </div>
+              {lastAttempt && (
+                <button
+                  className="secondary-button"
+                  onClick={async () => {
+                    // Retry the last attempted action
+                    if (lastAttempt.kind === 'age') {
+                      const btn = document.querySelector('button.primary-button') as HTMLButtonElement | null;
+                      btn?.click();
+                    } else if (lastAttempt.kind === 'student') {
+                      const buttons = Array.from(document.querySelectorAll('button.secondary-button')) as HTMLButtonElement[];
+                      const studentBtn = buttons.find(b => b.textContent?.toLowerCase().includes('prove student'));
+                      studentBtn?.click();
+                    }
+                  }}
+                >Retry</button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {lastProof && (
+          <div className="zk-proof-result">
+            <h4>Latest Proof</h4>
+            <div className="zk-info">
+              <div className="zk-field"><span>Type:</span><span>{lastProof.type}</span></div>
+              <div className="zk-field"><span>Circuit:</span><span>{lastProof.circuit}</span></div>
+              <div className="zk-field"><span>Public Signals:</span><span>{(lastProof.publicSignals || []).join(', ')}</span></div>
+              <div className="zk-field"><span>Verification:</span><span style={{ color: verification?.ok ? '#16a34a' : '#dc2626' }}>{verification ? (verification.ok ? 'Valid' : 'Invalid') : '—'}</span></div>
+              {verification?.sbt && (
+                <div className="zk-field"><span>SBT Ownership:</span><span>{verification.sbt === 'confirmed' ? 'Confirmed' : 'Unknown'}</span></div>
+              )}
+              {verification?.message && (
+                <div className="zk-field"><span>Error:</span><span>{verification.message}</span></div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  try {
+                    navigator.clipboard.writeText(JSON.stringify(lastProof, null, 2));
+                    alert('Proof copied to clipboard');
+                  } catch {}
+                }}
+              >Copy JSON</button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(lastProof, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `zk-proof-${Date.now()}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >Download JSON</button>
+            </div>
+          </div>
+        )}
+
         {zkCredentials.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">🔐</div>

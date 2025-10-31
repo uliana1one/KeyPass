@@ -4,6 +4,173 @@ import { SBTToken } from './SBTCard';
 import { sbtService } from '../services/sbtService';
 import { API_CONFIG } from '../config/api';
 
+// Import real blockchain components from local source
+import { MoonbeamAdapter } from '../keypass/adapters/MoonbeamAdapter';
+import { MoonbeamNetwork } from '../keypass/config/moonbeamConfig';
+import { SBTMintingService } from '../keypass/services/SBTMintingService';
+import { ethers } from 'ethers';
+
+// Real blockchain SBT service
+class RealSBTService {
+  private adapter: MoonbeamAdapter | null = null;
+  private contractAddress: string | null = null;
+
+  async initialize(): Promise<void> {
+    try {
+      this.adapter = new MoonbeamAdapter(MoonbeamNetwork.MOONBASE_ALPHA);
+      await this.adapter.connect();
+      this.contractAddress = process.env.REACT_APP_SBT_CONTRACT_ADDRESS || '0x0A6582FE7B47c55d26655A47e5a3bda626Bab898';
+      
+      console.log('Environment variables check:');
+      console.log('All REACT_APP_ vars:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP_')));
+      console.log('REACT_APP_SBT_CONTRACT_ADDRESS:', process.env.REACT_APP_SBT_CONTRACT_ADDRESS);
+      console.log('REACT_APP_DID_CONTRACT_ADDRESS:', process.env.REACT_APP_DID_CONTRACT_ADDRESS);
+      console.log('Contract address:', this.contractAddress);
+      
+      if (!this.contractAddress) {
+        throw new Error('SBT contract address not configured');
+      }
+    } catch (error) {
+      console.error('Failed to initialize SBT service:', error);
+      throw error;
+    }
+  }
+
+  async getTokens(walletAddress: string): Promise<SBTToken[]> {
+    console.log('SBT getTokens called with walletAddress:', walletAddress);
+    console.log('Wallet address type:', typeof walletAddress);
+    console.log('Is valid Ethereum address:', ethers.isAddress(walletAddress));
+    
+    if (!this.adapter || !this.contractAddress) {
+      await this.initialize();
+    }
+
+    try {
+      // Ensure we have a valid contract address
+      if (!ethers.isAddress(this.contractAddress!)) {
+        throw new Error(`Invalid contract address: ${this.contractAddress}`);
+      }
+
+      const contract = new ethers.Contract(
+        this.contractAddress!,
+        [
+          'function balanceOf(address) view returns (uint256)',
+          'function tokenOfOwnerByIndex(address, uint256) view returns (uint256)',
+          'function tokenURI(uint256) view returns (string)',
+          'function ownerOf(uint256) view returns (address)'
+        ],
+        this.adapter!.getProvider()!
+      );
+
+      // Check if this is a Polkadot address trying to interact with Ethereum contract
+      if (!ethers.isAddress(walletAddress)) {
+        console.warn(`❌ Polkadot address ${walletAddress} cannot interact with Ethereum SBT contract on Moonbeam.`);
+        console.warn(`💡 To use real SBTs, connect MetaMask to Moonbeam testnet instead of Polkadot wallet.`);
+        console.warn(`🔄 Falling back to mock tokens for demonstration.`);
+        return this.getMockTokens();
+      }
+
+      // Get token balance
+      const balance = await contract.balanceOf(walletAddress);
+      const tokenCount = Number(balance);
+
+      if (tokenCount === 0) {
+        return [];
+      }
+
+      // Get all token IDs owned by the wallet
+      const tokens: SBTToken[] = [];
+      for (let i = 0; i < tokenCount; i++) {
+        try {
+          const tokenId = await contract.tokenOfOwnerByIndex(walletAddress, i);
+          const tokenURI = await contract.tokenURI(tokenId);
+          const owner = await contract.ownerOf(tokenId);
+
+          // Parse metadata from tokenURI
+          let metadata: any = {};
+          try {
+            if (tokenURI.startsWith('http')) {
+              const response = await fetch(tokenURI);
+              metadata = await response.json();
+            } else if (tokenURI.startsWith('ipfs://')) {
+              const ipfsUrl = tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+              const response = await fetch(ipfsUrl);
+              metadata = await response.json();
+            } else {
+              metadata = JSON.parse(tokenURI);
+            }
+          } catch (metadataError) {
+            console.warn('Failed to parse token metadata:', metadataError);
+            metadata = {
+              name: `SBT Token #${tokenId}`,
+              description: 'Soulbound Token',
+              image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPlNCVDwvdGV4dD48L3N2Zz4='
+            };
+          }
+
+          tokens.push({
+            id: tokenId.toString(),
+            name: metadata.name || `SBT Token #${tokenId}`,
+            description: metadata.description || 'Soulbound Token',
+            image: metadata.image || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPlNCVDwvdGV4dD48L3N2Zz4=',
+            issuer: owner,
+            issuerName: 'KeyPass System',
+            issuedAt: new Date().toISOString(),
+            expiresAt: undefined,
+            chainId: '1287', // Moonbase Alpha
+            chainType: 'Moonbeam',
+            contractAddress: this.contractAddress!,
+            tokenStandard: 'ERC-721',
+            verificationStatus: 'verified' as const,
+            attributes: metadata.attributes || [
+              { trait_type: 'Token ID', value: tokenId.toString() },
+              { trait_type: 'Type', value: 'Soulbound Token' }
+            ],
+            revocable: true,
+            tags: ['SBT', 'Moonbeam', 'KeyPass']
+          });
+        } catch (tokenError) {
+          console.warn(`Failed to fetch token ${i}:`, tokenError);
+        }
+      }
+
+      return tokens;
+    } catch (error) {
+      console.error('Failed to fetch SBT tokens:', error);
+      return this.getMockTokens();
+    }
+  }
+
+  private getMockTokens(): SBTToken[] {
+    return [
+      {
+        id: 'mock-1',
+        name: 'KeyPass Identity SBT (Demo)',
+        description: 'Demo SBT - Connect MetaMask to Moonbeam testnet for real SBTs.',
+        image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPlNCVDwvdGV4dD48L3N2Zz4=',
+        issuer: '0x0000000000000000000000000000000000000000',
+        issuerName: 'KeyPass System',
+        issuedAt: new Date().toISOString(),
+        expiresAt: undefined,
+        chainId: '1287',
+        chainType: 'Moonbeam',
+        contractAddress: '0x0000000000000000000000000000000000000000',
+        tokenStandard: 'ERC-721',
+        verificationStatus: 'verified' as const,
+        attributes: [
+          { trait_type: 'Type', value: 'Identity SBT' },
+          { trait_type: 'Blockchain', value: 'Moonbeam' },
+          { trait_type: 'Status', value: 'Active' }
+        ],
+        revocable: true,
+        tags: ['SBT', 'Moonbeam', 'Identity']
+      }
+    ];
+  }
+}
+
+const realSBTService = new RealSBTService();
+
 // Mock SBT service for demonstration (fallback)
 const mockSBTService = {
   async getTokens(walletAddress: string): Promise<SBTToken[]> {
@@ -173,8 +340,8 @@ export const SBTSection: React.FC<SBTSectionProps> = ({
       let fetchedTokens: SBTToken[];
       
       if (dataSource === 'real') {
-        // Use real SBT service (requires API keys)
-        fetchedTokens = await sbtService.getTokens(walletAddress);
+        // Use real blockchain SBT service
+        fetchedTokens = await realSBTService.getTokens(walletAddress);
       } else if (dataSource === 'test') {
         // Use test mode with realistic simulated data
         fetchedTokens = await configuredSbtService.getTokens(walletAddress);

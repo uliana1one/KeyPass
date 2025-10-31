@@ -1,0 +1,218 @@
+/* SBT Card Styles */
+.sbt-card {
+  @apply bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:shadow-lg cursor-pointer relative;
+}
+
+.sbt-card-disabled {
+  @apply opacity-60 cursor-not-allowed;
+}
+
+.sbt-status-badge {
+  @apply absolute top-3 right-3 z-10;
+}
+
+.sbt-status {
+  @apply px-2 py-1 text-xs font-medium rounded-full;
+}
+
+.sbt-status-verified {
+  @apply bg-green-100 text-green-800;
+}
+
+.sbt-status-pending {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.sbt-status-failed {
+  @apply bg-red-100 text-red-800;
+}
+
+.sbt-status-revoked {
+  @apply bg-gray-100 text-gray-800;
+}
+
+.sbt-status-unknown {
+  @apply bg-gray-100 text-gray-800;
+}
+
+.sbt-overlay {
+  @apply absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20;
+}
+
+.sbt-overlay-text {
+  @apply text-white font-bold text-lg;
+}
+
+.sbt-image-container {
+  @apply relative w-full h-48 bg-gray-100;
+}
+
+.sbt-image {
+  @apply w-full h-full object-cover;
+}
+
+.sbt-image-placeholder {
+  @apply w-full h-full flex items-center justify-center text-gray-400;
+}
+
+.sbt-placeholder-icon {
+  @apply w-16 h-16;
+}
+
+.sbt-content {
+  @apply p-4 space-y-3;
+}
+
+.sbt-title {
+  @apply text-lg font-semibold text-gray-900 line-clamp-2;
+}
+
+.sbt-description {
+  @apply text-sm text-gray-600 line-clamp-3;
+}
+
+.sbt-issuer {
+  @apply flex items-center space-x-2;
+}
+
+.sbt-issuer-avatar {
+  @apply w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center;
+}
+
+.sbt-issuer-initial {
+  @apply text-sm font-medium text-gray-700;
+}
+
+.sbt-issuer-name {
+  @apply text-sm text-gray-600;
+}
+
+.sbt-details {
+  @apply space-y-1 text-xs;
+}
+
+.sbt-detail-row {
+  @apply flex justify-between;
+}
+
+.sbt-detail-value {
+  @apply font-medium text-gray-900;
+}
+
+.sbt-expired {
+  @apply text-red-600;
+}
+
+.sbt-tags {
+  @apply flex flex-wrap gap-1;
+}
+
+.sbt-tag {
+  @apply px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded;
+}
+
+.sbt-tag-more {
+  @apply px-2 py-1 text-xs bg-gray-200 text-gray-500 rounded;
+}
+
+/* Transaction Details Styles */
+.sbt-transaction-details {
+  @apply mt-3 p-3 bg-gray-50 rounded-lg border-t border-gray-200;
+}
+
+.sbt-transaction-header {
+  @apply flex items-center space-x-2 mb-2;
+}
+
+.sbt-transaction-icon {
+  @apply w-4 h-4 text-gray-500;
+}
+
+.sbt-transaction-title {
+  @apply text-sm font-medium text-gray-700;
+}
+
+.sbt-transaction-info {
+  @apply space-y-1;
+}
+
+.sbt-transaction-row {
+  @apply flex justify-between items-center text-xs;
+}
+
+.sbt-transaction-label {
+  @apply text-gray-600;
+}
+
+.sbt-transaction-value {
+  @apply flex items-center space-x-1;
+}
+
+.sbt-transaction-hash {
+  @apply font-mono text-gray-800 bg-gray-100 px-1 rounded;
+}
+
+.sbt-transaction-link {
+  @apply text-blue-600 hover:text-blue-800 transition-colors;
+}
+
+/* Grid Styles */
+.sbt-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+.sbt-grid-loading {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+.sbt-loading-card {
+  @apply bg-gray-200 rounded-lg h-80 animate-pulse;
+}
+
+.sbt-empty-state {
+  @apply text-center py-12;
+}
+
+.sbt-empty-icon {
+  @apply w-16 h-16 text-gray-400 mx-auto mb-4;
+}
+
+.sbt-empty-title {
+  @apply text-lg font-medium text-gray-900 mb-2;
+}
+
+.sbt-empty-description {
+  @apply text-gray-600 max-w-md mx-auto;
+}
+
+.sbt-pagination {
+  @apply flex items-center justify-center space-x-2 mt-8;
+}
+
+/* Button Styles */
+.primary-button {
+  @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed;
+}
+
+.primary-button.active {
+  @apply bg-blue-800;
+}
+
+.secondary-button {
+  @apply px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sbt-grid {
+    @apply grid-cols-1;
+  }
+  
+  .sbt-grid-loading {
+    @apply grid-cols-1;
+  }
+  
+  .sbt-pagination {
+    @apply flex-wrap;
+  }
+}

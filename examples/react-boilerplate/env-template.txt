@@ -16,4 +16,36 @@ REACT_APP_THEGRAPH_API_KEY=YourTheGraphApiKey
 
 # SBT Registry URLs (these are public endpoints)
 REACT_APP_GITCOIN_PASSPORT_URL=https://api.passport.gitcoin.co
-REACT_APP_ETHEREUM_FOUNDATION_URL=https://api.ethereum.org 
+REACT_APP_ETHEREUM_FOUNDATION_URL=https://api.ethereum.org
+
+# Moonbeam Configuration for SBT Minting
+# Moonbase Alpha (Testnet) - Default configuration
+REACT_APP_MOONBEAM_RPC_URL=https://rpc.api.moonbase.moonbeam.network
+REACT_APP_MOONBEAM_NETWORK=moonbase-alpha
+REACT_APP_MOONBEAM_CHAIN_ID=1287
+
+# For Moonbeam Mainnet, use:
+# REACT_APP_MOONBEAM_RPC_URL=https://rpc.api.moonbeam.network
+# REACT_APP_MOONBEAM_NETWORK=moonbeam
+# REACT_APP_MOONBEAM_CHAIN_ID=1284
+
+# For Moonriver, use:
+# REACT_APP_MOONBEAM_RPC_URL=https://rpc.api.moonriver.moonbeam.network
+# REACT_APP_MOONBEAM_NETWORK=moonriver
+# REACT_APP_MOONBEAM_CHAIN_ID=1285
+
+# KILT Configuration
+# KILT Spiritnet (Testnet) - Default configuration
+REACT_APP_KILT_WSS_URL=wss://spiritnet.kilt.io
+REACT_APP_KILT_NETWORK=spiritnet
+REACT_APP_KILT_CHAIN_ID=38
+
+# For KILT Mainnet, use:
+# REACT_APP_KILT_WSS_URL=wss://kilt-rpc.dwellir.com
+# REACT_APP_KILT_NETWORK=mainnet
+# REACT_APP_KILT_CHAIN_ID=38
+
+# For KILT Peregrine (Testnet), use:
+# REACT_APP_KILT_WSS_URL=wss://peregrine.kilt.io
+# REACT_APP_KILT_NETWORK=peregrine
+# REACT_APP_KILT_CHAIN_ID=38 

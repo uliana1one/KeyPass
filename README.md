@@ -11,6 +11,9 @@ KeyPass is a secure authentication SDK for blockchain-based applications. It pro
 - **Server-Side Verification**: ECDSA and SR25519 signature verification
 - **DID Integration**: Decentralized Identifier support for both chains
 - **Message Signing and Verification**: Secure message-based authentication
+- **zk-Proofs**: Privacy-preserving credential verification using Semaphore protocol
+- **Soulbound Tokens**: SBT minting and management on multiple chains
+- **Verifiable Credentials**: Full VC support with selective disclosure
 - **Automatic Retry**: Network error recovery
 - **Security Best Practices**: Built-in security measures
 - **Comprehensive Error Handling**: Detailed error types and recovery
@@ -33,7 +36,33 @@ KeyPass is a secure authentication SDK for blockchain-based applications. It pro
 
 ## Installation
 
-Currently, this package is in development and not yet published to npm. There are several ways to test it in your project:
+[![npm version](https://badge.fury.io/js/keypass-login-sdk.svg)](https://badge.fury.io/js/keypass-login-sdk)
+[![npm](https://img.shields.io/npm/dt/keypass-login-sdk.svg)](https://www.npmjs.com/package/keypass-login-sdk)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/uliana1one/keypass)
+
+**KeyPass is now available on npm!** 🎉
+
+**🚀 Try the Live Demo:** [keypass-react-demo.vercel.app](https://keypass-react-demo.vercel.app)
+
+### Method 1: Install from npm (Recommended)
+
+```bash
+npm install keypass-login-sdk
+```
+
+Or with yarn:
+```bash
+yarn add keypass-login-sdk
+```
+
+**Package Links:**
+- 📦 [npm Package](https://www.npmjs.com/package/keypass-login-sdk)
+- 📊 [Package Stats](https://npm-stat.com/charts.html?package=keypass-login-sdk)
+- 🔍 [Package Info](https://npmjs.com/package/keypass-login-sdk)
+
+### Method 2: Local Development Testing
+
+For local development and testing, there are several alternative ways to use the package:
 
 ### Method 1: Using npm link (Recommended for local development)
 
@@ -62,36 +91,36 @@ npm link
 
 5. In your project directory:
 ```bash
-npm link @keypass/login-sdk
+npm link keypass-login-sdk
 ```
 
-### Method 2: Using Git URL (For testing in other projects)
+### Method 3: Using Git URL (For testing in other projects)
 
-> **Note**: This method is currently being set up. For now, please use Method 1 (npm link) for testing.
+> **Note**: Alternative method for testing with the latest development version.
 
 In your project's `package.json`:
 ```json
 {
   "dependencies": {
-    "@keypass/login-sdk": "github:uliana1one/keypass"
+    "keypass-login-sdk": "github:uliana1one/keypass"
   }
 }
 ```
 
-### Method 3: Using Local Path (For testing in other projects)
+### Method 4: Using Local Path (For testing in other projects)
 
-> **Note**: This method is currently being set up. For now, please use Method 1 (npm link) for testing.
+> **Note**: Alternative method for testing with local development version.
 
 In your project's `package.json`:
 ```json
 {
   "dependencies": {
-    "@keypass/login-sdk": "file:../path/to/keypass"
+    "keypass-login-sdk": "file:../path/to/keypass"
   }
 }
 ```
 
-> **Important**: While the package is in development, we recommend using Method 1 (npm link) for testing as it's the most reliable method at this stage. Other methods will be fully supported in future updates.
+> **Recommendation**: For production use, install directly from npm (Method 1). For local development and testing of unreleased features, use npm link (Method 2) or other development methods.
 
 ## Docker & AWS ECR Deployment
 
@@ -238,7 +267,7 @@ Here are examples of how to use KeyPass with different blockchain networks:
 ### Polkadot Authentication
 
 ```typescript
-import { loginWithPolkadot } from '@keypass/login-sdk';
+import { loginWithPolkadot } from 'keypass-login-sdk';
 
 async function handlePolkadotLogin() {
   try {
@@ -263,7 +292,7 @@ async function handlePolkadotLogin() {
 ### Ethereum Authentication
 
 ```typescript
-import { loginWithEthereum } from '@keypass/login-sdk';
+import { loginWithEthereum } from 'keypass-login-sdk';
 
 async function handleEthereumLogin() {
   try {
@@ -291,7 +320,7 @@ The SDK provides a unified verification endpoint that automatically detects the 
 
 ```typescript
 // Server-side verification (Node.js/Express)
-import { UnifiedVerificationService } from '@keypass/login-sdk/server';
+import { UnifiedVerificationService } from 'keypass-login-sdk/server';
 
 const verificationService = new UnifiedVerificationService();
 
@@ -318,13 +347,46 @@ app.post('/api/verify', async (req, res) => {
 });
 ```
 
+### Zero-Knowledge Proofs
+
+Prove age or membership without revealing private data:
+
+```typescript
+import { generateAgeVerificationProof } from '@keypass/login-sdk';
+
+// Generate age verification proof
+const ageCred = {
+  credentialSubject: { age: 22 },
+  // ... other credential fields
+};
+
+const proof = await generateAgeVerificationProof([ageCred], 18);
+
+// Result proves age >= 18 without revealing exact age
+console.log('Proof verified:', proof.type); // 'semaphore'
+console.log('Public signals:', proof.publicSignals);
+
+// Export proof for verification
+const proofJson = JSON.stringify(proof, null, 2);
+```
+
+**Privacy Benefits:**
+- ✅ Prove eligibility without showing exact values
+- ✅ Prevent tracking through nullifiers
+- ✅ Selective disclosure of only necessary fields
+- ✅ Anonymous group membership verification
+
 ## Documentation
 
 For detailed documentation, please refer to:
 
 - [Integration Guide](./docs/integration.md) - Complete guide for integrating KeyPass into your application
 - [API Reference](./docs/api.md) - Detailed API documentation
+- [ZK-Proof User Guide](./docs/zkproof-guide.md) - Privacy-preserving credential verification
+- [ZK-Proof API Reference](./docs/zkproof-api.md) - Complete ZK-proof API docs
+- [ZK-Proof Integration Tutorial](./docs/zkproof-integration-tutorial.md) - Step-by-step zk-proof setup
 - [Security Guide](./docs/security.md) - Security best practices and considerations
+- [Onchain Validation](./ONCHAIN_VALIDATION.md) - Public proof of all onchain operations and transactions
 
 ## Key Features
 
@@ -365,6 +427,14 @@ For detailed documentation, please refer to:
 - **Ethereum DIDs**: `did:ethr` method with Ethereum addresses
 - **DID Resolution**: Resolve DIDs to addresses and documents
 - **DID Document Management**: Complete DID document creation
+
+### 6. Zero-Knowledge Proofs
+- **Privacy-Preserving Verification**: Prove requirements without revealing data
+- **Age Verification**: Prove age ≥ X without showing exact age
+- **Membership Proof**: Prove group membership without revealing identity
+- **Semaphore Protocol**: Industry-standard zk-SNARK proofs
+- **Selective Disclosure**: Control which fields are revealed
+- **Mock Mode**: Fast development with simulated proofs
 
 ## Prerequisites
 

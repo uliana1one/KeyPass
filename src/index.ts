@@ -19,6 +19,42 @@ function generateUUID(): string {
 // Re-export connectWallet
 export { connectWallet };
 
+// Export KILT adapter and functionality
+export { KiltAdapter } from './adapters/KiltAdapter.js';
+export { KILTDIDProvider } from './did/KILTDIDProvider.js';
+
+// Export unified DID creation API
+export { 
+  createDID, 
+  createKILTDID, 
+  DIDFactory,
+  type CreateDIDOptions,
+  type CreateDIDResult 
+} from './did/index.js';
+
+// Export DID resolution API
+export {
+  resolveDID,
+  resolveKILTDIDWithMetadata,
+  checkDIDExists
+} from './did/index.js';
+
+// Export KILT configuration
+export { 
+  KILTConfigManager, 
+  KILTNetwork,
+  type KILTNetworkConfig,
+  type KILTTransactionConfig 
+} from './config/kiltConfig.js';
+
+// Export KILT types
+export type {
+  KILTTransactionResult,
+  KILTCreateDIDRequest, 
+  KILTCreateDIDResponse,
+  KILTDIDDocument
+} from './did/types/KILTTypes.js';
+
 /**
  * Result of a successful login operation with Polkadot.
  * Contains all necessary information for authentication and verification.

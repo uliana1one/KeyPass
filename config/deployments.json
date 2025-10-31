@@ -1,0 +1,13 @@
+{
+  "deployments": {
+    "moonbase-alpha": {
+      "SBTSimple": {
+        "address": "0xB63E1e058c46a5eb9dDfC87f3380A37C606E5F65",
+        "deployedAt": "2025-10-18T04:48:59.242Z",
+        "deployer": "0x15590a34799d3fE5587d16e9A69E6436844c6835",
+        "transactionHash": "0xdd8911d5e8c677ee1d60438cc0c50563876bb998fe342e8f02c96a87e59cdfe6"
+      }
+    }
+  },
+  "metadata": {}
+}

@@ -53,6 +53,9 @@ export interface ZKProofServiceConfig {
     wasmFilePath?: string;
     zkeyFilePath?: string;
   };
+  /** When real proofs are disabled, return mock instead of throwing */
+  disableMockFallback?: boolean;
+  /** Backward-compat: when false, do not allow mock path in service */
   mockMode?: boolean;
 }
 
@@ -63,9 +66,78 @@ export class ZKProofService {
 
   constructor(config: ZKProofServiceConfig = {}) {
     this.config = {
-      enableRealProofs: false, // Disable real proofs by default to avoid API issues
-      mockMode: true, // Enable mock mode by default
+      enableRealProofs: false, // Disabled by default until artifacts are configured
       ...config
+    };
+  }
+
+  /**
+   * Generate a Semaphore identity derived from a wallet signature.
+   * Wallet must implement `{ address: string; signMessage(msg: string): Promise<string> }`.
+   */
+  async generateSemaphoreIdentity(wallet: { address: string; signMessage: (msg: string) => Promise<string> }): Promise<{ identity: Identity; commitment: string }>{
+    if (!wallet || !wallet.address || typeof wallet.signMessage !== 'function') {
+      throw new Error('Invalid wallet provided for identity generation');
+    }
+
+    const cacheKey = `wallet:${wallet.address.toLowerCase()}`;
+    const cached = this.identityCache.get(cacheKey);
+    if (cached) {
+      return { identity: cached, commitment: cached.commitment.toString() };
+    }
+
+    const domainSeparatedMsg = [
+      'KeyPass Semaphore Identity',
+      `Address: ${wallet.address.toLowerCase()}`,
+      'Purpose: deterministic identity seed',
+    ].join('\n');
+
+    const signature = await wallet.signMessage(domainSeparatedMsg);
+    // Derive a field element from the signature deterministically
+    const sigHex = signature.startsWith('0x') ? signature.slice(2) : signature;
+    const seedA = BigInt('0x' + sigHex.slice(0, 32));
+    const seedB = BigInt('0x' + Buffer.from(wallet.address.toLowerCase()).toString('hex').slice(0, 32));
+    const secret = poseidon2([seedA, seedB]);
+
+    const identity = new Identity(secret.toString());
+    this.identityCache.set(cacheKey, identity);
+
+    return { identity, commitment: identity.commitment.toString() };
+  }
+
+  /**
+   * Create a real Semaphore group and cache it.
+   */
+  createSemaphoreGroup(groupKey: string, depth: number = 20): Group {
+    if (this.groupCache.has(groupKey)) {
+      return this.groupCache.get(groupKey)!;
+    }
+    const group = new Group([]);
+    this.groupCache.set(groupKey, group);
+    return group;
+  }
+
+  /**
+   * Add a member (identity commitment) to a group.
+   */
+  addMemberToGroup(groupKey: string, identityCommitment: string | bigint): void {
+    const group = this.groupCache.get(groupKey) || this.createSemaphoreGroup(groupKey);
+    const commitmentBigInt = typeof identityCommitment === 'bigint' ? identityCommitment : BigInt(identityCommitment);
+    group.addMember(commitmentBigInt);
+  }
+
+  /**
+   * Export group parameters for proof generation.
+   */
+  exportGroupParameters(groupKey: string): { root: string; depth: number; size: number } {
+    const group = this.groupCache.get(groupKey);
+    if (!group) {
+      throw new Error(`Group not found: ${groupKey}`);
+    }
+    return {
+      root: group.root.toString(),
+      depth: group.depth,
+      size: group.members.length,
     };
   }
 
@@ -80,7 +152,8 @@ export class ZKProofService {
    * Create or retrieve a Semaphore identity from a credential
    */
   private async createIdentity(credential: VerifiableCredential): Promise<Identity> {
-    const identityKey = `${credential.id}_${credential.credentialSubject.id}`;
+    const subjectId = (credential.credentialSubject as any).id || 'unknown';
+    const identityKey = `${credential.id}_${subjectId}`;
     
     if (this.identityCache.has(identityKey)) {
       return this.identityCache.get(identityKey)!;
@@ -89,8 +162,8 @@ export class ZKProofService {
     // Create deterministic identity from credential data
     const credentialData = JSON.stringify({
       id: credential.id,
-      subject: credential.credentialSubject.id,
-      issuer: credential.issuer.id,
+      subject: subjectId,
+      issuer: (credential.issuer as any).id || 'unknown',
       issuanceDate: credential.issuanceDate
     });
 
@@ -220,9 +293,12 @@ export class ZKProofService {
     publicInputs: Record<string, any>,
     credentials: VerifiableCredential[]
   ): Promise<ZKProof> {
-    // If not in mock mode and real proofs are disabled, throw error
-    if (!this.config.mockMode && !this.config.enableRealProofs) {
-      throw new Error('Real ZK-proof generation is disabled');
+    // If real proofs are disabled, signal error (callers that want mock should use higher-level fallback)
+    if (!this.config.enableRealProofs) {
+      if (this.config.mockMode === false || this.config.disableMockFallback) {
+        throw new Error('Real ZK-proof generation is disabled');
+      }
+      return this.generateMockProof(circuitId, publicInputs);
     }
     // Validate circuit exists
     const circuit = REAL_ZK_CIRCUITS.find(c => c.id === circuitId);
@@ -240,8 +316,57 @@ export class ZKProofService {
         throw new Error('Credential does not meet circuit requirements');
       }
     }
-    // Always use mock mode for now to avoid API compatibility issues
-    return this.generateMockProof(circuitId, publicInputs);
+    // If real proofs enabled, attempt real generation
+    if (this.config.enableRealProofs) {
+      try {
+        const credential = credentials[0];
+        const identity = await this.createIdentity(credential);
+
+        // Ensure group exists and includes the identity commitment
+        const groupKey = circuitId;
+        let group = this.groupCache.get(groupKey);
+        if (!group || typeof (group as any).indexOf !== 'function') {
+          group = this.createSemaphoreGroup(groupKey);
+        }
+        const commitment = identity.commitment;
+        if (!group.members.includes(commitment)) {
+          group.addMember(commitment);
+        }
+        let merkleProof: any;
+        if (typeof (group as any).indexOf === 'function') {
+          const memberIndex = (group as any).indexOf(commitment);
+          merkleProof = (group as any).generateMerkleProof(memberIndex);
+        } else {
+          // Fallback for mock group shape used in some tests
+          merkleProof = (group as any).generateMerkleProof(commitment);
+        }
+
+        const signal = this.createSignalForCircuit(circuitId, publicInputs, credential);
+        // Compute an external nullifier scoped to circuitId (use poseidon2 with 2 inputs)
+        const circuitHash = BigInt('0x' + Buffer.from(circuitId).toString('hex').slice(0, 32));
+        const externalNullifier = poseidon2([circuitHash, BigInt(0)]);
+
+        const fullProof: any = await generateProof(identity, merkleProof, signal, externalNullifier);
+
+        return {
+          type: 'semaphore',
+          proof: JSON.stringify(fullProof),
+          publicSignals: [
+            String(fullProof.nullifierHash ?? ''),
+            String(fullProof.merkleTreeRoot ?? ''),
+            String(fullProof.signal ?? signal)
+          ],
+          verificationKey: REAL_ZK_CIRCUITS.find(c => c.id === circuitId)?.verificationKey || 'semaphore_vk',
+          circuit: circuitId
+        };
+      } catch (err: any) {
+        const message = err?.message || String(err);
+        throw new Error(`ZK-proof generation failed: ${message}`);
+      }
+    }
+    // This line should be unreachable because we throw when disabled.
+    // Keeping a clear error if it happens.
+    throw new Error('Unexpected state in ZK-proof generation');
   }
 
   /**
@@ -291,10 +416,8 @@ export class ZKProofService {
     const isValid = userAge >= minAge;
     
     // Create signal that proves age requirement without revealing exact age
-    return poseidon2([
-      BigInt(minAge),
-      BigInt(isValid ? 1 : 0)
-    ]).toString();
+    // In Semaphore, signal is typically a string (message or hash), not the hash itself
+    return poseidon2([BigInt(minAge), BigInt(isValid ? 1 : 0)]).toString();
   }
 
   /**
@@ -329,7 +452,30 @@ export class ZKProofService {
     expectedSignal: string,
     groupId?: string
   ): Promise<boolean> {
-    // Always use mock verification for now
+    // Use real verification when enabled
+    if (this.config.enableRealProofs) {
+      try {
+        const proofObj = typeof zkProof.proof === 'string' ? JSON.parse(zkProof.proof) : zkProof.proof;
+
+        // Validate group root if available
+        if (groupId && this.groupCache.has(groupId)) {
+          const group = this.groupCache.get(groupId)!;
+          const rootMatches = String(proofObj.merkleTreeRoot ?? '') === group.root.toString();
+          if (!rootMatches) return false;
+        }
+
+        // Validate expected signal
+        const signalOk = String(proofObj.signal ?? '') === String(expectedSignal);
+        if (!signalOk) return false;
+
+        const verified = await verifyProof(proofObj as any);
+        return Boolean(verified);
+      } catch {
+        return false;
+      }
+    }
+
+    // Fallback to mock verification
     return this.verifyMockProof(zkProof);
   }
 
@@ -420,4 +566,19 @@ export class ZKProofService {
 }
 
 // Export singleton instance
-export const zkProofService = new ZKProofService(); 
+export const zkProofService = new ZKProofService({ enableRealProofs: true, disableMockFallback: true });
+
+// Convenience helpers for credential-based proofs
+export async function generateAgeVerificationProof(
+  credentials: VerifiableCredential[],
+  minAge: number = 18
+) {
+  return zkProofService.generateZKProof('semaphore-age-verification', { minAge }, credentials);
+}
+
+export async function generateStudentStatusProof(
+  credentials: VerifiableCredential[],
+  groupId: string = 'student'
+) {
+  return zkProofService.generateZKProof('semaphore-membership-proof', { groupId }, credentials);
+}

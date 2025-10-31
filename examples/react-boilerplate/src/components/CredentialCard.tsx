@@ -110,6 +110,40 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
     return null;
   };
 
+  const renderKiltProofBadge = () => {
+    if (credential.proof.kiltProof) {
+      return (
+        <div className="kilt-proof-badge" title="KILT Attestation Proof">
+          🏆 KILT Proof
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const renderChainTypeBadge = () => {
+    if (credential.metadata?.chainType === 'kilt') {
+      return (
+        <div className="chain-type-badge kilt" title="KILT Blockchain">
+          🔗 KILT
+        </div>
+      );
+    } else if (credential.metadata?.chainType === 'ethereum') {
+      return (
+        <div className="chain-type-badge ethereum" title="Ethereum Blockchain">
+          🔗 ETH
+        </div>
+      );
+    } else if (credential.metadata?.chainType === 'polkadot') {
+      return (
+        <div className="chain-type-badge polkadot" title="Polkadot Blockchain">
+          🔗 DOT
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div 
       className={`credential-card ${compact ? 'compact' : ''} ${getStatusColor(credential.status)}`}
@@ -129,8 +163,10 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
         
         <div className="credential-badges">
           {renderZKProofBadge()}
-          <div className="privacy-badge" title={`Privacy Level: ${credential.metadata.privacy}`}>
-            {getPrivacyIcon(credential.metadata.privacy)}
+          {renderKiltProofBadge()}
+          {renderChainTypeBadge()}
+          <div className="privacy-badge" title={`Privacy Level: ${credential.metadata?.privacy || 'Unknown'}`}>
+            {getPrivacyIcon(credential.metadata?.privacy)}
           </div>
         </div>
       </div>
@@ -169,12 +205,26 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
       <div className="credential-metadata">
         <div className="metadata-item">
           <span className="metadata-label">Privacy:</span>
-          <span className="metadata-value">{credential.metadata.privacy}</span>
+          <span className="metadata-value">{credential.metadata?.privacy || 'Unknown'}</span>
         </div>
         <div className="metadata-item">
           <span className="metadata-label">Revocable:</span>
-          <span className="metadata-value">{credential.metadata.revocable ? 'Yes' : 'No'}</span>
+          <span className="metadata-value">{credential.metadata?.revocable ? 'Yes' : 'No'}</span>
         </div>
+        {credential.metadata?.chainType && (
+          <div className="metadata-item">
+            <span className="metadata-label">Blockchain:</span>
+            <span className="metadata-value">{credential.metadata.chainType.toUpperCase()}</span>
+          </div>
+        )}
+        {credential.proof.kiltProof && (
+          <div className="metadata-item">
+            <span className="metadata-label">Attestation Hash:</span>
+            <span className="metadata-value kilt-hash">
+              {credential.proof.kiltProof.attestationHash.slice(0, 8)}...{credential.proof.kiltProof.attestationHash.slice(-8)}
+            </span>
+          </div>
+        )}
       </div>
 
       {showActions && (
@@ -197,7 +247,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
             </button>
           )}
           
-          {credential.metadata.revocable && onRevoke && (
+          {credential.metadata?.revocable && onRevoke && (
             <button 
               className="action-button revoke"
               onClick={handleRevoke}
