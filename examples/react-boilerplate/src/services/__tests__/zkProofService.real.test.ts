@@ -10,6 +10,22 @@ jest.mock('@semaphore-protocol/proof', () => ({
   verifyProof: jest.fn(async () => true),
 }));
 
+jest.mock('poseidon-lite', () => ({
+  poseidon2: jest.fn((arr: any[]) => {
+    if (arr.length !== 2) {
+      throw new Error(`Incorrect M length, expected 2 got ${arr.length}`);
+    }
+    return BigInt(123456789); // Return a mock hash
+  }),
+}));
+
+jest.mock('@semaphore-protocol/identity', () => ({
+  Identity: jest.fn().mockImplementation(() => ({
+    commitment: BigInt('123456789'),
+    toString: () => 'mock_identity',
+  })),
+}));
+
 describe('ZKProofService (real path scaffolding)', () => {
   test('generateSemaphoreIdentity from wallet-like signer', async () => {
     const wallet = {

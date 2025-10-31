@@ -152,7 +152,8 @@ export class ZKProofService {
    * Create or retrieve a Semaphore identity from a credential
    */
   private async createIdentity(credential: VerifiableCredential): Promise<Identity> {
-    const identityKey = `${credential.id}_${credential.credentialSubject.id}`;
+    const subjectId = (credential.credentialSubject as any).id || 'unknown';
+    const identityKey = `${credential.id}_${subjectId}`;
     
     if (this.identityCache.has(identityKey)) {
       return this.identityCache.get(identityKey)!;
@@ -161,8 +162,8 @@ export class ZKProofService {
     // Create deterministic identity from credential data
     const credentialData = JSON.stringify({
       id: credential.id,
-      subject: credential.credentialSubject.id,
-      issuer: credential.issuer.id,
+      subject: subjectId,
+      issuer: (credential.issuer as any).id || 'unknown',
       issuanceDate: credential.issuanceDate
     });
 
@@ -341,10 +342,9 @@ export class ZKProofService {
         }
 
         const signal = this.createSignalForCircuit(circuitId, publicInputs, credential);
-        // Compute an external nullifier scoped to circuitId
-        const externalNullifier = poseidon2([
-          BigInt('0x' + Buffer.from(circuitId).toString('hex').slice(0, 32))
-        ]);
+        // Compute an external nullifier scoped to circuitId (use poseidon2 with 2 inputs)
+        const circuitHash = BigInt('0x' + Buffer.from(circuitId).toString('hex').slice(0, 32));
+        const externalNullifier = poseidon2([circuitHash, BigInt(0)]);
 
         const fullProof: any = await generateProof(identity, merkleProof, signal, externalNullifier);
 
