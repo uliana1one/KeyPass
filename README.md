@@ -38,8 +38,11 @@ KeyPass is a secure authentication SDK for blockchain-based applications. It pro
 
 [![npm version](https://badge.fury.io/js/keypass-login-sdk.svg)](https://badge.fury.io/js/keypass-login-sdk)
 [![npm](https://img.shields.io/npm/dt/keypass-login-sdk.svg)](https://www.npmjs.com/package/keypass-login-sdk)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/uliana1one/keypass)
 
 **KeyPass is now available on npm!** 🎉
+
+**🚀 Try the Live Demo:** [keypass-react-demo.vercel.app](https://keypass-react-demo.vercel.app)
 
 ### Method 1: Install from npm (Recommended)
 
