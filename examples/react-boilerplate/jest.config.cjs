@@ -19,18 +19,10 @@ module.exports = {
         this.url = stringUrl;
         this.onmessage = null;
       }
-      
-      postMessage(msg) {
-        // Mock implementation
-      }
-      
-      terminate() {
-        // Mock implementation
-      }
+      postMessage(msg) {}
+      terminate() {}
     },
-    'ts-jest': {
-      useESM: true,
-    },
+    'ts-jest': { useESM: true },
   },
   moduleDirectories: ['node_modules', '<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.(ts|tsx)', '**/*.(test|spec).(ts|tsx)'],
@@ -42,4 +34,4 @@ module.exports = {
     '!src/setupTests.ts',
   ],
   coverageReporters: ['text', 'lcov', 'html'],
-}; 
+};
