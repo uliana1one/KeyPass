@@ -43,7 +43,11 @@
     "setup:testnet": "node scripts/setup-testnet-accounts.js",
     "check:kilt": "node scripts/check-kilt-balance.js",
     "check:moonbeam": "node scripts/check-moonbeam-balance.js",
-    "check:balances": "npm run check:kilt && npm run check:moonbeam"
+    "check:balances": "npm run check:kilt && npm run check:moonbeam",
+    "validate:kilt": "node scripts/validate-kilt-did.js",
+    "validate:sbt": "node scripts/validate-sbt-mint.js",
+    "validate:zk": "node scripts/validate-zkproof.js",
+    "validate:all": "npm run validate:kilt && npm run validate:sbt && npm run validate:zk"
   },
   "keywords": [
     "polkadot",
