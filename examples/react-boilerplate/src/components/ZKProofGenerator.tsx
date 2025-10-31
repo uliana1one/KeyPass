@@ -93,11 +93,11 @@ export const ZKProofGenerator: React.FC<ZKProofGeneratorProps> = ({
           >
             <div className="credential-header">
               <h4>{credential.type.find(t => t !== 'VerifiableCredential')}</h4>
-              <span className="issuer">{credential.issuer.name}</span>
+              <span className="issuer">{credential.issuer?.name || 'Unknown issuer'}</span>
             </div>
             <div className="credential-info">
-              <p>Issued: {new Date(credential.issuanceDate).toLocaleDateString()}</p>
-              <p>Privacy Level: {credential.metadata.privacy}</p>
+              <p>Issued: {credential.issuanceDate ? new Date(credential.issuanceDate).toLocaleDateString() : 'Unknown'}</p>
+              <p>Privacy Level: {credential.metadata?.privacy || 'N/A'}</p>
             </div>
           </div>
         ))}
@@ -192,7 +192,7 @@ export const ZKProofGenerator: React.FC<ZKProofGeneratorProps> = ({
           <div className="summary-section">
             <h4>Credential</h4>
             <p>{selectedCredentialData?.type.find(t => t !== 'VerifiableCredential')}</p>
-            <p>Issuer: {selectedCredentialData?.issuer.name}</p>
+            <p>Issuer: {selectedCredentialData?.issuer?.name || 'Unknown issuer'}</p>
           </div>
           
           <div className="summary-section">
