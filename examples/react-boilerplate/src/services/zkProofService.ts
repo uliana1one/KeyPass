@@ -53,7 +53,6 @@ export interface ZKProofServiceConfig {
     wasmFilePath?: string;
     zkeyFilePath?: string;
   };
-  mockMode?: boolean;
 }
 
 export class ZKProofService {
@@ -63,8 +62,7 @@ export class ZKProofService {
 
   constructor(config: ZKProofServiceConfig = {}) {
     this.config = {
-      enableRealProofs: false, // Disable real proofs by default to avoid API issues
-      mockMode: true, // Enable mock mode by default
+      enableRealProofs: false, // Disabled by default until artifacts are configured
       ...config
     };
   }
@@ -290,10 +288,7 @@ export class ZKProofService {
     publicInputs: Record<string, any>,
     credentials: VerifiableCredential[]
   ): Promise<ZKProof> {
-    // If not in mock mode and real proofs are disabled, throw error
-    if (!this.config.mockMode && !this.config.enableRealProofs) {
-      throw new Error('Real ZK-proof generation is disabled');
-    }
+    // If real proofs disabled, fall back to mock path
     // Validate circuit exists
     const circuit = REAL_ZK_CIRCUITS.find(c => c.id === circuitId);
     if (!circuit) {
