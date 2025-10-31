@@ -383,6 +383,7 @@ For detailed documentation, please refer to:
 - [ZK-Proof API Reference](./docs/zkproof-api.md) - Complete ZK-proof API docs
 - [ZK-Proof Integration Tutorial](./docs/zkproof-integration-tutorial.md) - Step-by-step zk-proof setup
 - [Security Guide](./docs/security.md) - Security best practices and considerations
+- [Onchain Validation](./ONCHAIN_VALIDATION.md) - Public proof of all onchain operations and transactions
 
 ## Key Features
 
