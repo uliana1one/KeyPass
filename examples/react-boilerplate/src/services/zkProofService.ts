@@ -310,7 +310,48 @@ export class ZKProofService {
         throw new Error('Credential does not meet circuit requirements');
       }
     }
-    // Always use mock mode for now to avoid API compatibility issues
+    // If real proofs enabled, attempt real generation
+    if (this.config.enableRealProofs) {
+      try {
+        const credential = credentials[0];
+        const identity = await this.createIdentity(credential);
+
+        // Ensure group exists and includes the identity commitment
+        const groupKey = circuitId;
+        const group = this.createSemaphoreGroup(groupKey, (REAL_ZK_CIRCUITS.find(c=>c.id===circuitId)?.constraints as any)?.groupDepth || 20);
+        const commitment = identity.commitment;
+        if (!group.members.includes(commitment)) {
+          group.addMember(commitment);
+        }
+        const memberIndex = group.members.findIndex((m: bigint) => m === commitment);
+        const merkleProof = group.generateMerkleProof(memberIndex);
+
+        const signal = this.createSignalForCircuit(circuitId, publicInputs, credential);
+        const { wasmFilePath, zkeyFilePath } = this.config.semaphoreConfig || {};
+        if (!wasmFilePath || !zkeyFilePath) {
+          throw new Error('Semaphore circuit artifacts not configured (wasm/zkey)');
+        }
+
+        const fullProof: any = await generateProof(identity, merkleProof, signal, { wasmFilePath, zkeyFilePath });
+
+        return {
+          type: 'semaphore',
+          proof: JSON.stringify(fullProof),
+          publicSignals: [
+            String(fullProof.nullifierHash ?? ''),
+            String(fullProof.merkleTreeRoot ?? ''),
+            String(fullProof.signal ?? signal)
+          ],
+          verificationKey: REAL_ZK_CIRCUITS.find(c => c.id === circuitId)?.verificationKey || 'semaphore_vk',
+          circuit: circuitId
+        };
+      } catch (err: any) {
+        const message = err?.message || String(err);
+        throw new Error(`ZK-proof generation failed: ${message}`);
+      }
+    }
+
+    // Fallback to mock mode
     return this.generateMockProof(circuitId, publicInputs);
   }
 
