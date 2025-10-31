@@ -104,6 +104,42 @@ export class ZKProofService {
   }
 
   /**
+   * Create a real Semaphore group and cache it.
+   */
+  createSemaphoreGroup(groupKey: string, depth: number = 20): Group {
+    if (this.groupCache.has(groupKey)) {
+      return this.groupCache.get(groupKey)!;
+    }
+    const group = new Group(depth, groupKey);
+    this.groupCache.set(groupKey, group);
+    return group;
+  }
+
+  /**
+   * Add a member (identity commitment) to a group.
+   */
+  addMemberToGroup(groupKey: string, identityCommitment: string | bigint): void {
+    const group = this.groupCache.get(groupKey) || this.createSemaphoreGroup(groupKey);
+    const commitmentBigInt = typeof identityCommitment === 'bigint' ? identityCommitment : BigInt(identityCommitment);
+    group.addMember(commitmentBigInt);
+  }
+
+  /**
+   * Export group parameters for proof generation.
+   */
+  exportGroupParameters(groupKey: string): { root: string; depth: number; size: number } {
+    const group = this.groupCache.get(groupKey);
+    if (!group) {
+      throw new Error(`Group not found: ${groupKey}`);
+    }
+    return {
+      root: group.root.toString(),
+      depth: group.depth,
+      size: group.members.length,
+    };
+  }
+
+  /**
    * Get available ZK circuits
    */
   getAvailableCircuits(): ZKCircuit[] {
