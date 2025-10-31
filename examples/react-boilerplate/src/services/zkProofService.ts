@@ -323,12 +323,15 @@ export class ZKProofService {
 
         // Ensure group exists and includes the identity commitment
         const groupKey = circuitId;
-        const group = this.createSemaphoreGroup(groupKey, (REAL_ZK_CIRCUITS.find(c=>c.id===circuitId)?.constraints as any)?.groupDepth || 20);
+        let group = this.groupCache.get(groupKey);
+        if (!group || typeof (group as any).indexOf !== 'function') {
+          group = this.createSemaphoreGroup(groupKey);
+        }
         const commitment = identity.commitment;
         if (!group.members.includes(commitment)) {
           group.addMember(commitment);
         }
-        const memberIndex = group.indexOf(commitment);
+        const memberIndex = (group as any).indexOf(commitment);
         const merkleProof = group.generateMerkleProof(memberIndex);
 
         const signal = this.createSignalForCircuit(circuitId, publicInputs, credential);
