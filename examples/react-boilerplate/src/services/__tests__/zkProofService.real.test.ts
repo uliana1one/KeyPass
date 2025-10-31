@@ -1,5 +1,15 @@
 import { zkProofService, generateAgeVerificationProof } from '../zkProofService';
 
+jest.mock('@semaphore-protocol/proof', () => ({
+  generateProof: jest.fn(async () => ({
+    nullifierHash: `mock_nullifier_${Date.now()}`,
+    merkleTreeRoot: `mock_root_${Math.random().toString(36).slice(2)}`,
+    signal: 'mock_signal',
+    proof: 'mock_groth16_proof',
+  })),
+  verifyProof: jest.fn(async () => true),
+}));
+
 describe('ZKProofService (real path scaffolding)', () => {
   test('generateSemaphoreIdentity from wallet-like signer', async () => {
     const wallet = {
