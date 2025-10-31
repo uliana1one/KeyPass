@@ -216,7 +216,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                 <div className="request-header">
                   <div className="request-info">
                     <h4>{(request.type || []).join(', ')}</h4>
-                    <p>Requested by: {request.requestedBy.name}</p>
+                    <p>Requested by: {request.requestedBy?.name || 'Unknown'}</p>
                   </div>
                   <div className={`request-status status-${request.status}`}>
                     {request.status}
@@ -227,7 +227,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                   <div className="required-claims">
                     <strong>Required Claims:</strong>
                     <ul>
-                      {request.requiredClaims.map(claim => (
+                      {(request.requiredClaims || []).map(claim => (
                         <li key={claim}>{claim}</li>
                       ))}
                     </ul>
