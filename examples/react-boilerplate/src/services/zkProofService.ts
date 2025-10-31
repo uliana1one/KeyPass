@@ -112,7 +112,7 @@ export class ZKProofService {
     if (this.groupCache.has(groupKey)) {
       return this.groupCache.get(groupKey)!;
     }
-    const group = new Group(groupKey, depth, undefined as unknown as bigint, []);
+    const group = new Group([]);
     this.groupCache.set(groupKey, group);
     return group;
   }
@@ -328,7 +328,7 @@ export class ZKProofService {
         if (!group.members.includes(commitment)) {
           group.addMember(commitment);
         }
-        const memberIndex = group.members.findIndex((m: bigint) => m === commitment);
+        const memberIndex = group.indexOf(commitment);
         const merkleProof = group.generateMerkleProof(memberIndex);
 
         const signal = this.createSignalForCircuit(circuitId, publicInputs, credential);
