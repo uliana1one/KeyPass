@@ -341,13 +341,12 @@ export class ZKProofService {
         }
 
         const signal = this.createSignalForCircuit(circuitId, publicInputs, credential);
-        const { wasmFilePath, zkeyFilePath } = this.config.semaphoreConfig || {};
-        if (!wasmFilePath || !zkeyFilePath) {
-          // If artifacts are not configured, fall back to mock for resiliency in tests
-          return this.generateMockProof(circuitId, publicInputs);
-        }
+        // Compute an external nullifier scoped to circuitId
+        const externalNullifier = poseidon2([
+          BigInt('0x' + Buffer.from(circuitId).toString('hex').slice(0, 32))
+        ]);
 
-        const fullProof: any = await generateProof(identity, merkleProof, signal, { wasmFilePath, zkeyFilePath });
+        const fullProof: any = await generateProof(identity, merkleProof, externalNullifier, signal);
 
         return {
           type: 'semaphore',
@@ -471,7 +470,7 @@ export class ZKProofService {
         const signalOk = String(proofObj.signal ?? '') === String(expectedSignal);
         if (!signalOk) return false;
 
-        const verified = await verifyProof(proofObj as any, REAL_ZK_CIRCUITS.find(c=>c.id===zkProof.circuit)?.verificationKey || 'semaphore_vk');
+        const verified = await verifyProof(proofObj as any);
         return Boolean(verified);
       } catch {
         return false;

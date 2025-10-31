@@ -2,9 +2,21 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+
+// Provide a module mock before importing the component
+const mockServiceImpl = {
+  getCredentials: jest.fn(async () => []),
+  getCredentialRequests: jest.fn(async () => []),
+  getCredentialOffers: jest.fn(async () => []),
+};
+
+jest.mock('../../services/credentialService', () => ({
+  CredentialService: jest.fn(() => mockServiceImpl),
+  credentialService: { getAvailableZKCircuits: jest.fn(() => []) },
+}));
+
 import { CredentialSection } from '../CredentialSection';
 
-// Mock zkProof service helpers to avoid ESM/proof generation
 jest.mock('../../services/zkProofService', () => ({
   zkProofService: {
     verifyZKProof: jest.fn(async () => true),
@@ -29,21 +41,6 @@ const baseProps = {
   chainType: 'ethereum' as const,
 };
 
-function withCredentials(creds: any[]) {
-  // Patch the CredentialService used inside to return our creds
-  jest.resetModules();
-  const actual = jest.requireActual('../../services/credentialService');
-  jest.spyOn(actual, 'credentialService', 'get').mockReturnValue({
-    getAvailableZKCircuits: jest.fn(() => []),
-  } as any);
-  jest.spyOn(actual, 'CredentialService').mockImplementation(() => ({
-    getCredentials: jest.fn(async () => creds),
-    getCredentialRequests: jest.fn(async () => []),
-    getCredentialOffers: jest.fn(async () => []),
-  }) as any);
-  return actual;
-}
-
 describe('CredentialSection zk-proof UI', () => {
   let user: any;
   beforeEach(() => {
@@ -52,11 +49,13 @@ describe('CredentialSection zk-proof UI', () => {
   });
 
   it('renders zk-proofs tab and generates age proof', async () => {
-    withCredentials([
+    // Provide an age credential
+    (mockServiceImpl.getCredentials as jest.Mock).mockResolvedValueOnce([
       {
         id: 'cred-age-1',
         type: ['VerifiableCredential', 'AgeCredential'],
         credentialSubject: { age: 22 },
+        issuer: { name: 'Test Issuer', logo: '' },
         proof: {},
         metadata: {},
       },
@@ -77,11 +76,12 @@ describe('CredentialSection zk-proof UI', () => {
   });
 
   it('generates student proof and shows SBT status', async () => {
-    withCredentials([
+    (mockServiceImpl.getCredentials as jest.Mock).mockResolvedValueOnce([
       {
         id: 'cred-student-1',
         type: ['VerifiableCredential', 'StudentCredential'],
         credentialSubject: { studentId: 'S123' },
+        issuer: { name: 'Test Issuer', logo: '' },
         proof: {},
         metadata: {},
       },

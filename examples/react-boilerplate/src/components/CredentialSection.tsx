@@ -215,7 +215,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
               <div key={request.id} className="request-card">
                 <div className="request-header">
                   <div className="request-info">
-                    <h4>{request.type.join(', ')}</h4>
+                    <h4>{(request.type || []).join(', ')}</h4>
                     <p>Requested by: {request.requestedBy.name}</p>
                   </div>
                   <div className={`request-status status-${request.status}`}>
@@ -294,7 +294,7 @@ export const CredentialSection: React.FC<CredentialSectionProps> = ({
                 </div>
                 
                 <div className="offer-content">
-                  <h5>{offer.type.join(', ')}</h5>
+                  <h5>{(offer.type || []).join(', ')}</h5>
                   <div className="credential-preview">
                     {Object.entries(offer.credentialSubject).map(([key, value]) => (
                       <div key={key} className="preview-field">
