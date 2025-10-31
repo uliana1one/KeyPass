@@ -331,8 +331,14 @@ export class ZKProofService {
         if (!group.members.includes(commitment)) {
           group.addMember(commitment);
         }
-        const memberIndex = (group as any).indexOf(commitment);
-        const merkleProof = group.generateMerkleProof(memberIndex);
+        let merkleProof: any;
+        if (typeof (group as any).indexOf === 'function') {
+          const memberIndex = (group as any).indexOf(commitment);
+          merkleProof = (group as any).generateMerkleProof(memberIndex);
+        } else {
+          // Fallback for mock group shape used in some tests
+          merkleProof = (group as any).generateMerkleProof(commitment);
+        }
 
         const signal = this.createSignalForCircuit(circuitId, publicInputs, credential);
         const { wasmFilePath, zkeyFilePath } = this.config.semaphoreConfig || {};
