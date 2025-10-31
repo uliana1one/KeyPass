@@ -555,3 +555,18 @@ export class ZKProofService {
 
 // Export singleton instance
 export const zkProofService = new ZKProofService(); 
+
+// Convenience helpers for credential-based proofs
+export async function generateAgeVerificationProof(
+  credentials: VerifiableCredential[],
+  minAge: number = 18
+) {
+  return zkProofService.generateZKProof('semaphore-age-verification', { minAge }, credentials);
+}
+
+export async function generateStudentStatusProof(
+  credentials: VerifiableCredential[],
+  groupId: string = 'student'
+) {
+  return zkProofService.generateZKProof('semaphore-membership-proof', { groupId }, credentials);
+}
