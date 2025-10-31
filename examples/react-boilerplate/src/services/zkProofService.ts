@@ -112,7 +112,7 @@ export class ZKProofService {
     if (this.groupCache.has(groupKey)) {
       return this.groupCache.get(groupKey)!;
     }
-    const group = new Group(groupKey, depth, []);
+    const group = new Group(groupKey, depth, undefined as unknown as bigint, []);
     this.groupCache.set(groupKey, group);
     return group;
   }
