@@ -4,6 +4,8 @@
   "description": "Complete boilerplate for KeyPass multi-chain authentication with React",
   "private": true,
   "dependencies": {
+    "@kiltprotocol/config": "^0.100.0",
+    "@kiltprotocol/did": "^0.100.0",
     "@kiltprotocol/sdk-js": "^1.0.0",
     "@polkadot/api": "^12.4.2",
     "@polkadot/extension-dapp": "^0.45.3",
