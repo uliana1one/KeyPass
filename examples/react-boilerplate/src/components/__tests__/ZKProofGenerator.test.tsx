@@ -6,11 +6,24 @@ import { ZKProofGenerator } from '../ZKProofGenerator';
 
 // Mock the ZKProofService
 jest.mock('../../services/zkProofService', () => ({
-  ZKProofService: jest.fn().mockImplementation(() => ({
+  zkProofService: {
     generateZKProof: jest.fn(),
     verifyZKProof: jest.fn(),
-    getAvailableCircuits: jest.fn(),
-  })),
+    getAvailableCircuits: jest.fn().mockReturnValue([
+      {
+        id: 'semaphore-age-verification',
+        name: 'Semaphore Age Verification',
+        description: 'Prove you are over 18 without revealing your exact age',
+        type: 'age-verification',
+        verificationKey: 'semaphore_vk_age_v1',
+        constraints: { minAge: 18, maxAge: 150, groupDepth: 20 },
+        publicInputs: ['nullifierHash', 'merkleTreeRoot', 'signal'],
+        privateInputs: ['identity', 'merkleTreeProof', 'age']
+      }
+    ]),
+  },
+  generateAgeVerificationProof: jest.fn(),
+  generateStudentStatusProof: jest.fn(),
 }));
 
 describe('ZKProofGenerator Component Tests', () => {
