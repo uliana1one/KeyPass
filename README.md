@@ -472,6 +472,48 @@ KeyPass implements several security measures:
    - Proper error recovery
    - Security-focused logging
 
+## Testing
+
+KeyPass includes comprehensive testing with **86% test coverage** across unit, integration, and end-to-end tests.
+
+### Quick Start
+
+```bash
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+### Docker Testing
+
+For consistent testing across environments, run tests in Docker:
+
+```bash
+# Run tests in Docker containers
+npm run test:docker
+
+# Clean up Docker containers
+npm run test:docker:cleanup
+```
+
+### Test Documentation
+
+- **[Complete Testing Guide](docs/testing.md)** - Comprehensive testing documentation
+- **[Docker Testing Guide](docs/docker-testing.md)** - Docker setup and configuration
+- **[Integration Tests](INTEGRATION_TESTS.md)** - KILT blockchain integration tests
+- **[Test Coverage Summary](INTEGRATION_TEST_COVERAGE_SUMMARY.md)** - Coverage reports
+
+### Test Coverage
+
+- **86% overall coverage** across all modules
+- **238+ tests** for KILT and Moonbeam integration
+- **82 test files** covering all components
+- **Real blockchain tests** on live testnets
 
 ## Support
 

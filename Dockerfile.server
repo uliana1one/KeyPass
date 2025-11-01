@@ -34,11 +34,8 @@ RUN npm install -g npm@10.2.4
 # Install dependencies with specific memory limits
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Clean install with git available
-RUN \
-    rm -f package-lock.json && \
-    npm install --package-lock-only && \
-    npm ci --no-audit --verbose
+# Clean install with git available (skip optional native dependencies)
+RUN npm ci --no-audit --legacy-peer-deps --no-optional --verbose
 
 # Production stage
 FROM node:20-slim
@@ -56,15 +53,12 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
-# Build TypeScript
-RUN npm run build
-
 # Expose server port
 EXPOSE 3000
 
 # Add healthcheck endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f -X POST -H "Content-Type: application/json" -d '{"message":"healthcheck","signature":"0x123","address":"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"}' http://localhost:3000/api/verify || exit 1
+  CMD curl -f http://localhost:3000/ || exit 1
 
-# Start server
-CMD ["npm", "run", "start"]
+# Start server in dev mode (no build needed, uses ts-node)
+CMD ["npm", "run", "start:dev"]

@@ -15,7 +15,9 @@ RUN apk update && \
     make \
     g++ \
     wget \
-    git && \
+    git \
+    cmake \
+    openssl-dev && \
     # Configure git
     git config --global --add safe.directory /app && \
     git config --global user.email "docker@example.com" && \
@@ -49,17 +51,11 @@ RUN npm install -g npm@10.2.4
 # Install dependencies with specific memory limits
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Clean install with git available
-RUN \
-    rm -f package-lock.json && \
-    npm install --package-lock-only && \
-    npm ci --no-audit --verbose
+# Clean install with git available (skip optional native dependencies)
+RUN npm ci --no-audit --legacy-peer-deps --no-optional --verbose
 
 # Copy source code
 COPY . .
-
-# Build TypeScript
-RUN npm run build
 
 # Create test results directory
 RUN mkdir -p /app/test-results

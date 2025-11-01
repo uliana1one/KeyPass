@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "buildCommand": "cd examples/react-boilerplate && npm run build",
+  "outputDirectory": "examples/react-boilerplate/build",
+  "framework": "create-react-app",
+  "installCommand": "cd examples/react-boilerplate && npm install --legacy-peer-deps"
+}
