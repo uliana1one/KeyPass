@@ -276,9 +276,6 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       
       // Connect to KILT parachain
       await this.kiltAdapter.connect();
-      const chainInfo = this.kiltAdapter.getChainInfo?.();
-      const apiForDetect = (this.kiltAdapter as any).api;
-      const isTwoArg = !!apiForDetect?.tx?.did?.create?.meta && apiForDetect.tx.did.create.meta.args?.length === 2;
       
       // Create the DID (frontend path first; this will prompt signing)
       const did = request.did || await this.createDid(accountAddress);
@@ -290,42 +287,7 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       const extrinsics = await this.prepareDIDRegistrationTransaction(request, didDocument, accountAddress);
       
       // Submit the transaction
-      let transactionResult: KILTTransactionResult;
-      try {
-        transactionResult = await this.submitTransaction(extrinsics, accountAddress);
-      } catch (err) {
-        // If Spiritnet and frontend path failed (e.g., insufficient balance or runtime), fallback to backend
-        if ((chainInfo && typeof chainInfo.name === 'string' && chainInfo.name.toLowerCase() === 'spiritnet') || isTwoArg) {
-          try {
-            const resp = await fetch('/api/kilt/did/create', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ network: 'spiritnet' }),
-            });
-            const data = await resp.json();
-            if (!resp.ok || !data?.success) {
-              throw new Error(data?.error || 'Backend Spiritnet DID creation failed');
-            }
-            transactionResult = {
-              success: true,
-              transactionHash: data.txHash,
-              blockHash: data.blockHash,
-              blockNumber: 0,
-              events: [],
-              fee: { amount: '0', currency: 'KILT' },
-              timestamp: new Date().toISOString(),
-            } as unknown as KILTTransactionResult;
-          } catch (fallbackErr) {
-            throw new KILTError(
-              `Backend Spiritnet DID creation failed: ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}`,
-              KILTErrorType.DID_REGISTRATION_ERROR,
-              { cause: fallbackErr as Error }
-            );
-          }
-        } else {
-          throw err;
-        }
-      }
+      const transactionResult = await this.submitTransaction(extrinsics, accountAddress);
       // Verbose console details for frontend-driven registration
       try {
         console.log('[KILT] DID registration (frontend) success:', {
@@ -701,8 +663,8 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
 
       const services = serviceList.map((s: any) => ({
         id: s.id,
-        types: [s.type || 'LinkedDomains'],
-        urls: Array.isArray(s.serviceEndpoint) ? s.serviceEndpoint : [s.serviceEndpoint]
+        type: [s.type || 'LinkedDomains'],
+        serviceEndpoint: Array.isArray(s.serviceEndpoint) ? s.serviceEndpoint : [s.serviceEndpoint]
       }));
 
       // Build input for getStoreTx
@@ -720,8 +682,36 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
       // Get submitter address from API
       const submitter = accountAddress as `4${string}`;
       
-      // Create the transaction using getStoreTx
-      const createDidExtrinsic = await getStoreTx(input, submitter, []);
+      // For frontend, we need to sign via wallet extension first
+      // Get wallet injector to access signing capability
+      await web3Enable('KeyPass');
+      const injector = await web3FromAddress(accountAddress);
+      
+      if (!injector?.signer?.signRaw) {
+        throw new KILTError(
+          'Wallet extension signer not available. Please ensure Polkadot.js extension is connected.',
+          KILTErrorType.TRANSACTION_EXECUTION_ERROR
+        );
+      }
+      
+      // Create a signer that uses the wallet extension
+      const signRaw = injector.signer.signRaw.bind(injector.signer);
+      const walletSigner = {
+        id: submitter,
+        algorithm: 'Sr25519' as const,
+        sign: async (data: { data: Uint8Array }): Promise<Uint8Array> => {
+          // Sign via wallet extension
+          const signed = await signRaw({
+            address: accountAddress,
+            data: u8aToHex(data.data),
+            type: 'bytes'
+          });
+          return hexToU8a(signed.signature);
+        }
+      };
+      
+      // Create the transaction using getStoreTx with wallet signer
+      const createDidExtrinsic = await getStoreTx(input, submitter, [walletSigner as any]);
       extrinsics.push(createDidExtrinsic);
 
       // Add controller set if specified
