@@ -1,4 +1,4 @@
-import { decodeAddress, encodeAddress, base58Encode, isAddress } from '@polkadot/util-crypto';
+import { decodeAddress, encodeAddress, base58Encode, base58Decode, isAddress } from '@polkadot/util-crypto';
 import { DIDDocument, DIDProvider, DIDResolver, VerificationMethod } from './types';
 import { MULTIBASE_PREFIXES, VERIFICATION_METHOD_TYPES } from './verification';
 import { validatePolkadotAddress } from '../adapters/types';
@@ -658,86 +658,73 @@ export class KILTDIDProvider implements DIDProvider, DIDResolver {
         throw new KILTError('KILT API not connected', KILTErrorType.NETWORK_ERROR);
       }
 
+      // Configure ConfigService with the API instance (required for getStoreTx)
+      ConfigService.set({ api });
+
       const did = request.did || `did:kilt:${accountAddress}`;
       const extrinsics: any[] = [];
 
-      // 1. Create DID on-chain using KILT DID pallet
-      // Different KILT pallet versions have different create() signatures (2-arg vs 4-arg).
-      // Try the 2-arg variant first, then fall back to legacy 4-arg.
-      const vmList = (request.verificationMethods || (didDocument as any).verificationMethod || []).map((vm: any) => ({
-        id: vm.id,
-        publicKey: vm.publicKeyMultibase,
-        type: vm.type,
-      }));
-      const serviceList = ((request.services || (didDocument as any).service) || []).map((s: any) => ({
+      // Use KILT SDK getStoreTx to properly format the DID creation transaction
+      const vmList = (request.verificationMethods || (didDocument as any).verificationMethod || []);
+      const serviceList = ((request.services || (didDocument as any).service) || []);
+
+      // Transform verification methods to format expected by getStoreTx
+      const authentication = vmList.filter((vm: any) => 
+        (didDocument as any).authentication?.includes(vm.id)
+      ).map((vm: any) => {
+        // Decode multibase public key to Uint8Array
+        const multibaseKey = vm.publicKeyMultibase.startsWith('z') ? vm.publicKeyMultibase : `z${vm.publicKeyMultibase}`;
+        const base58Key = multibaseKey.slice(1); // Remove 'z' prefix
+        const publicKey = base58Decode(base58Key);
+        
+        return {
+          publicKey,
+          type: vm.type.includes('Sr25519') ? 'sr25519' : 
+                vm.type.includes('Ed25519') ? 'ed25519' : 'sr25519'
+        };
+      });
+
+      const assertionMethod = vmList.filter((vm: any) => 
+        (didDocument as any).assertionMethod?.includes(vm.id)
+      ).map((vm: any) => {
+        // Decode multibase public key to Uint8Array
+        const multibaseKey = vm.publicKeyMultibase.startsWith('z') ? vm.publicKeyMultibase : `z${vm.publicKeyMultibase}`;
+        const base58Key = multibaseKey.slice(1); // Remove 'z' prefix
+        const publicKey = base58Decode(base58Key);
+        
+        return {
+          publicKey,
+          type: vm.type.includes('Sr25519') ? 'sr25519' : 
+                vm.type.includes('Ed25519') ? 'ed25519' : 'sr25519'
+        };
+      });
+
+      const services = serviceList.map((s: any) => ({
         id: s.id,
-        type: s.type,
-        serviceEndpoint: s.serviceEndpoint,
+        types: [s.type || 'LinkedDomains'],
+        urls: Array.isArray(s.serviceEndpoint) ? s.serviceEndpoint : [s.serviceEndpoint]
       }));
 
-      let createDidExtrinsic: any;
-      const createMeta = (api.tx as any).did?.create?.meta;
-      const argLen = createMeta?.args?.length;
+      // Build input for getStoreTx
+      const input = {
+        authentication: authentication.length > 0 ? authentication : [{
+          publicKey: decodeAddress(accountAddress, false, 38),
+          type: 'sr25519' as const
+        }],
+        assertionMethod: assertionMethod.length > 0 ? assertionMethod : undefined,
+        capabilityDelegation: undefined,
+        keyAgreement: [],
+        service: services
+      };
+
+      // Get submitter address from API
+      const submitter = accountAddress as `4${string}`;
       
-      // Check if this is a Spiritnet 2-arg format
-      const isTwoArgCreate = argLen === 2;
-
-      // Try 4-arg format first (legacy/other networks)
-      if (argLen === 4) {
-        // Standard format: (address, verificationMethods, services, metadata)
-        createDidExtrinsic = api.tx.did.create(
-          accountAddress,
-          vmList,
-          serviceList,
-          request.metadata || {}
-        );
-      } else if (isTwoArgCreate) {
-        // Newer KILT runtimes expose did.create with 2 args.
-        // We attempt common layouts by inspecting metadata types and trying safe constructions.
-        try {
-          const argTypes = (createMeta?.args || []).map((a: any) => `${a?.type || ''}`.toLowerCase());
-
-          // Build a compact details object from our inputs
-          const details: any = {
-            verificationMethods: vmList,
-            services: serviceList,
-            metadata: request.metadata || {}
-          };
-
-          // Heuristic 1: (details, controller)
-          if ((argTypes[0] || '').includes('detail') || (argTypes[0] || '').includes('create')) {
-            createDidExtrinsic = (api.tx as any).did.create(details, accountAddress);
-          // Heuristic 2: (controller, details)
-          } else if ((argTypes[1] || '').includes('detail') || (argTypes[1] || '').includes('create')) {
-            createDidExtrinsic = (api.tx as any).did.create(accountAddress, details);
-          } else {
-            // Fallback attempt order if metadata types are opaque
-            try {
-              createDidExtrinsic = (api.tx as any).did.create(details, accountAddress);
-            } catch {
-              createDidExtrinsic = (api.tx as any).did.create(accountAddress, details);
-            }
-          }
-        } catch (buildError) {
-          throw new KILTError(
-            `Failed to build 2-arg did.create extrinsic: ${buildError instanceof Error ? buildError.message : 'Unknown error'}`,
-            KILTErrorType.TRANSACTION_EXECUTION_ERROR,
-            { cause: buildError as Error }
-          );
-        }
-      } else {
-        throw new KILTError(
-          `Unsupported KILT did.create signature (expected 2 or 4 args, got ${argLen})`,
-          KILTErrorType.TRANSACTION_EXECUTION_ERROR
-        );
-      }
+      // Create the transaction using getStoreTx
+      const createDidExtrinsic = await getStoreTx(input, submitter, []);
       extrinsics.push(createDidExtrinsic);
 
-      // 2. Add additional verification methods if specified (beyond the initial ones)
-      // 3. Add services if specified (beyond the initial ones)
-      // Note: These are already included in the create() call above
-
-      // 4. Set controller if specified and different from account
+      // Add controller set if specified
       if (request.controller && request.controller !== accountAddress) {
         const setControllerExtrinsic = api.tx.did.setController(
           accountAddress,
